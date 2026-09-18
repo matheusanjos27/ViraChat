@@ -24,6 +24,13 @@ declare global {
 
 const initial: ChannelActionState = {};
 
+const META_ORIGINS = new Set([
+  "https://www.facebook.com",
+  "https://web.facebook.com",
+  "https://business.facebook.com",
+  "https://www.business.facebook.com",
+]);
+
 type SessionInfo = {
   phoneNumberId?: string;
   wabaId?: string;
@@ -40,11 +47,14 @@ type Props = {
 export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
   const [ready, setReady] = useState(false);
   const sessionRef = useRef<SessionInfo>({});
+  const codeRef = useRef<string | null>(null);
+  const submittedRef = useRef(false);
   const [state, action, pending] = useActionState(
     completeEmbeddedSignup,
     initial,
   );
   const [localError, setLocalError] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState(false);
 
   useEffect(() => {
     if (!appId || !configId) return;
@@ -60,7 +70,7 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
     };
 
     if (document.getElementById("facebook-jssdk")) {
-      setReady(Boolean(window.FB));
+      if (window.FB) setReady(true);
       return;
     }
 
@@ -71,31 +81,67 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
     document.body.appendChild(script);
   }, [appId, configId]);
 
+  function trySubmit() {
+    if (submittedRef.current) return;
+    const code = codeRef.current;
+    const info = sessionRef.current;
+    // Need code + at least waba_id (phone can be discovered server-side)
+    if (!code || !info.wabaId) return;
+
+    submittedRef.current = true;
+    setWaiting(false);
+    const form = document.getElementById(
+      "embedded-signup-form",
+    ) as HTMLFormElement | null;
+    if (!form) return;
+    (form.elements.namedItem("code") as HTMLInputElement).value = code;
+    (form.elements.namedItem("phoneNumberId") as HTMLInputElement).value =
+      info.phoneNumberId ?? "";
+    (form.elements.namedItem("wabaId") as HTMLInputElement).value = info.wabaId;
+    (form.elements.namedItem("businessId") as HTMLInputElement).value =
+      info.businessId ?? "";
+    (form.elements.namedItem("event") as HTMLInputElement).value =
+      info.event ?? "FINISH";
+    form.requestSubmit();
+  }
+
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (
-        event.origin !== "https://www.facebook.com" &&
-        event.origin !== "https://web.facebook.com"
-      ) {
-        return;
-      }
+      if (!META_ORIGINS.has(event.origin)) return;
       try {
         const data =
           typeof event.data === "string" ? JSON.parse(event.data) : event.data;
         if (data?.type !== "WA_EMBEDDED_SIGNUP") return;
-        if (
-          data.event === "FINISH" ||
-          data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
-        ) {
+
+        const eventName = String(data.event ?? "").toUpperCase();
+        if (eventName === "CANCEL" || eventName === "ERROR") {
+          setWaiting(false);
+          setLocalError(
+            eventName === "CANCEL"
+              ? "Fluxo cancelado na Meta."
+              : data.data?.error_message || "Erro no Embedded Signup da Meta.",
+          );
+          return;
+        }
+
+        const phone =
+          data.data?.phone_number_id ||
+          data.data?.phone_number_ids?.[0] ||
+          undefined;
+        const waba =
+          data.data?.waba_id || data.data?.waba_ids?.[0] || undefined;
+
+        if (waba || phone) {
           sessionRef.current = {
-            phoneNumberId: data.data?.phone_number_id,
-            wabaId: data.data?.waba_id,
-            businessId: data.data?.business_id,
-            event: data.event,
+            phoneNumberId: phone ?? sessionRef.current.phoneNumberId,
+            wabaId: waba ?? sessionRef.current.wabaId,
+            businessId: data.data?.business_id ?? sessionRef.current.businessId,
+            event: eventName || sessionRef.current.event,
           };
+          trySubmit();
         }
       } catch {
-        // ignore
+        // ignore non-JSON
       }
     }
     window.addEventListener("message", onMessage);
@@ -104,43 +150,44 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
 
   function launch() {
     setLocalError(null);
+    submittedRef.current = false;
+    codeRef.current = null;
+    sessionRef.current = {};
+
     if (!window.FB || !configId) {
-      setLocalError("SDK da Meta ainda não carregou.");
+      setLocalError("SDK da Meta ainda não carregou. Recarregue a página.");
       return;
     }
+
+    setWaiting(true);
 
     window.FB.login(
       (response) => {
         const code = response.authResponse?.code;
         if (!code) {
+          setWaiting(false);
           setLocalError("Fluxo cancelado ou sem código de autorização.");
           return;
         }
 
-        window.setTimeout(() => {
-          const info = sessionRef.current;
-          if (!info.phoneNumberId || !info.wabaId) {
-            setLocalError(
-              "Não recebemos phone_number_id/waba_id da Meta. Tente de novo.",
-            );
-            return;
+        codeRef.current = code;
+        trySubmit();
+
+        // Wait up to ~8s for postMessage session info (race with FB.login)
+        let attempts = 0;
+        const timer = window.setInterval(() => {
+          attempts += 1;
+          trySubmit();
+          if (submittedRef.current || attempts >= 40) {
+            window.clearInterval(timer);
+            if (!submittedRef.current) {
+              setWaiting(false);
+              setLocalError(
+                "A Meta não enviou waba_id/phone_number_id. Conclua o fluxo até o fim (escolha o número) e tente de novo. Se persistir, verifique o domínio do SDK e o config_id.",
+              );
+            }
           }
-          const form = document.getElementById(
-            "embedded-signup-form",
-          ) as HTMLFormElement | null;
-          if (!form) return;
-          (form.elements.namedItem("code") as HTMLInputElement).value = code;
-          (
-            form.elements.namedItem("phoneNumberId") as HTMLInputElement
-          ).value = info.phoneNumberId;
-          (form.elements.namedItem("wabaId") as HTMLInputElement).value =
-            info.wabaId;
-          (form.elements.namedItem("businessId") as HTMLInputElement).value =
-            info.businessId ?? "";
-          (form.elements.namedItem("event") as HTMLInputElement).value =
-            info.event ?? "FINISH";
-          form.requestSubmit();
-        }, 300);
+        }, 200);
       },
       {
         config_id: configId,
@@ -148,7 +195,7 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         override_default_response_type: true,
         extras: {
           setup: {},
-          featureType: "",
+          featureType: "whatsapp_business_app_onboarding",
           sessionInfoVersion: "3",
         },
       },
@@ -180,10 +227,12 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
       <button
         type="button"
         onClick={launch}
-        disabled={!ready || pending}
+        disabled={!ready || pending || waiting}
         className="rounded-lg bg-[#1877F2] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#166fe5] disabled:opacity-60"
       >
-        {pending ? "Conectando…" : "Conectar com Meta (Embedded Signup)"}
+        {pending || waiting
+          ? "Conectando…"
+          : "Conectar com Meta (Embedded Signup)"}
       </button>
       {(localError || state.error) && (
         <p className="text-sm text-red-600" role="alert">
@@ -194,8 +243,8 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         <p className="text-sm text-teal-700">{state.success}</p>
       )}
       <p className="text-xs text-zinc-500">
-        Serve para número novo na Cloud API e também para migrar número do app
-        WhatsApp Business.
+        No popup da Meta, complete até escolher/confirmar o número. Não feche
+        antes do fim.
       </p>
     </div>
   );

@@ -90,6 +90,34 @@ export async function fetchPhoneNumberDetails(
   return data;
 }
 
+/** When Embedded Signup returns only waba_id, discover the first phone number. */
+export async function listPhoneNumbersForWaba(
+  wabaId: string,
+  accessToken: string,
+) {
+  const url = new URL(`${GRAPH_BASE}/${wabaId}/phone_numbers`);
+  url.searchParams.set(
+    "fields",
+    "id,display_phone_number,verified_name,quality_rating",
+  );
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const data = (await res.json()) as {
+    data?: {
+      id: string;
+      display_phone_number?: string;
+      verified_name?: string;
+      quality_rating?: string;
+    }[];
+    error?: { message?: string };
+  };
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? "Failed to list WABA phone numbers");
+  }
+  return data.data ?? [];
+}
+
 export async function sendWhatsAppText(params: {
   phoneNumberId: string;
   accessToken: string;

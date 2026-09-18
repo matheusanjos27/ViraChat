@@ -5,6 +5,7 @@ import { encryptToken } from "@/lib/crypto/tokens";
 import {
   exchangeEmbeddedSignupCode,
   fetchPhoneNumberDetails,
+  listPhoneNumbersForWaba,
   subscribeWabaToWebhooks,
 } from "@/lib/meta/whatsapp";
 import { createClient } from "@/lib/supabase/server";
@@ -155,13 +156,13 @@ export async function completeEmbeddedSignup(
 ): Promise<ChannelActionState> {
   const tenantId = String(formData.get("tenantId") ?? "");
   const code = String(formData.get("code") ?? "").trim();
-  const phoneNumberId = String(formData.get("phoneNumberId") ?? "").trim();
-  const wabaId = String(formData.get("wabaId") ?? "").trim();
+  let phoneNumberId = String(formData.get("phoneNumberId") ?? "").trim();
+  let wabaId = String(formData.get("wabaId") ?? "").trim();
   const businessId = String(formData.get("businessId") ?? "").trim();
   const event = String(formData.get("event") ?? "").trim();
   const displayName = String(formData.get("displayName") ?? "").trim();
 
-  if (!tenantId || !code || !phoneNumberId || !wabaId) {
+  if (!tenantId || !code) {
     return {
       error:
         "Dados incompletos do Embedded Signup. Conclua o fluxo da Meta novamente.",
@@ -178,6 +179,34 @@ export async function completeEmbeddedSignup(
           ? err.message
           : "Falha ao trocar o código da Meta por token.",
     };
+  }
+
+  // If session info missed phone/waba, discover via Graph after token exchange
+  if (!wabaId) {
+    return {
+      error:
+        "A Meta não enviou o WABA ID. Conclua o Embedded Signup até o fim e tente de novo.",
+    };
+  }
+
+  if (!phoneNumberId) {
+    try {
+      const numbers = await listPhoneNumbersForWaba(wabaId, accessToken);
+      if (numbers.length === 0) {
+        return {
+          error:
+            "WABA conectada, mas nenhum número encontrado. Cadastre/verifique o número na Meta e tente de novo.",
+        };
+      }
+      phoneNumberId = numbers[0].id;
+    } catch (err) {
+      return {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Não foi possível descobrir o número na WABA.",
+      };
+    }
   }
 
   const onboardSource =
