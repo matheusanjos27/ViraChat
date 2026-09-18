@@ -1,0 +1,417 @@
+# ViraChat — Documento de Escopo Completo
+
+**Stack de hospedagem definida:** Vercel (frontend + backend/API) + Supabase (Postgres, Auth, Storage, Realtime)
+
+---
+
+## 1. Resumo Executivo
+
+ViraChat é uma plataforma SaaS multi-tenant de atendimento e comunicação empresarial, **AI-first**, que centraliza números de WhatsApp (via API oficial da Meta) em uma única interface. A IA realiza o atendimento de forma autônoma sempre que possível; o atendimento humano é uma opção de escalonamento, não uma etapa obrigatória. A arquitetura é desenhada em torno de conceitos genéricos (Channel, Conversation, Contact, Message, Provider) para permitir a expansão futura a outros canais (Instagram, Messenger, chat de site, Telegram).
+
+A plataforma será construída sobre **Next.js hospedado na Vercel** e **Supabase** como camada de dados/autenticação/storage, com processamento assíncrono via **Inngest** (decisão tomada — ver seção 19).
+
+---
+
+## 2. Problema que o ViraChat Resolve
+
+Operações de atendimento hoje frequentemente precisam administrar múltiplos números de WhatsApp para diferentes empresas ou clientes, muitas vezes usando aparelhos físicos separados, sem centralização, sem histórico unificado, sem automação inteligente e sem visibilidade de métricas. Isso gera:
+
+- Perda de contexto entre atendimentos.
+- Dependência total de atendentes humanos, mesmo para perguntas repetitivas e simples.
+- Falta de padronização no atendimento.
+- Dificuldade de escalar operações (cada novo número = novo aparelho/processo manual).
+- Ausência de dados consolidados sobre desempenho.
+
+O ViraChat resolve isso centralizando canais, automatizando o atendimento com IA e mantendo o humano disponível apenas quando realmente necessário.
+
+---
+
+## 3. Visão do Produto
+
+Plataforma de **atendimento e comunicação empresarial com IA**, onde o WhatsApp é o primeiro canal suportado, mas não o único conceito estrutural do sistema. A IA é a atendente padrão; o humano é a exceção assistida. O sistema nasce multi-tenant, com isolamento total de dados entre empresas, e pensado para escalar de 1 para milhares de tenants sem retrabalho arquitetural.
+
+Princípio central:
+
+> **ViraChat = IA atende automaticamente + humano entra quando necessário + todos os canais/conversas centralizados.**
+
+---
+
+## 4. Público-Alvo
+
+- Empresas que já usam WhatsApp como canal principal de vendas/suporte e sofrem com a gestão manual de múltiplos números.
+- Agências e operações de atendimento terceirizado que administram WhatsApp para vários clientes.
+- Pequenas e médias empresas (varejo, serviços, clínicas, imobiliárias, e-commerce) que quiserem automatizar o primeiro nível de atendimento.
+- Times comerciais que precisam de triagem e qualificação automática de leads antes de passar para um vendedor humano.
+
+---
+
+## 5. Funcionalidades
+
+### 5.1 Núcleo (MVP e além)
+
+**No MVP:**
+- Cadastro/login e criação de tenant (empresa).
+- Conexão de número de WhatsApp via API oficial da Meta (Embedded Signup).
+- Central de conversas (lista, thread, painel de contato).
+- Atendimento autônomo por IA com contexto de conversa e `ai_configs` mínimo (nome + instruções simples).
+- Escalonamento para humano por solicitação explícita do cliente ou ação manual do atendente/supervisor.
+- Devolução de conversa para a IA.
+- Histórico completo e auditável de mensagens.
+
+**Pós-MVP (Fases 4+):**
+- Base de conhecimento estruturada (`ai_knowledge`).
+- Escalonamento por regra da empresa, baixa confiança da IA ou assuntos sensíveis configuráveis.
+
+### 5.2 Gestão de equipe
+- Papéis: Administrador, Supervisor, Atendente.
+- Permissões por papel (RBAC).
+- Departamentos/filas (Financeiro, Vendas, Suporte, Comercial etc.) — **fora do MVP** (Fase 6+).
+- Atribuição manual e automática de conversas — **manual no MVP**; automática pós-MVP.
+
+### 5.3 Organização
+- Contatos com cadastro automático e edição manual (MVP: cadastro automático + campos básicos).
+- Tags personalizadas por empresa — **fora do MVP**.
+- Busca global (nome, telefone, mensagem, empresa, etiqueta, atendente) — **fora do MVP**; MVP: lista de conversas recentes.
+
+### 5.4 Automação — fora do MVP (Fase 7)
+- Motor de gatilhos e ações (ex.: palavra-chave → tag → fluxo → encaminhamento).
+- Regras de transição automática de estado de conversa além dos estados nativos IA↔humano.
+
+### 5.5 Configuração de IA
+- **MVP:** nome, instruções básicas, ativação do atendimento automático.
+- **Pós-MVP:** personalidade, tom de voz, base de conhecimento estruturada, regras do que a IA pode/não pode informar.
+
+### 5.6 Observabilidade de negócio
+- Dashboard com métricas operacionais (seção 14.1) — **fora do MVP** (Fase 8).
+- Notificações em tempo real (seção 14.2) — **fora do MVP**; no MVP a UI usa Supabase Realtime na central de conversas.
+
+### 5.7 Multi-canal (visão futura, não MVP)
+- Arquitetura pronta para novos providers (Instagram, Messenger, Telegram, chat web) sem reescrever o core.
+
+---
+
+## 6. Fluxos de Usuário
+
+### 6.1 Fluxo — Cliente final conversando com a IA
+1. Cliente envia mensagem no WhatsApp da empresa.
+2. Mensagem chega por webhook, é associada a tenant/canal/contato/conversa.
+3. IA recebe o histórico e o contexto (`ai_configs`; base de conhecimento quando disponível pós-MVP).
+4. IA responde diretamente, coleta dados ou apresenta opções.
+5. Se resolvida, conversa é marcada como `resolved` — sem intervenção humana.
+
+### 6.2 Fluxo — Escalonamento para humano
+1. Cliente pede humano, ou atendente/supervisor assume manualmente (MVP); pós-MVP também por regra/confiança da IA.
+2. Conversa muda de estado para `waiting_human` (ou direto para `human_active` se assumida).
+3. Atendente disponível assume (manual no MVP).
+4. IA para de responder automaticamente enquanto o estado for `human_active` (lock de controle — seção 10.3).
+5. Atendente pode devolver a conversa para a IA a qualquer momento (`ai_active`).
+
+### 6.3 Fluxo — Onboarding de empresa (tenant)
+1. Usuário se cadastra e cria a empresa (tenant).
+2. Empresa acessa "Canais" → "+ Conectar WhatsApp".
+3. Fluxo oficial de Embedded Signup da Meta é executado (sem o cliente informar senha ou token manualmente).
+4. Número conectado aparece disponível para receber/enviar mensagens.
+5. Empresa configura a IA (instruções mínimas no MVP) antes de ativar o atendimento automático.
+
+### 6.4 Fluxo — Supervisor monitorando
+1. Supervisor acessa dashboard (pós-MVP) e central de conversas.
+2. Pode assumir manualmente qualquer conversa, redistribuir atendimentos e visualizar métricas por atendente (métricas na Fase 8).
+
+---
+
+## 7. Arquitetura
+
+A arquitetura segue o princípio de **canais genéricos**: `Provider → Channel → Conversation → Message → Contact`, com o WhatsApp implementado como um provider concreto, evitando acoplamento direto entre o core do sistema e a API do WhatsApp.
+
+### 7.1 Componentes lógicos
+
+| Camada | Responsabilidade |
+|---|---|
+| **Frontend (Next.js na Vercel)** | Central de conversas, dashboard, configurações, onboarding, autenticação de UI |
+| **API / Backend (Next.js Route Handlers / API Routes na Vercel)** | Regras de negócio, orquestração da IA, endpoints REST/RPC consumidos pelo frontend |
+| **Webhooks (Vercel Functions dedicadas)** | Recebimento de eventos da Meta (mensagens, status de entrega, etc.) |
+| **Banco de dados (Supabase Postgres)** | Armazenamento relacional multi-tenant, com Row Level Security (RLS) |
+| **Autenticação (Supabase Auth)** | Login, sessões, convites de usuários por tenant |
+| **Storage (Supabase Storage)** | Anexos, imagens, áudios, documentos trocados nas conversas |
+| **Realtime (Supabase Realtime)** | Atualização ao vivo da central de conversas (novas mensagens, mudança de estado) |
+| **Processamento assíncrono/filas** | **Inngest** — processar mensagens recebidas, chamar a IA, gerenciar retries (ver seção 19) |
+| **Integração com IA (LLM)** | Camada de orquestração plugável; MVP usa Claude (Anthropic) |
+| **Integração Meta (WhatsApp Business Platform)** | Envio/recebimento oficial de mensagens, Embedded Signup, gerenciamento de tokens |
+| **Observabilidade** | Logs, métricas e rastreamento de erros (ex.: Vercel Observability + Sentry) |
+
+### 7.2 Por que Vercel + Supabase impõe algumas decisões de arquitetura
+
+- **Sem processos de longa duração**: funções na Vercel são serverless e têm tempo de execução limitado. Isso significa que o processamento de mensagens (especialmente chamadas à IA, que podem demorar) deve ser desacoplado do recebimento do webhook: o webhook apenas grava o evento e dispara o processamento assíncrono via Inngest; quem efetivamente chama a IA e responde ao cliente roda em uma função Inngest separada.
+- **Multi-tenancy via RLS**: o isolamento entre empresas será garantido no nível do banco (Row Level Security do Postgres/Supabase), não apenas na camada de aplicação — isso é mais seguro contra bugs de aplicação que vazariam dados entre tenants.
+- **Realtime nativo**: em vez de implementar WebSockets manualmente na Vercel (que não é trivial em ambiente serverless), a central de conversas usa o Supabase Realtime (baseado em replicação lógica do Postgres) para refletir novas mensagens instantaneamente na UI.
+
+---
+
+## 8. Stack Recomendada
+
+| Necessidade | Escolha | Motivo |
+|---|---|---|
+| Frontend + SSR/API | **Next.js (App Router)** | Integração nativa com Vercel, Route Handlers como backend, ótimo suporte a React Server Components para a central de conversas |
+| Hospedagem | **Vercel** | Requisito do projeto; deploy contínuo, edge network, preview deployments |
+| Banco de dados | **Supabase (Postgres)** | Requisito do projeto; Postgres gerenciado + RLS nativo para multi-tenant |
+| Autenticação | **Supabase Auth** | Já integrado ao Postgres/RLS; suporta convites, múltiplos usuários por tenant, políticas de acesso |
+| Storage de arquivos | **Supabase Storage** | Anexos de conversas (imagens, áudios, documentos), com controle de acesso por tenant |
+| Realtime | **Supabase Realtime** | Atualização ao vivo da central de conversas sem infraestrutura própria de WebSocket |
+| Fila / processamento assíncrono | **Inngest** | Retries, observabilidade e encaixe natural com Next.js/Vercel; desacopla webhook → IA → resposta |
+| Cache | **Upstash Redis** (serverless, compatível com Vercel) | Cache de sessão de IA, rate limiting, deduplicação de eventos de webhook |
+| Modelo de IA (MVP) | **Claude via API da Anthropic** | Um provedor no MVP; interface plugável no código para troca futura sem reescrever o core |
+| Integração WhatsApp | **WhatsApp Business Platform (Cloud API) da Meta** | Único método oficial permitido pelo escopo; usa Embedded Signup para onboarding do cliente |
+| Tokens Meta em repouso | **AES-256-GCM com `TOKEN_ENCRYPTION_KEY` (env)** | Coluna cifrada em `whatsapp_accounts`; token nunca retornado ao client; Vault/KMS pode evoluir depois |
+| Observabilidade | **Vercel Observability/Logs** + **Sentry** (erros) | Rastreamento de falhas em funções serverless e erros de integração |
+| Validação de webhooks | Verificação de assinatura HMAC (`X-Hub-Signature-256`) | Exigido pela Meta para garantir autenticidade dos eventos |
+
+---
+
+## 9. Modelo Multi-Tenant
+
+- Cada empresa cliente é um **tenant**, com isolamento lógico total.
+- Isolamento garantido em duas camadas:
+  1. **Aplicação**: todo dado é sempre filtrado por `tenant_id`.
+  2. **Banco de dados**: políticas de **Row Level Security (RLS)** no Supabase garantem que uma consulta só retorna linhas do tenant do usuário autenticado, mesmo em caso de erro de código na aplicação.
+- Estrutura conceitual (igual à do briefing original):
+
+```
+Tenant
+├── Usuários
+├── Equipe
+├── Canais / WhatsApps
+├── Contatos
+├── Conversas
+├── Mensagens
+├── IA
+├── Automações
+├── Tags
+├── Configurações
+└── Relatórios
+```
+
+- O sistema deve suportar crescimento de 1 → 10 → 100 → 1.000+ tenants sem mudança estrutural, apenas escalando os recursos gerenciados (Supabase e Vercel escalam horizontalmente por natureza).
+- **Agências (multi-tenant de segundo nível):** evolução futura; no MVP mantém-se apenas `user_tenant_roles` N:N (um usuário pode pertencer a mais de um tenant), sem hierarquia de agência.
+
+---
+
+## 10. Modelo de Banco de Dados
+
+### 10.1 Entidades principais
+
+| Tabela | Descrição | MVP |
+|---|---|---|
+| `tenants` | Empresas clientes do SaaS | Sim |
+| `users` | Usuários da plataforma (vinculados ao Supabase Auth) | Sim |
+| `roles` | Papéis (Administrador, Supervisor, Atendente) | Sim |
+| `user_tenant_roles` | Relação N:N entre usuário, tenant e papel | Sim |
+| `providers` | Tipos de canal suportados (ex.: `whatsapp`) — tabela de referência | Sim |
+| `channels` | Instância de canal conectado por um tenant | Sim (1 por tenant no MVP) |
+| `whatsapp_accounts` | Dados específicos da conta WhatsApp Business (tokens cifrados) | Sim |
+| `contacts` | Pessoas que interagem com o tenant via algum canal | Sim |
+| `conversations` | Threads de atendimento + campo `status` (seção 10.3) | Sim |
+| `messages` | Mensagens individuais (origem: cliente, IA ou humano) | Sim |
+| `ai_configs` | Configuração mínima da IA por tenant | Sim |
+| `departments` | Setores/filas | Não |
+| `assignments` | Histórico de atribuição a atendente/departamento | Pós-MVP (MVP: `assigned_to` em `conversations`) |
+| `tags` / `conversation_tags` | Etiquetas | Não |
+| `ai_knowledge` | Base de conhecimento estruturada | Não |
+| `automations` / `automation_rules` | Motor de regras | Não |
+| `notifications` | Notificações para usuários | Não |
+| `audit_logs` | Log de auditoria de ações sensíveis | Sim (básico) |
+
+### 10.2 Relacionamentos principais
+
+- `tenants (1) → (N) users` (via `user_tenant_roles`)
+- `tenants (1) → (N) channels (1) → (1) whatsapp_accounts`
+- `tenants (1) → (N) contacts`
+- `tenants (1) → (N) conversations`
+- `conversations (N) → (1) channel`, `conversations (N) → (1) contact`
+- `conversations (1) → (N) messages`
+- `tenants (1) → (1) ai_configs`
+- Todas as tabelas com dado de negócio carregam `tenant_id` para suportar RLS.
+
+### 10.3 Estados da conversa e lock IA ↔ humano
+
+Campo `conversations.status` (enum):
+
+| Status | Significado | Quem responde |
+|---|---|---|
+| `ai_active` | IA no controle (padrão ao criar conversa) | Somente IA |
+| `waiting_human` | Cliente pediu humano / fila de espera | Ninguém automático; atendente deve assumir |
+| `human_active` | Atendente no controle | Somente humano atribuído (`assigned_to`) |
+| `resolved` | Conversa encerrada | Ninguém (reabre para `ai_active` se o cliente enviar nova mensagem) |
+
+**Regras de lock (concorrência):**
+
+1. Antes de a IA gerar/enviar uma resposta, o job Inngest relê `status` no banco. Se não for `ai_active`, **aborta** o envio.
+2. Ao assumir: transição atômica `ai_active|waiting_human → human_active` com `assigned_to = user_id` (update condicional; falha se outro já assumiu).
+3. Ao devolver à IA: `human_active → ai_active`, `assigned_to = null`.
+4. Pedido explícito de humano pelo cliente (palavras-chave / intenção): `ai_active → waiting_human`.
+5. Mensagens do cliente em `resolved` reabrem a conversa para `ai_active` (ou `waiting_human` se a última saída foi handoff — default: `ai_active`).
+6. UI e API rejeitam envio humano se `status != human_active` (exceto supervisor forçando assume).
+
+**Transições permitidas:**
+
+```
+ai_active ──(cliente pede humano)──► waiting_human ──(atendente assume)──► human_active
+ai_active ──(atendente/supervisor assume)──────────────────────────────────► human_active
+human_active ──(devolver à IA)──► ai_active
+ai_active|human_active|waiting_human ──(resolver)──► resolved
+resolved ──(nova mensagem do cliente)──► ai_active
+```
+
+---
+
+## 11. Integração com Meta (WhatsApp Business Platform)
+
+- Uso exclusivo da **API oficial da Meta / WhatsApp Business Platform (Cloud API)**.
+- Proibido: WhatsApp Web automatizado, Selenium, Puppeteer, QR Code simulando WhatsApp Web, ou qualquer método não oficial.
+- Onboarding do cliente via **Embedded Signup** (fluxo oficial da Meta), evitando que o cliente precise informar senha do Facebook/Meta ou tokens manualmente.
+- Tela "Canais" (ou "WhatsApp") com botão "+ Conectar WhatsApp", que inicia o fluxo de Embedded Signup dentro da própria interface do ViraChat.
+- Após conexão, o sistema armazena com segurança: `phone_number_id`, `waba_id` (WhatsApp Business Account ID) e o token de acesso (**AES-256-GCM** com `TOKEN_ENCRYPTION_KEY`).
+- Webhooks da Meta devem ser validados por assinatura (HMAC/`X-Hub-Signature-256`) antes de qualquer processamento.
+- Deve haver tratamento de renovação/expiração de token e reconexão de canal em caso de falha.
+- **MVP:** respostas dentro da janela de 24h da conversa iniciada pelo cliente; templates de mensagem proativa ficam para fase posterior.
+
+---
+
+## 12. Arquitetura da IA
+
+- Cada tenant configura sua própria instância de comportamento de IA (`ai_configs`). No MVP: nome + instruções. Pós-MVP: personalidade, tom, regras e `ai_knowledge`.
+- A cada mensagem recebida (quando `status = ai_active`), a orquestração Inngest:
+  1. Relê o status (lock — seção 10.3).
+  2. Recupera o histórico recente da conversa.
+  3. Monta o contexto com `ai_configs` (+ knowledge pós-MVP).
+  4. Chama Claude (Anthropic) via interface plugável de provedor.
+  5. Decide: responder, pedir mais informação, ou sinalizar handoff (`waiting_human`).
+- **MVP de handoff por IA:** apenas pedido explícito do cliente ou ferramenta/ação "transfer_to_human" do modelo; sem limiar de confiança numérico.
+- Processamento da IA roda de forma assíncrona em relação ao webhook (seção 7.2).
+
+---
+
+## 13. Segurança
+
+- **Autenticação**: Supabase Auth (e-mail/senha, podendo evoluir para SSO).
+- **Autorização**: RBAC por tenant (Administrador, Supervisor, Atendente), reforçado por RLS no Postgres.
+- **Isolamento de tenants**: obrigatório em nível de banco (RLS), não apenas em nível de aplicação.
+- **Proteção de tokens da Meta**: AES-256-GCM com `TOKEN_ENCRYPTION_KEY`; nunca expostos ao frontend.
+- **Validação de webhooks**: verificação obrigatória de assinatura antes de processar qualquer payload recebido da Meta.
+- **Rate limiting**: nos endpoints públicos (webhooks, APIs de login) para mitigar abuso.
+- **Logs e auditoria**: `audit_logs` para ações sensíveis (troca de papel, acesso a dados de outro usuário, reconexão de canal).
+- **Criptografia**: em trânsito (HTTPS obrigatório, padrão na Vercel/Supabase) e em repouso para campos sensíveis (tokens, credenciais).
+- **Tratamento de erros**: respostas de erro nunca devem vazar detalhes internos (stack trace, nomes de tabela) ao cliente final.
+- **Retenção (default provisório):** mensagens e anexos sem expiração automática; exclusão/anonimização sob solicitação do titular (LGPD). Política formal na Fase 9+.
+
+---
+
+## 14. MVP, métricas e notificações
+
+### 14.0 MVP
+
+O MVP deve provar o **fluxo essencial de ponta a ponta**, sem recursos avançados:
+
+1. Cadastro/login.
+2. Criação de empresa/tenant.
+3. Conexão de um WhatsApp via integração oficial (Embedded Signup).
+4. Recebimento de mensagem via webhook.
+5. Exibição da mensagem na central de conversas.
+6. Identificação/criação automática de contato.
+7. Criação de conversa.
+8. Processamento da mensagem pela IA.
+9. Resposta automática da IA.
+10. Envio da resposta pelo WhatsApp (Cloud API).
+11. Atendente pode assumir a conversa manualmente.
+12. Atendente pode devolver a conversa para a IA.
+13. Histórico da conversa é salvo de forma íntegra.
+
+**Fora do MVP:** múltiplos números por tenant, filas/departamentos, tags, contatos avançados, automações, dashboard, base de conhecimento estruturada, configurações avançadas de IA, billing, notificações push in-app.
+
+### 14.1 Métricas operacionais (Fase 8 — Dashboard)
+
+KPIs previstos por tenant:
+
+- Conversas abertas / resolvidas / em espera de humano.
+- Tempo médio de primeira resposta (IA e humano).
+- Tempo médio de resolução.
+- Taxa de resolução só pela IA (sem handoff).
+- Volume de mensagens inbound/outbound por canal.
+- Conversas por atendente e tempo médio de atendimento humano.
+
+### 14.2 Notificações (pós-MVP)
+
+- Notificações in-app para nova conversa em `waiting_human`, menção/atribuição e falha de canal.
+- No MVP: atualização visual via Supabase Realtime na central de conversas (sem tabela `notifications`).
+
+---
+
+## 15. Roadmap
+
+| Fase | Objetivo | Principais entregas | Dependências | Critério de conclusão |
+|---|---|---|---|---|
+| **1. Fundação** | Base técnica do projeto | Setup Next.js + Vercel, Supabase (schema inicial, Auth, RLS básico) | — | Deploy inicial funcional, login/cadastro operante |
+| **2. WhatsApp** | Conectar canal oficial | Embedded Signup, `channels`/`whatsapp_accounts`, recepção/envio via Cloud API, validação de webhook | Fase 1 | Empresa consegue conectar número e trocar mensagens de teste |
+| **3. Central de conversas** | Interface de atendimento | Lista de conversas, thread, painel de contato, Realtime | Fase 2 | Mensagens aparecem em tempo real na UI |
+| **4. IA** | Atendimento autônomo | `ai_configs`, orquestração Inngest + Claude | Fase 3 | IA responde mensagens de teste corretamente |
+| **5. Atendimento humano** | Escalonamento | Assumir/devolver conversa, estados (seção 10.3) | Fase 4 | Handoff IA↔humano funcional e auditável |
+| **6. Multi-número** | Vários canais por tenant | Suporte a N `channels` por tenant; departamentos | Fase 5 | Empresa conecta 2+ números sem conflito |
+| **7. Automações** | Motor de regras | `automations`/`automation_rules`, gatilhos e ações; `ai_knowledge` | Fase 6 | Automação simples (palavra-chave → tag) funcionando |
+| **8. Dashboard** | Métricas de negócio | KPIs operacionais (seção 14.1) | Fase 7 | Dashboard reflete dados reais do tenant |
+| **9. Billing e planos** | Monetização | Planos, limites por tenant, cobrança | Fase 8 | Tenant pode assinar/upgradar plano |
+| **10. Escala e recursos avançados** | Robustez e expansão | Multi-canal (Instagram, Telegram etc.), otimizações de performance | Fase 9 | Sistema suporte a 100+ tenants ativos sem degradação |
+
+---
+
+## 16. Critérios de Aceite
+
+- Nenhum dado de um tenant é acessível por outro tenant, em nenhuma circunstância (testado via RLS + testes automatizados de isolamento).
+- Uma mensagem recebida via WhatsApp aparece na central de conversas em tempo real (poucos segundos).
+- A IA consegue conduzir uma conversa completa e marcá-la como `resolved` sem intervenção humana, quando as instruções/`ai_configs` cobrem o assunto.
+- Um atendente consegue assumir uma conversa a qualquer momento, e a IA para de responder automaticamente até a devolução (lock da seção 10.3).
+- Toda conexão de WhatsApp usa exclusivamente o fluxo oficial da Meta (Embedded Signup), sem exposição de senha/token manual ao usuário final.
+- Todo webhook recebido é validado por assinatura antes do processamento.
+- O histórico de uma conversa permanece íntegro e completo, independentemente de quantas vezes ela transitar entre IA e humano.
+
+---
+
+## 17. Riscos Técnicos
+
+- **Limite de tempo de execução em funções serverless da Vercel**: chamadas à IA ou à API da Meta podem ser lentas; mitigação: Inngest desacoplando webhook do processamento.
+- **Aprovação e políticas da Meta**: o processo de verificação de negócio e aprovação de templates de mensagem pela Meta pode atrasar o onboarding de clientes; é um processo externo, fora do controle do ViraChat.
+- **Limites de RLS mal configurados**: erro em política de Row Level Security pode tanto vazar dados entre tenants quanto bloquear acesso legítimo — exige testes rigorosos.
+- **Custo e limites de rate da API da Meta**: volume alto de mensagens pode esbarrar em limites de taxa da Cloud API, exigindo estratégia de fila e retry.
+- **Dependência de fornecedor de IA**: mudanças de preço, disponibilidade ou política do provedor de LLM podem impactar o produto — mitigado pela camada de IA plugável (seção 12).
+- **Sincronização de estado em tempo real**: conflitos de concorrência quando IA e humano tentam responder quase simultaneamente — mitigado pelo lock de status (seção 10.3).
+- **Escalonamento de custo do Supabase/Vercel**: conforme o número de tenants cresce, uso de Realtime, Storage e execuções de função deve ser monitorado para evitar custos inesperados.
+
+---
+
+## 18. Possíveis Evoluções Futuras
+
+- Suporte a canais adicionais: Instagram Direct, Messenger, Telegram, chat embutido no site do cliente.
+- Central omnichannel unificada (uma única thread por contato, independentemente do canal de origem).
+- IA com voz (áudio) e reconhecimento de imagem em anexos.
+- Relatórios avançados e exportação de dados (BI).
+- Marketplace de automações/integrações (CRM, ERP, e-mail marketing).
+- App mobile nativo para atendentes.
+- Programa de parceiros/agências (multi-tenant de segundo nível: agência administrando tenants de seus próprios clientes).
+- Limiar de confiança numérico / segundo modelo para handoff automático.
+- Supabase Vault ou KMS externo para rotação avançada de chaves de token Meta.
+
+---
+
+## 19. Decisões tomadas (arquitetura)
+
+Estas decisões estão **fechadas** para o início do desenvolvimento:
+
+1. **Orquestrador assíncrono: Inngest** — webhook grava evento e dispara função Inngest; retries e observabilidade nativos; compatível com Next.js na Vercel.
+2. **Provedor de LLM no MVP: Claude (Anthropic)** — um único provedor na UI/config; interface plugável no código (`AiProvider`) para troca futura sem reescrever o core.
+3. **Tokens Meta em repouso: AES-256-GCM** com chave `TOKEN_ENCRYPTION_KEY` em variável de ambiente; coluna cifrada em `whatsapp_accounts`; token nunca serializado para o frontend. Evolução futura: Supabase Vault / KMS.
+4. **Retenção provisória:** sem TTL automático; exclusão/anonimização sob solicitação (LGPD).
+5. **Confiança da IA (MVP):** handoff por pedido explícito do cliente ou ação manual; sem score numérico.
+6. **Agências:** fora do escopo estrutural atual; apenas `user_tenant_roles` N:N.
+7. **Billing:** adiado para a Fase 9 (modelo a definir: canais, volume de conversas, usuários ou combinação).
+
+---
+
+*Documento aprovado para início da fase de desenvolvimento (Fase 1 — Fundação).*

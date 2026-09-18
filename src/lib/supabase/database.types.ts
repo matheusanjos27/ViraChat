@@ -1,0 +1,343 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+type TenantScoped = {
+  tenant_id: string;
+};
+
+export type Database = {
+  public: {
+    Tables: {
+      tenants: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      profiles: {
+        Row: {
+          id: string;
+          full_name: string | null;
+          email: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          full_name?: string | null;
+          email?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string | null;
+          email?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      user_tenant_roles: {
+        Row: {
+          id: string;
+          user_id: string;
+          tenant_id: string;
+          role: "admin" | "supervisor" | "agent";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tenant_id: string;
+          role?: "admin" | "supervisor" | "agent";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tenant_id?: string;
+          role?: "admin" | "supervisor" | "agent";
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_tenant_roles_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      channels: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          provider_id: string;
+          display_name: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          provider_id: string;
+          display_name: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          provider_id?: string;
+          display_name?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      whatsapp_accounts: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          channel_id: string;
+          phone_number_id: string;
+          waba_id: string;
+          access_token_encrypted: string;
+          display_phone: string | null;
+          verified_name: string | null;
+          quality_rating: string | null;
+          onboard_source: "manual" | "embedded_signup" | "business_app";
+          meta_business_id: string | null;
+          last_webhook_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          channel_id: string;
+          phone_number_id: string;
+          waba_id: string;
+          access_token_encrypted: string;
+          display_phone?: string | null;
+          verified_name?: string | null;
+          quality_rating?: string | null;
+          onboard_source?: "manual" | "embedded_signup" | "business_app";
+          meta_business_id?: string | null;
+          last_webhook_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          channel_id?: string;
+          phone_number_id?: string;
+          waba_id?: string;
+          access_token_encrypted?: string;
+          display_phone?: string | null;
+          verified_name?: string | null;
+          quality_rating?: string | null;
+          onboard_source?: "manual" | "embedded_signup" | "business_app";
+          meta_business_id?: string | null;
+          last_webhook_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      contacts: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          display_name: string | null;
+          phone_e164: string | null;
+          external_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          display_name?: string | null;
+          phone_e164?: string | null;
+          external_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          display_name?: string | null;
+          phone_e164?: string | null;
+          external_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      conversations: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          channel_id: string;
+          contact_id: string;
+          status: "ai_active" | "waiting_human" | "human_active" | "resolved";
+          assigned_to: string | null;
+          last_message_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          channel_id: string;
+          contact_id: string;
+          status?: "ai_active" | "waiting_human" | "human_active" | "resolved";
+          assigned_to?: string | null;
+          last_message_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          channel_id?: string;
+          contact_id?: string;
+          status?: "ai_active" | "waiting_human" | "human_active" | "resolved";
+          assigned_to?: string | null;
+          last_message_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      messages: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          conversation_id: string;
+          direction: "inbound" | "outbound";
+          sender_type: "contact" | "ai" | "agent" | "system";
+          sender_user_id: string | null;
+          body: string | null;
+          provider_message_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          conversation_id: string;
+          direction: "inbound" | "outbound";
+          sender_type: "contact" | "ai" | "agent" | "system";
+          sender_user_id?: string | null;
+          body?: string | null;
+          provider_message_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          conversation_id?: string;
+          direction?: "inbound" | "outbound";
+          sender_type?: "contact" | "ai" | "agent" | "system";
+          sender_user_id?: string | null;
+          body?: string | null;
+          provider_message_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_configs: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          instructions: string;
+          is_enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name?: string;
+          instructions?: string;
+          is_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          name?: string;
+          instructions?: string;
+          is_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+    };
+    Views: Record<string, never>;
+    Functions: {
+      create_tenant: {
+        Args: { p_name: string; p_slug: string };
+        Returns: {
+          id: string;
+          name: string;
+          slug: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      assume_conversation: {
+        Args: { p_conversation_id: string };
+        Returns: Database["public"]["Tables"]["conversations"]["Row"];
+      };
+      release_conversation_to_ai: {
+        Args: { p_conversation_id: string };
+        Returns: Database["public"]["Tables"]["conversations"]["Row"];
+      };
+    };
+    Enums: {
+      app_role: "admin" | "supervisor" | "agent";
+      conversation_status:
+        | "ai_active"
+        | "waiting_human"
+        | "human_active"
+        | "resolved";
+    };
+    CompositeTypes: Record<string, never>;
+  };
+};
+
+export type { TenantScoped };
