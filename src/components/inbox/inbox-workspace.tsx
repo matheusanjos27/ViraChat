@@ -158,7 +158,7 @@ export function InboxWorkspace({
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [loadingThread, setLoadingThread] = useState(false);
   const [liveState, setLiveState] = useState<"connecting" | "live" | "polling">(
-    "connecting",
+    "polling",
   );
   const bottomRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef<string | null>(selectedId);
@@ -226,83 +226,9 @@ export function InboxWorkspace({
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
-    let pollTimer: ReturnType<typeof setInterval> | null = null;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    // Fallback imediatamente; Realtime só melhora depois
+    // Polling estável: Realtime estava derrubando a aba em produção (hydration/recover loop).
     setLiveState("polling");
-    pollTimer = setInterval(() => {
-      void refreshList();
-    }, 8000);
-
-    async function fetchConversationCard(
-      conversationId: string,
-    ): Promise<InboxConversation | null> {
-      const { data } = await supabase
-        .from("conversations")
-        .select(
-          "id, status, last_message_at, assigned_to, channel_id, contacts(id, display_name, phone_e164, external_id), channels(id, display_name)",
-        )
-        .eq("id", conversationId)
-        .eq("tenant_id", tenantId)
-        .maybeSingle();
-      if (!data) return null;
-
-      const { data: lastMsg } = await supabase
-        .from("messages")
-        .select("body")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const contact =
-        (data.contacts as unknown as InboxConversation["contact"] | null) ?? {
-          id: "unknown",
-          display_name: null,
-          phone_e164: null,
-          external_id: null,
-        };
-      const channel = data.channels as unknown as {
-        id: string;
-        display_name: string;
-      } | null;
-
-      return {
-        id: data.id,
-        status: data.status as InboxConversation["status"],
-        last_message_at: data.last_message_at,
-        assigned_to: data.assigned_to,
-        channel_id: data.channel_id ?? channel?.id ?? null,
-        contact,
-        preview: lastMsg?.body ?? null,
-        channel_name: channel?.display_name ?? null,
-      };
-    }
-
-    function bumpConversation(
-      conversationId: string,
-      patch: Partial<InboxConversation>,
-    ) {
-      setConversations((prev) => {
-        const idx = prev.findIndex((c) => c.id === conversationId);
-        if (idx < 0) return prev;
-        const item = { ...prev[idx], ...patch };
-        const next = [...prev];
-        next.splice(idx, 1);
-        next.unshift(item);
-        return next;
-      });
-    }
-
-    async function ensureConversation(conversationId: string) {
-      const card = await fetchConversationCard(conversationId);
-      if (!card || cancelled) return;
-      setConversations((prev) => {
-        const without = prev.filter((c) => c.id !== card.id);
-        return [card, ...without];
-      });
-    }
 
     async function refreshList() {
       const { data: rows } = await supabase
@@ -369,119 +295,13 @@ export function InboxWorkspace({
       }
     }
 
-    try {
-      channel = supabase
-        .channel(`inbox-${tenantId}-${crypto.randomUUID()}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-            filter: `tenant_id=eq.${tenantId}`,
-          },
-          (payload) => {
-            const row = payload.new as InboxMessage & {
-              conversation_id: string;
-            };
-            if (!row?.conversation_id) return;
-
-            if (selectedIdRef.current === row.conversation_id) {
-              setMessages((prev) => {
-                if (prev.some((m) => m.id === row.id)) return prev;
-                return [
-                  ...prev,
-                  {
-                    id: row.id,
-                    body: row.body,
-                    direction: row.direction,
-                    sender_type: row.sender_type,
-                    created_at: row.created_at,
-                  },
-                ];
-              });
-            }
-
-            setConversations((prev) => {
-              const idx = prev.findIndex((c) => c.id === row.conversation_id);
-              if (idx < 0) {
-                void ensureConversation(row.conversation_id);
-                return prev;
-              }
-              const item = {
-                ...prev[idx],
-                preview: row.body,
-                last_message_at: row.created_at,
-              };
-              const next = [...prev];
-              next.splice(idx, 1);
-              next.unshift(item);
-              return next;
-            });
-          },
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "conversations",
-            filter: `tenant_id=eq.${tenantId}`,
-          },
-          (payload) => {
-            const row = payload.new as { id?: string };
-            if (row?.id) void ensureConversation(row.id);
-          },
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "conversations",
-            filter: `tenant_id=eq.${tenantId}`,
-          },
-          (payload) => {
-            const row = payload.new as {
-              id: string;
-              status: InboxConversation["status"];
-              last_message_at: string | null;
-              assigned_to: string | null;
-            };
-            bumpConversation(row.id, {
-              status: row.status,
-              last_message_at: row.last_message_at,
-              assigned_to: row.assigned_to,
-            });
-          },
-        );
-
-      channel.subscribe((status) => {
-        if (cancelled) return;
-        if (status === "SUBSCRIBED") {
-          setLiveState("live");
-          if (pollTimer) {
-            clearInterval(pollTimer);
-            pollTimer = null;
-          }
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setLiveState("polling");
-          if (!pollTimer) {
-            pollTimer = setInterval(() => {
-              void refreshList();
-            }, 5000);
-          }
-        }
-      });
-    } catch (err) {
-      console.error("[inbox] realtime setup failed", err);
-      setLiveState("polling");
-    }
+    const pollTimer = setInterval(() => {
+      void refreshList();
+    }, 8000);
 
     return () => {
       cancelled = true;
-      if (pollTimer) clearInterval(pollTimer);
-      if (channel) void supabase.removeChannel(channel);
+      clearInterval(pollTimer);
     };
   }, [tenantId]);
 

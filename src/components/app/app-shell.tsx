@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { signOut } from "@/app/actions/auth";
 import type { NotificationItem } from "@/components/app/notification-bell";
 
@@ -47,7 +48,12 @@ export function AppShell({
   waitingCount?: number;
   initialNotifications?: NotificationItem[];
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const roleLabel =
     userRole === "admin"
       ? "Administrador"
@@ -58,6 +64,14 @@ export function AppShell({
           : isPlatformAdmin
             ? "Super admin"
             : "Membro";
+
+  if (!mounted) {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-[#eef1f0] text-sm text-ink-muted">
+        Carregando painel…
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-dvh overflow-hidden bg-[#eef1f0] text-ink">

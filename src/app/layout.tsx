@@ -23,9 +23,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="pt-BR"
+      suppressHydrationWarning
       className={`${sora.variable} ${newsreader.variable} h-full antialiased`}
     >
-      <body className="min-h-full font-sans text-ink">{children}</body>
+      <body suppressHydrationWarning className="min-h-full font-sans text-ink">
+        {children}
+      </body>
     </html>
   );
 }

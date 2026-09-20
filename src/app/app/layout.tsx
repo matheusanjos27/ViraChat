@@ -20,14 +20,15 @@ export default async function AppLayout({
 
   const { data: membership } = await supabase
     .from("user_tenant_roles")
-    .select("role, tenant_id, tenants!inner(name)")
+    .select("role, tenant_id, tenants(name)")
     .eq("user_id", user.id)
     .limit(1)
     .maybeSingle();
 
-  const tenantName = (
-    membership?.tenants as unknown as { name: string } | null
-  )?.name;
+  const tenantsRaw = membership?.tenants as unknown;
+  const tenantName = Array.isArray(tenantsRaw)
+    ? (tenantsRaw[0] as { name?: string } | undefined)?.name
+    : (tenantsRaw as { name?: string } | null)?.name;
   const tenantId = membership?.tenant_id;
 
   let openCount = 0;

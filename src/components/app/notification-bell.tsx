@@ -53,64 +53,10 @@ export function NotificationBell({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  // Realtime desligado temporariamente (estabilidade no VPS); itens vêm do SSR/layout.
   useEffect(() => {
-    const supabase = createClient();
-    const topic = `notifications-${tenantId}-${crypto.randomUUID()}`;
-
-    const channel = supabase
-      .channel(topic)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "app_notifications",
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          const row = payload.new as NotificationItem;
-          setItems((prev) => {
-            if (prev.some((n) => n.id === row.id)) return prev;
-            return [row, ...prev].slice(0, 30);
-          });
-
-          if (
-            typeof window !== "undefined" &&
-            "Notification" in window &&
-            Notification.permission === "granted"
-          ) {
-            try {
-              new Notification(row.title, {
-                body: row.body ?? undefined,
-              });
-            } catch {
-              // ignore
-            }
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "app_notifications",
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          const row = payload.new as NotificationItem;
-          setItems((prev) =>
-            prev.map((n) => (n.id === row.id ? { ...n, ...row } : n)),
-          );
-        },
-      );
-
-    channel.subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [tenantId]);
+    setItems(initialItems);
+  }, [initialItems]);
 
   async function markAllRead() {
     const supabase = createClient();
