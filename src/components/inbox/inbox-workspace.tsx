@@ -130,7 +130,12 @@ export function InboxWorkspace({
   const [listFilter, setListFilter] = useState<ListFilter>("all");
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [loadingThread, setLoadingThread] = useState(false);
+  const [liveState, setLiveState] = useState<"connecting" | "live" | "polling">(
+    "connecting",
+  );
   const bottomRef = useRef<HTMLDivElement>(null);
+  const selectedIdRef = useRef<string | null>(selectedId);
+  selectedIdRef.current = selectedId;
 
   const selected = useMemo(
     () => conversations.find((c) => c.id === selectedId) ?? null,
@@ -174,23 +179,151 @@ export function InboxWorkspace({
 
   useEffect(() => {
     const supabase = createClient();
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    async function fetchConversationCard(
+      conversationId: string,
+    ): Promise<InboxConversation | null> {
+      const { data } = await supabase
+        .from("conversations")
+        .select(
+          "id, status, last_message_at, assigned_to, contacts(id, display_name, phone_e164, external_id), channels(display_name)",
+        )
+        .eq("id", conversationId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (!data) return null;
+
+      const { data: lastMsg } = await supabase
+        .from("messages")
+        .select("body")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const contact = (data.contacts as InboxConversation["contact"] | null) ?? {
+        id: "unknown",
+        display_name: null,
+        phone_e164: null,
+        external_id: null,
+      };
+      const channel = data.channels as { display_name: string } | null;
+
+      return {
+        id: data.id,
+        status: data.status as InboxConversation["status"],
+        last_message_at: data.last_message_at,
+        assigned_to: data.assigned_to,
+        contact,
+        preview: lastMsg?.body ?? null,
+        channel_name: channel?.display_name ?? null,
+      };
+    }
+
+    function bumpConversation(
+      conversationId: string,
+      patch: Partial<InboxConversation>,
+    ) {
+      setConversations((prev) => {
+        const idx = prev.findIndex((c) => c.id === conversationId);
+        if (idx < 0) return prev;
+        const item = { ...prev[idx], ...patch };
+        const next = [...prev];
+        next.splice(idx, 1);
+        next.unshift(item);
+        return next;
+      });
+    }
+
+    async function ensureConversation(conversationId: string) {
+      const card = await fetchConversationCard(conversationId);
+      if (!card || cancelled) return;
+      setConversations((prev) => {
+        const without = prev.filter((c) => c.id !== card.id);
+        return [card, ...without];
+      });
+    }
+
+    async function refreshList() {
+      const { data: rows } = await supabase
+        .from("conversations")
+        .select(
+          "id, status, last_message_at, assigned_to, contacts(id, display_name, phone_e164, external_id), channels(display_name)",
+        )
+        .eq("tenant_id", tenantId)
+        .order("last_message_at", { ascending: false })
+        .limit(80);
+      if (cancelled || !rows) return;
+
+      const ids = rows.map((r) => r.id);
+      const previewByConv = new Map<string, string | null>();
+      if (ids.length > 0) {
+        const { data: recentMsgs } = await supabase
+          .from("messages")
+          .select("conversation_id, body, created_at")
+          .in("conversation_id", ids)
+          .order("created_at", { ascending: false })
+          .limit(200);
+        for (const m of recentMsgs ?? []) {
+          if (!previewByConv.has(m.conversation_id)) {
+            previewByConv.set(m.conversation_id, m.body);
+          }
+        }
+      }
+
+      const next: InboxConversation[] = rows.map((r) => {
+        const contact =
+          (r.contacts as InboxConversation["contact"] | null) ?? {
+            id: "unknown",
+            display_name: null,
+            phone_e164: null,
+            external_id: null,
+          };
+        const channel = r.channels as { display_name: string } | null;
+        return {
+          id: r.id,
+          status: r.status as InboxConversation["status"],
+          last_message_at: r.last_message_at,
+          assigned_to: r.assigned_to,
+          contact,
+          preview: previewByConv.get(r.id) ?? null,
+          channel_name: channel?.display_name ?? null,
+        };
+      });
+      setConversations(next);
+
+      const openId = selectedIdRef.current;
+      if (openId) {
+        const { data: msgs } = await supabase
+          .from("messages")
+          .select("id, body, direction, sender_type, created_at")
+          .eq("conversation_id", openId)
+          .order("created_at", { ascending: true });
+        if (!cancelled && msgs) {
+          setMessages(msgs as InboxMessage[]);
+        }
+      }
+    }
+
     const channel = supabase
       .channel(`inbox-${tenantId}`)
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "messages",
           filter: `tenant_id=eq.${tenantId}`,
         },
         (payload) => {
-          const row = (payload.new ?? payload.old) as InboxMessage & {
-            conversation_id?: string;
+          const row = payload.new as InboxMessage & {
+            conversation_id: string;
           };
           if (!row?.conversation_id) return;
 
-          if (payload.eventType === "INSERT" && selectedId === row.conversation_id) {
+          if (selectedIdRef.current === row.conversation_id) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === row.id)) return prev;
               return [
@@ -208,17 +341,33 @@ export function InboxWorkspace({
 
           setConversations((prev) => {
             const idx = prev.findIndex((c) => c.id === row.conversation_id);
-            if (idx < 0) return prev;
-            const next = [...prev];
-            const item = { ...next[idx] };
-            if (payload.eventType === "INSERT") {
-              item.preview = row.body;
-              item.last_message_at = row.created_at;
+            if (idx < 0) {
+              void ensureConversation(row.conversation_id);
+              return prev;
             }
+            const item = {
+              ...prev[idx],
+              preview: row.body,
+              last_message_at: row.created_at,
+            };
+            const next = [...prev];
             next.splice(idx, 1);
             next.unshift(item);
             return next;
           });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "conversations",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        (payload) => {
+          const row = payload.new as { id?: string };
+          if (row?.id) void ensureConversation(row.id);
         },
       )
       .on(
@@ -236,26 +385,42 @@ export function InboxWorkspace({
             last_message_at: string | null;
             assigned_to: string | null;
           };
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === row.id
-                ? {
-                    ...c,
-                    status: row.status,
-                    last_message_at: row.last_message_at,
-                    assigned_to: row.assigned_to,
-                  }
-                : c,
-            ),
-          );
+          bumpConversation(row.id, {
+            status: row.status,
+            last_message_at: row.last_message_at,
+            assigned_to: row.assigned_to,
+          });
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (cancelled) return;
+        if (status === "SUBSCRIBED") {
+          setLiveState("live");
+          if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+          }
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setLiveState("polling");
+          if (!pollTimer) {
+            pollTimer = setInterval(() => {
+              void refreshList();
+            }, 5000);
+          }
+        }
+      });
+
+    // Safety net: soft poll even when live (covers missed inserts / RLS quirks)
+    pollTimer = setInterval(() => {
+      void refreshList();
+    }, 8000);
 
     return () => {
+      cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
       void supabase.removeChannel(channel);
     };
-  }, [tenantId, selectedId]);
+  }, [tenantId]);
 
   async function selectConversation(id: string) {
     setSelectedId(id);
@@ -292,6 +457,11 @@ export function InboxWorkspace({
               <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-muted">
                 <span className="live-dot size-1.5 rounded-full bg-[#1f9d55]" />
                 {counts.active} ativas
+                {liveState === "live"
+                  ? " · ao vivo"
+                  : liveState === "polling"
+                    ? " · atualizando"
+                    : " · conectando…"}
               </p>
             </div>
           </div>
