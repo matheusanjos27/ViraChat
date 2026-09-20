@@ -1,0 +1,1948 @@
+Preciso criar uma estrutura de sistema de whatsapp para capitação de leads, vendas clientes de todos os ramos de atividades,para venda de segurança do trabalho e Medicina com vendas de PGR PCMSO LTCAT risco psicossocial e-social PPP treinamento de NR 6 NR 10 NR 12 NR 18 NR 23 NR 33 NR 35 com atendimento por resposta escrita e também por voz com solicitação dos dados cadastrais como, nome da empresa endereço telefone fixo whatsapp e-mail CNPJ inscrição estadual, no do responsável CPF endereço qual o ramo de atividades quantos colaboradores.
+Fazer orçamento automática com valores mensal.
+
+Sim. Dá para estruturar um sistema comercial completo pelo WhatsApp, funcionando como um pré-vendedor: capta o lead, identifica o ramo, coleta os dados cadastrais, identifica quais serviços de SST/Medicina do Trabalho são necessários, calcula um orçamento mensal automático e encaminha para um vendedor quando necessário.
+
+A estrutura abaixo pode ser usada para a KM SAFETY – Assessoria Técnica de Medicina e Segurança do Trabalho.
+
+1. Estrutura geral do sistema
+6
+
+Fluxo:
+
+Anúncio / Google / Instagram / indicação
+↓
+WhatsApp
+↓
+Robô de atendimento
+↓
+Identificação da empresa
+↓
+Cadastro
+↓
+Ramo de atividade
+↓
+Quantidade de colaboradores
+↓
+Levantamento dos serviços necessários
+↓
+Cálculo automático
+↓
+Proposta mensal
+↓
+Aprovação
+↓
+Vendedor/consultor
+↓
+Contrato
+↓
+Implantação
+↓
+Pós-venda e renovação
+
+2. Menu inicial do WhatsApp
+
+Quando o cliente entrar no WhatsApp:
+
+Mensagem inicial
+
+Olá! 👋 Seja bem-vindo à KM SAFETY – Medicina e Segurança do Trabalho.
+
+Somos especializados em Segurança do Trabalho, Medicina Ocupacional, treinamentos e atendimento às exigências do eSocial.
+
+Vou fazer algumas perguntas rápidas para entender a sua empresa e preparar uma proposta personalizada.
+
+Como posso ajudar?
+
+1️⃣ Quero fazer um orçamento
+2️⃣ Já sou cliente
+3️⃣ Preciso regularizar minha empresa
+4️⃣ Preciso de treinamentos
+5️⃣ Preciso de exames ocupacionais
+6️⃣ Preciso de documentos de Segurança do Trabalho
+7️⃣ Falar com um consultor
+
+3. Captação dos dados da empresa
+
+Depois que o cliente escolher 1 – Quero fazer um orçamento, o sistema começa a qualificação.
+
+Cadastro da empresa
+
+Perfeito! Para preparar seu orçamento, preciso cadastrar alguns dados da empresa.
+
+Pode responder uma pergunta por vez.
+
+🏢 1. Qual é o nome da empresa?
+
+Depois:
+
+📍 2. Qual é o endereço completo da empresa?
+
+📞 3. Qual é o telefone fixo?
+
+📱 4. Qual é o WhatsApp da empresa?
+
+📧 5. Qual é o e-mail?
+
+🧾 6. Qual é o CNPJ?
+
+🏛️ 7. Qual é a Inscrição Estadual?
+
+👤 8. Qual é o nome do responsável pela empresa?
+
+🪪 9. CPF do responsável?
+
+🏠 10. Endereço do responsável?
+
+🏭 11. Qual é o ramo de atividade da empresa?
+
+👷 12. Quantos colaboradores a empresa possui atualmente?
+
+Se possuir mais de uma unidade, informe também quantas unidades existem.
+
+O sistema deve validar automaticamente:
+
+CNPJ;
+CPF;
+e-mail;
+telefone;
+CEP;
+quantidade de funcionários;
+endereço.
+4. Perguntas inteligentes sobre a atividade
+
+Aqui está uma parte muito importante.
+
+O sistema não deve simplesmente perguntar:
+
+"Quais documentos você precisa?"
+
+Muitos empresários não sabem quais documentos precisam.
+
+O robô deve descobrir isso através do ramo e das características da empresa.
+
+Por exemplo:
+
+Cliente:
+"Tenho uma empresa de construção com 35 funcionários."
+
+O sistema pergunta:
+
+Existem trabalhadores em obra?
+Há trabalho em altura?
+Há utilização de andaimes?
+Há máquinas e equipamentos?
+Há eletricistas?
+Há trabalho em espaço confinado?
+Há exposição a agentes químicos?
+Há exposição a ruído?
+Há movimentação de cargas?
+Existem trabalhadores terceirizados?
+Existe PGR atualmente?
+Existe PCMSO?
+Os eventos de SST do eSocial estão sendo enviados?
+Possui LTCAT?
+Possui PPP?
+Já realizou avaliação de riscos psicossociais?
+
+Com essas respostas, o sistema monta uma matriz de necessidades.
+
+5. Serviços que o sistema deve vender
+
+Eu estruturaria o catálogo em grupos.
+
+📋 Documentação de Segurança
+PGR
+Inventário de Riscos
+Plano de Ação
+LTCAT
+PPP
+Laudos técnicos
+Avaliações ambientais
+Avaliação de agentes físicos
+Avaliação de agentes químicos
+Avaliação de agentes biológicos
+Avaliação ergonômica
+AET, quando aplicável
+Riscos psicossociais
+Gestão de documentos
+🩺 Medicina Ocupacional
+PCMSO
+ASO admissional
+ASO periódico
+ASO demissional
+ASO de retorno ao trabalho
+ASO de mudança de risco/função
+Exames clínicos
+Audiometria
+Acuidade visual
+Espirometria
+ECG
+EEG
+Raio-X
+Exames laboratoriais
+Outros exames complementares conforme necessidade
+💻 eSocial SST
+S-2210
+S-2220
+S-2240
+Transmissão/gestão dos eventos
+Correções
+Acompanhamento
+Gestão das informações de SST
+🎓 Treinamentos
+NR-06 – EPI
+NR-10 – Segurança em Instalações Elétricas
+NR-12 – Máquinas e Equipamentos
+NR-18 – Construção
+NR-23 – Proteção Contra Incêndios
+NR-33 – Espaços Confinados
+NR-35 – Trabalho em Altura
+
+E posteriormente acrescentar outras NRs conforme o catálogo da empresa.
+
+6. Motor de orçamento automático
+
+Essa é a parte que transforma o WhatsApp em vendedor automático.
+
+O sistema deve ter uma tabela de preços configurável.
+
+Por exemplo:
+
+Serviço	Forma de cobrança
+Gestão SST	mensal
+PGR	implantação/anual
+PCMSO	implantação/anual
+eSocial SST	mensal
+LTCAT	implantação
+PPP	por emissão/gestão
+ASO	por exame
+Treinamento NR	por turma
+Risco psicossocial	avaliação/projeto
+Exames complementares	por exame
+
+Importante: eu não colocaria preços diretamente no código do robô.
+
+Criaria uma tabela de preços administrativa, para você poder alterar os valores sem precisar contratar um programador.
+
+7. Exemplo do cálculo
+
+Imagine uma empresa com:
+
+Ramo: comércio
+Funcionários: 20
+
+O sistema identifica:
+
+PGR
+PCMSO
+Gestão de SST
+eSocial
+ASOs
+treinamentos aplicáveis
+
+Então calcula:
+
+Implantação
+
+PGR: R$ X
+PCMSO: R$ X
+LTCAT: R$ X
+Implantação eSocial: R$ X
+
+Mensalidade
+
+Gestão SST: R$ X
+eSocial: R$ X
+Gestão PCMSO: R$ X
+
+Exames
+
+Cobrança conforme utilização.
+
+O cliente recebe:
+
+Orçamento automático
+
+📊 PROPOSTA COMERCIAL – KM SAFETY
+
+🏢 Empresa: [NOME DA EMPRESA]
+
+👷 Colaboradores: [QUANTIDADE]
+
+🏭 Atividade: [RAMO]
+
+Serviços recomendados
+
+✅ PGR
+✅ PCMSO
+✅ Gestão de SST
+✅ eSocial SST
+✅ LTCAT
+✅ PPP
+✅ Gestão dos exames ocupacionais
+
+Investimento
+
+💰 Implantação: R$ [VALOR]
+
+📅 Mensalidade: R$ [VALOR/MÊS]
+
+🩺 Exames ocupacionais: conforme utilização/tabela contratada.
+
+A proposta considera as informações fornecidas durante o atendimento.
+
+Deseja:
+
+1️⃣ Contratar agora
+2️⃣ Falar com um consultor
+3️⃣ Alterar a proposta
+4️⃣ Receber a proposta completa em PDF
+
+8. Sistema de orçamento por faixas
+
+Para facilitar a automação, podemos criar uma fórmula baseada no número de colaboradores.
+
+Por exemplo:
+
+0–10 colaboradores
+Plano inicial
+
+11–20
+Plano empresarial
+
+21–50
+Plano empresarial +
+
+51–100
+Plano corporativo
+
+101–250
+Plano corporativo +
+
+251–500
+Plano avançado
+
+500+
+Orçamento personalizado
+
+Mas o preço não deve depender somente do número de funcionários.
+
+Uma fórmula melhor seria:
+
+Mensalidade = Base + colaboradores + complexidade + serviços contratados
+
+Por exemplo:
+
+Mensalidade = Plano base + fator de colaboradores + fator de risco + serviços adicionais
+
+Assim, uma empresa administrativa com 100 funcionários não necessariamente terá o mesmo preço que uma obra com 100 funcionários e diversas exposições ocupacionais.
+
+9. Classificação automática do lead
+
+O CRM pode classificar automaticamente:
+
+🔴 Lead quente
+quer contratar;
+pediu proposta;
+possui problema urgente;
+precisa regularizar;
+possui fiscalização;
+quer falar com vendedor.
+🟡 Lead morno
+pediu orçamento;
+está pesquisando;
+quer comparar valores;
+ainda não informou todos os dados.
+🔵 Lead frio
+apenas solicitou informações;
+não possui urgência;
+não respondeu ao atendimento.
+
+Isso permite que a equipe comercial saiba quem atender primeiro, sem o robô tomar a decisão comercial pelo vendedor.
+
+10. Atendimento por texto e voz
+
+Você pediu algo particularmente interessante: atendimento escrito e também por voz.
+
+A arquitetura pode ser:
+
+WhatsApp
+→ mensagem de texto
+→ IA responde por texto
+
+ou
+
+WhatsApp
+→ cliente envia áudio
+→ sistema transforma áudio em texto
+→ IA interpreta
+→ sistema consulta CRM
+→ sistema responde por texto
+
+E também:
+
+Cliente pede:
+"Pode mandar por áudio?"
+
+O sistema pode gerar uma resposta de voz.
+
+Exemplo:
+
+"Claro. Vou explicar rapidamente como funciona..."
+
+Isso cria uma experiência muito mais humana.
+
+11. Transferência para vendedor humano
+
+O robô não precisa tentar vender tudo sozinho.
+
+Em determinados momentos:
+
+IA → Consultor
+
+Por exemplo:
+
+"Entendi. Sua empresa possui 87 funcionários, trabalha com máquinas, possui atividade em altura e precisa regularizar o eSocial. Vou encaminhar seu atendimento para um de nossos consultores preparar a proposta definitiva."
+
+O vendedor recebe no CRM:
+
+LEAD #000184
+
+Empresa: ABC Construções Ltda.
+CNPJ: XXXXX
+Responsável: João
+WhatsApp: XXXXX
+Funcionários: 87
+Atividade: Construção Civil
+
+Necessidades identificadas:
+
+☑ PGR
+☑ PCMSO
+☑ LTCAT
+☑ eSocial
+☑ NR-06
+☑ NR-10
+☑ NR-12
+☑ NR-18
+☑ NR-35
+☑ Avaliação psicossocial
+
+Valor estimado: R$ X/mês
+
+O vendedor entra na conversa já sabendo praticamente tudo.
+
+12. Follow-up automático
+
+Se o cliente recebeu orçamento e não respondeu:
+
+Depois de 1 dia
+
+Olá, [nome]. Tudo bem? Passando para saber se conseguiu analisar a proposta da KM SAFETY.
+
+Depois de 3 dias
+
+[Nome], posso esclarecer alguma dúvida sobre os serviços ou ajustar a proposta de acordo com a realidade da sua empresa?
+
+Depois de 7 dias
+
+Olá, [nome]. Estamos entrando em contato para saber se podemos ajudá-lo com a regularização da Segurança e Medicina do Trabalho da [empresa].
+
+O sistema pode parar automaticamente os follow-ups quando o cliente responder.
+
+13. Painel administrativo
+
+Eu criaria um painel semelhante a:
+
+📊 DASHBOARD COMERCIAL
+
+Leads recebidos hoje: 38
+Orçamentos gerados: 24
+Propostas enviadas: 18
+Negociações: 12
+Contratos fechados: 5
+Valor mensal contratado: R$ XX.XXX
+Valor em negociação: R$ XX.XXX
+
+Funil
+
+Novos leads → Qualificados → Orçamento → Proposta → Negociação → Contrato
+
+14. Cadastro dos clientes
+
+Cada empresa teria uma ficha:
+
+EMPRESA
+
+Razão social
+Nome fantasia
+CNPJ
+Inscrição Estadual
+CNAE
+Endereço
+Telefone
+WhatsApp
+E-mail
+Responsável
+CPF
+Quantidade de funcionários
+Ramo de atividade
+Grau de risco
+Unidades
+Serviços contratados
+Data do contrato
+Vencimento
+Valor mensal
+15. Área de documentos
+
+O sistema também pode controlar:
+
+📁 PGR
+📁 PCMSO
+📁 LTCAT
+📁 PPP
+📁 ASOs
+📁 Treinamentos
+📁 Certificados
+📁 Laudos
+📁 eSocial
+📁 Avaliações
+
+E gerar alertas para documentos/exames que estejam próximos do vencimento.
+
+16. Uma função especialmente importante: "Descobrir o que a empresa precisa"
+
+Eu colocaria um botão:
+
+🔎 "FAZER DIAGNÓSTICO GRATUITO"
+
+O WhatsApp pergunta:
+
+Qual é o ramo da empresa?
+
+Quantos funcionários?
+
+Possui trabalho em altura?
+
+Possui eletricistas?
+
+Utiliza máquinas?
+
+Possui produtos químicos?
+
+Possui espaço confinado?
+
+Possui trabalhadores expostos a ruído?
+
+Possui atividades de construção?
+
+Possui PGR?
+
+Possui PCMSO?
+
+Está enviando os eventos de SST ao eSocial?
+
+Possui LTCAT?
+
+Possui PPP?
+
+Já realizou avaliação dos riscos psicossociais?
+
+No final:
+
+"Com base nas informações fornecidas, identificamos os seguintes pontos para avaliação..."
+
+E então gera a oportunidade comercial.
+
+Isso é muito mais poderoso do que simplesmente oferecer uma lista de produtos.
+
+17. Estrutura técnica que eu recomendo
+
+A arquitetura poderia ser:
+
+WhatsApp Business Platform/API
+↓
+Sistema de automação/CRM
+↓
+Motor de IA
+↓
+Banco de dados
+↓
+Motor de orçamento
+↓
+Gerador de proposta PDF
+↓
+Assinatura eletrônica
+↓
+Sistema de gestão SST
+↓
+Equipe KM SAFETY
+
+O banco de dados precisa guardar, entre outras coisas:
+
+LEAD
+EMPRESA
+CNPJ
+RESPONSÁVEL
+CPF
+ENDEREÇO
+TELEFONE
+WHATSAPP
+E-MAIL
+RAMO
+CNAE
+COLABORADORES
+GRAU_DE_RISCO
+UNIDADES
+SERVIÇOS_NECESSÁRIOS
+SERVIÇOS_CONTRATADOS
+VALOR_IMPLANTAÇÃO
+VALOR_MENSAL
+STATUS
+VENDEDOR
+DATA_DO_LEAD
+DATA_DA_PROPOSTA
+DATA_DO_CONTRATO
+18. A melhor forma de montar isso
+
+Eu faria o projeto em 5 módulos:
+
+MÓDULO 1 — WhatsApp
+
+Captação e atendimento automático.
+
+MÓDULO 2 — CRM
+
+Cadastro e acompanhamento dos leads.
+
+MÓDULO 3 — Diagnóstico SST
+
+Perguntas inteligentes para identificar necessidades.
+
+MÓDULO 4 — Orçamento
+
+Motor que calcula implantação + mensalidade + serviços adicionais.
+
+MÓDULO 5 — Pós-venda
+
+Contrato, documentos, vencimentos, exames, treinamentos e follow-up.
+
+E podemos deixar ainda mais profissional
+
+Posso montar para você o projeto completo do sistema da KM SAFETY, incluindo:
+
+Fluxograma completo do WhatsApp, desde o primeiro "Olá" até a contratação;
+Todas as perguntas que o robô deverá fazer;
+Respostas automáticas prontas para cada situação;
+roteiro específico para atendimento por áudio;
+cadastro completo da empresa e responsável;
+questionário inteligente por ramo de atividade;
+tabela de preços parametrizada;
+fórmula para calcular a mensalidade automaticamente;
+planos Básico, Empresarial, Premium e Corporativo;
+modelo de orçamento enviado pelo WhatsApp;
+modelo de proposta comercial em PDF;
+funil do CRM;
+regras para transferência para vendedor;
+follow-up automático;
+painel de indicadores comerciais;
+estrutura do banco de dados;
+estrutura técnica para o programador desenvolver o sistema.
+
+Se você me passar os valores que pretende cobrar por PGR, PCMSO, LTCAT, eSocial, gestão mensal, ASO, exames e cada treinamento de NR, eu também consigo montar a tabela de preços + fórmula de orçamento automático, de modo que o sistema já saiba calcular o valor mensal de cada empresa conforme ramo + quantidade de funcionários + riscos + serviços contratados.
+
+Perfeito. Com esses valores, já podemos transformar a tabela comercial da KM SAFETY em uma tabela parametrizada para o orçamento automático do WhatsApp.
+
+Também vou considerar uma regra importante: treinamento e serviços devem ser ofertados conforme a necessidade identificada para a atividade e os riscos da empresa, e não simplesmente vendidos indiscriminadamente. As NRs são obrigações de SST e existem requisitos específicos para cada atividade.
+
+1. Tabela de preços inicial da KM SAFETY
+Serviço	Valor	Mínimo	Cobrança
+PCMSO	R$ 8,90/vida	R$ 100,00	Mensal
+PGR	R$ 10,00/vida	R$ 100,00	Mensal
+LTCAT	R$ 12,00/vida	R$ 150,00	Conforme contratação
+Risco Psicossocial	R$ 15,00/vida	R$ 100,00	Mensal
+ASO	R$ 8,00/vida	—	Por exame
+NR-06	R$ 120,00/vida	5 pessoas	Por treinamento
+NR-10 Básico	R$ 350,00/vida	5 pessoas	Por treinamento
+NR-18	R$ 120,00/vida	5 pessoas	Por treinamento
+NR-23	R$ 150,00/vida	5 pessoas	Por treinamento
+NR-33	R$ 180,00/vida	5 pessoas	Por treinamento
+NR-35	R$ 150,00/vida	5 pessoas	Por treinamento
+Outras NRs	Consultar	—	Orçamento
+
+As NRs listadas correspondem, entre outras, a EPI (NR-06), eletricidade (NR-10), construção (NR-18), incêndio (NR-23), espaço confinado (NR-33) e trabalho em altura (NR-35).
+
+Atenção à NR-35
+
+Há uma atualização muito recente: em setembro de 2026, o Ministério do Trabalho informou que os treinamentos inicial, periódico e eventual previstos na NR-35 passam a ser presenciais, com regras de transição para treinamentos que vinham sendo realizados em modalidade híbrida. Portanto, eu não colocaria NR-35 como EAD puro no sistema neste momento.
+
+2. Fórmula que o sistema deve usar
+
+Para serviços por vida com mínimo:
+
+Valor = maior entre (número de colaboradores × preço por vida) e preço mínimo.
+
+Exemplo: empresa com 5 funcionários
+
+PCMSO
+
+5 × R$ 8,90 = R$ 44,50
+
+Como o mínimo é R$ 100:
+
+PCMSO = R$ 100/mês
+
+PGR
+
+5 × R$ 10 = R$ 50
+
+Mínimo = R$ 100
+
+PGR = R$ 100
+
+LTCAT
+
+5 × R$ 12 = R$ 60
+
+Mínimo = R$ 150
+
+LTCAT = R$ 150
+
+Risco psicossocial
+
+5 × R$ 15 = R$ 75
+
+Mínimo = R$ 100
+
+Risco psicossocial = R$ 100/mês
+
+3. Exemplo para 20 funcionários
+PCMSO
+
+20 × R$ 8,90 = R$ 178,00/mês
+
+PGR
+
+20 × R$ 10 = R$ 200,00/mês
+
+LTCAT
+
+20 × R$ 12 = R$ 240,00
+
+Risco psicossocial
+
+20 × R$ 15 = R$ 300,00/mês
+
+Total recorrente
+
+PCMSO: R$ 178
+PGR: R$ 200
+Risco psicossocial: R$ 300
+
+Total mensal = R$ 678,00
+
+LTCAT ficaria separado como serviço contratado conforme sua regra comercial.
+
+4. Treinamentos
+
+Aqui o cálculo será diferente.
+
+Você estabeleceu mínimo de 5 pessoas por treinamento.
+
+Portanto:
+
+NR-06
+
+R$ 120 × número de participantes
+
+Com mínimo de 5:
+
+5 × R$ 120 = R$ 600
+
+NR-10 Básico
+
+5 × R$ 350 = R$ 1.750
+
+NR-18
+
+5 × R$ 120 = R$ 600
+
+NR-23
+
+5 × R$ 150 = R$ 750
+
+NR-33
+
+5 × R$ 180 = R$ 900
+
+NR-35
+
+5 × R$ 150 = R$ 750
+
+O sistema pode mostrar automaticamente:
+
+Mínimo de 5 participantes por turma.
+
+5. O orçamento automático ficará muito mais inteligente
+
+Por exemplo, o cliente informa:
+
+Empresa: ABC Manutenção
+Funcionários: 30
+Atividade: manutenção industrial
+
+O robô não deve simplesmente apresentar todos os treinamentos.
+
+Ele deve perguntar:
+
+A empresa possui trabalhadores que executam serviços em instalações elétricas?
+
+Se sim:
+
+NR-10 → incluir no orçamento
+
+Depois:
+
+Os trabalhadores realizam atividades acima de 2 metros com risco de queda?
+
+Se sim:
+
+NR-35 → incluir no orçamento, observando a modalidade exigida pela regulamentação vigente.
+
+Depois:
+
+Existem máquinas e equipamentos utilizados pelos trabalhadores?
+
+Se sim:
+
+avaliar necessidade relacionada à NR-12.
+
+Depois:
+
+Existem espaços confinados?
+
+Se sim:
+
+NR-33.
+
+Assim o orçamento fica personalizado por atividade e risco.
+
+6. Cadastro de preços no sistema
+
+Eu recomendo que o programador crie uma tabela semelhante a esta:
+
+SERVICO             VALOR_VIDA    MINIMO    TIPO_COBRANCA
+
+PCMSO               8,90          100,00    MENSAL
+PGR                 10,00         100,00    MENSAL
+LTCAT               12,00         150,00    SERVICO
+RISCO_PSICOSSOCIAL  15,00         100,00    MENSAL
+ASO                 8,00          0,00      POR_EXAME
+
+NR06                120,00        5         TREINAMENTO
+NR10                350,00        5         TREINAMENTO
+NR18                120,00        5         TREINAMENTO
+NR23                150,00        5         TREINAMENTO
+NR33                180,00        5         TREINAMENTO
+NR35                150,00        5         TREINAMENTO
+
+E deixar NR-12 e demais NRs como "CONSULTAR" até você definir os preços.
+
+7. Uma correção importante no conceito de ASO
+
+Eu cadastraria o ASO no sistema como:
+
+ASO – R$ 8,00 por exame/atendimento
+
+E o sistema perguntaria o tipo:
+
+Admissional
+Periódico
+Demissional
+Retorno ao trabalho
+Mudança de risco ocupacional
+
+Em vez de tratar como uma mensalidade fixa por trabalhador.
+
+Isso permite que o CRM calcule corretamente a utilização.
+
+8. Como o WhatsApp apresentará a proposta
+
+Depois de fazer o diagnóstico, ele pode responder:
+
+Proposta automática
+
+📊 PROPOSTA KM SAFETY
+
+Olá, [NOME].
+
+Com base nas informações fornecidas sobre a empresa [EMPRESA], com [NÚMERO] colaboradores, identificamos os seguintes serviços para avaliação/contratação:
+
+🩺 MEDICINA OCUPACIONAL
+
+✅ PCMSO
+[X] colaboradores × R$ 8,90
+
+💰 Mensalidade: R$ [VALOR]
+
+🦺 SEGURANÇA DO TRABALHO
+
+✅ PGR
+[X] colaboradores × R$ 10,00
+
+💰 Mensalidade: R$ [VALOR]
+
+📋 LAUDOS
+
+✅ LTCAT
+
+💰 Valor: R$ [VALOR]
+
+🧠 RISCOS PSICOSSOCIAIS
+
+[X] colaboradores × R$ 15,00
+
+💰 Mensalidade: R$ [VALOR]
+
+🎓 TREINAMENTOS
+
+Conforme os riscos identificados:
+
+✅ NR-06 — R$ 120,00/participante
+✅ NR-10 — R$ 350,00/participante
+✅ NR-18 — R$ 120,00/participante
+✅ NR-23 — R$ 150,00/participante
+✅ NR-33 — R$ 180,00/participante
+✅ NR-35 — R$ 150,00/participante
+
+Treinamentos com mínimo de 5 participantes, observadas as exigências de modalidade aplicáveis a cada NR.
+
+💰 RESUMO
+
+📅 Serviços mensais: R$ [VALOR]
+
+📋 Serviços de implantação/laudos: R$ [VALOR]
+
+🎓 Treinamentos: R$ [VALOR]
+
+🩺 ASOs: R$ 8,00 por atendimento/exame
+
+Deseja receber a proposta completa em PDF?
+
+1️⃣ SIM, enviar proposta
+2️⃣ Quero falar com um consultor
+3️⃣ Quero alterar os serviços
+4️⃣ Quero contratar
+
+9. E eu sugiro acrescentar uma regra comercial
+
+O sistema deve separar claramente:
+
+MENSALIDADE RECORRENTE
+
+PCMSO
+PGR
+Risco psicossocial
+eSocial, quando incluído no plano
+
+SERVIÇOS AVULSOS
+
+LTCAT
+ASO
+exames complementares
+PPP
+treinamentos
+outros laudos
+
+Isso evita que o cliente confunda R$ 678/mês, por exemplo, com o valor total de implantação.
+
+Próximo passo
+
+Com os preços que você acabou de passar, já temos a primeira tabela do motor de orçamento.
+
+O próximo passo que eu recomendo é eu montar para você a Tabela Mestra de Preços da KM SAFETY, com todas as NRs de 1 a 38, incluindo:
+
+preço por pessoa;
+mínimo por turma;
+presencial/EAD quando permitido;
+preço para empresa;
+preço para reciclagem;
+preço para treinamento individual;
+PGR;
+PCMSO;
+LTCAT;
+PPP;
+eSocial;
+ASO;
+exames;
+risco psicossocial;
+mensalidade;
+implantação;
+adicionais por unidade;
+e as regras para o robô decidir automaticamente qual serviço oferecer para cada ramo de atividade.
+
+Isso permitirá transformar essa tabela diretamente em uma planilha/base de dados para o sistema de WhatsApp e CRM.
+
+Fontes
+Pode fazer da seguinte forma, os valores por vida pode começar quando uma empresa tenha acima de 15 colaboradores, menos que isso fazer o orçamento com valor fixo mensal, mas fazer todas as perguntas e depois fazer as respostas como se fosse um humano respondendo ou falando até o fechamento e trazer leads de todas empresas de diversos ramos de atividades e fazer a venda até o fechamento com todas as perguntas e respostas e orçamento 
+
+Sim. A melhor estrutura é fazer o WhatsApp funcionar como um consultor comercial virtual da KM SAFETY, conduzindo o cliente desde o primeiro contato até a contratação, mas com linguagem natural — sem parecer um robô de menu.
+
+A regra comercial que você definiu fica assim:
+
+Regra principal de preço
+
+Até 15 colaboradores: preço fixo mensal, definido por plano/atividade.
+
+Acima de 15 colaboradores: cálculo por vida, usando os valores que você passou.
+
+Exemplo:
+
+10 funcionários → preço fixo mensal
+15 funcionários → preço fixo mensal
+16 funcionários → passa para cálculo por vida
+30 funcionários → cálculo por vida
+100 funcionários → cálculo por vida
+
+O sistema primeiro faz todo o diagnóstico e só depois apresenta o preço.
+
+1. O fluxo completo
+6
+
+CAPTAÇÃO
+
+Anúncios / Google / Instagram / site / indicação / prospecção
+
+↓
+
+WHATSAPP
+
+"Olá, quero orçamento"
+
+↓
+
+IA COMERCIAL
+
+Conversa natural
+
+↓
+
+CADASTRO
+
+Empresa + responsável
+
+↓
+
+DIAGNÓSTICO
+
+Ramo + funcionários + riscos + documentos existentes
+
+↓
+
+IDENTIFICAÇÃO DA NECESSIDADE
+
+PGR / PCMSO / LTCAT / eSocial / PPP / psicossocial / treinamentos / exames
+
+↓
+
+ORÇAMENTO
+
+Até 15 → preço fixo
+Acima de 15 → preço por vida
+
+↓
+
+NEGOCIAÇÃO
+
+IA responde dúvidas
+
+↓
+
+FECHAMENTO
+
+"Vamos contratar"
+
+↓
+
+CONTRATO
+
+↓
+
+PAGAMENTO
+
+↓
+
+ONBOARDING
+
+↓
+
+PÓS-VENDA
+
+2. O mais importante: não começar vendendo
+
+Quando alguém entrar no WhatsApp, a IA deve conversar naturalmente.
+
+Por exemplo:
+
+Primeiro atendimento
+
+Olá! Tudo bem? 😊
+
+Sou da KM SAFETY – Medicina e Segurança do Trabalho.
+
+Posso te ajudar com a regularização da sua empresa, documentos de Segurança do Trabalho, Medicina Ocupacional, eSocial e treinamentos.
+
+Para eu entender exatamente o que sua empresa precisa e preparar um orçamento correto, posso fazer algumas perguntas rápidas?
+
+É bem simples e leva poucos minutos.
+
+Se o cliente disser:
+
+"Pode."
+
+Continua:
+
+Identificação do cliente
+
+Perfeito. Vamos começar.
+
+Qual é o seu nome e qual é o nome da empresa?
+
+3. Cadastro completo
+
+Depois:
+
+Cadastro empresarial
+
+Obrigado, [NOME].
+
+Agora vou cadastrar os dados da empresa para deixar seu orçamento completo.
+
+🏢 Razão social:
+🏷️ Nome fantasia:
+🧾 CNPJ:
+🏛️ Inscrição Estadual:
+📍 Endereço completo:
+📞 Telefone fixo:
+📱 WhatsApp:
+📧 E-mail:
+
+E agora os dados do responsável:
+
+👤 Nome completo:
+🪪 CPF:
+🏠 Endereço:
+
+Qual é o ramo de atividade da empresa?
+
+E quantos colaboradores vocês têm atualmente?
+
+O sistema deve guardar tudo automaticamente no CRM.
+
+4. Diagnóstico inteligente
+
+Aqui está a parte que vai diferenciar seu sistema de um simples chatbot.
+
+Depois de saber a atividade, ele adapta as perguntas.
+
+Por exemplo:
+
+Empresa administrativa
+
+Perguntas sobre:
+
+quantidade de funcionários;
+PGR;
+PCMSO;
+exames;
+eSocial;
+riscos ergonômicos;
+riscos psicossociais;
+LTCAT;
+PPP.
+Construção civil
+
+Além das anteriores:
+
+trabalho em altura;
+máquinas;
+eletricidade;
+andaimes;
+escavações;
+espaços confinados;
+atividades em obra;
+EPIs;
+treinamentos.
+Indústria
+
+Pergunta:
+
+máquinas;
+produtos químicos;
+ruído;
+calor;
+eletricidade;
+trabalho em altura;
+espaços confinados;
+movimentação de cargas;
+EPIs.
+Restaurante
+
+Pergunta sobre:
+
+cozinha;
+calor;
+gás;
+equipamentos;
+produtos químicos;
+limpeza;
+ergonomia;
+exames;
+PGR;
+PCMSO;
+eSocial.
+Transportadora
+
+Pergunta sobre:
+
+motoristas;
+ajudantes;
+carga e descarga;
+veículos;
+exposição a ruído;
+produtos perigosos;
+trabalho em altura;
+movimentação de cargas.
+
+Ou seja:
+
+O ramo determina as perguntas seguintes.
+
+5. Perguntas universais
+
+Independentemente do ramo, o sistema deve perguntar:
+
+Diagnóstico de segurança
+
+Agora vou fazer algumas perguntas sobre a rotina da empresa para identificar quais serviços são realmente necessários.
+
+A empresa já possui PGR?
+Possui PCMSO?
+Possui LTCAT?
+Possui PPP?
+Os eventos de SST do eSocial estão sendo enviados?
+Possui ASOs atualizados?
+Os colaboradores possuem treinamentos de Segurança do Trabalho?
+Existem trabalhadores que utilizam EPI?
+Existem atividades com máquinas e equipamentos?
+Existem atividades com eletricidade?
+Existem atividades em altura?
+Existem espaços confinados?
+Existem produtos químicos?
+Existe exposição a ruído?
+Existe exposição a calor?
+Existem atividades com esforço físico ou fatores ergonômicos?
+A empresa possui mais de uma unidade?
+Já recebeu fiscalização ou possui alguma pendência de SST?
+
+Pode responder simplesmente "sim", "não" ou explicar um pouco mais. Eu vou organizando as informações para você.
+
+6. A IA entende respostas naturais
+
+O cliente não precisa responder seguindo formulário.
+
+Por exemplo:
+
+Cliente:
+
+"Tenho 27 funcionários, somos uma metalúrgica, temos máquinas, solda, alguns funcionários trabalham em altura e temos dois eletricistas."
+
+A IA interpreta:
+
+27 colaboradores
+
+Metalurgia
+
+Possíveis necessidades a avaliar:
+
+PGR
+PCMSO
+LTCAT
+eSocial
+PPP
+riscos físicos/químicos
+máquinas
+eletricidade
+trabalho em altura
+treinamentos aplicáveis
+
+E continua naturalmente:
+
+Resposta natural da IA
+
+Entendi. 👍
+
+Então vocês têm 27 colaboradores, trabalham com metalurgia, possuem máquinas, atividades de solda, dois eletricistas e também existe trabalho em altura.
+
+Nesse caso, vou considerar essas informações no diagnóstico porque elas podem alterar tanto a documentação necessária quanto os treinamentos aplicáveis.
+
+Só preciso confirmar mais algumas coisas.
+
+Os trabalhadores que fazem atividades em altura utilizam algum sistema de proteção contra quedas?
+
+E os eletricistas trabalham diretamente em instalações elétricas energizadas ou próximas a instalações elétricas?
+
+7. Regra dos 15 colaboradores
+
+Depois de terminar o diagnóstico:
+
+Empresa com 15 ou menos
+
+O sistema não calcula por vida.
+
+Ele consulta:
+
+Tabela de preços fixos por plano/atividade.
+
+Exemplo:
+
+Empresa com 8 funcionários → Plano Pequena Empresa = R$ XXX/mês.
+
+O valor desse plano ainda precisa ser definido por você.
+
+Empresa com mais de 15
+
+O sistema calcula automaticamente:
+
+PCMSO
+
+colaboradores × R$ 8,90
+
+PGR
+
+colaboradores × R$ 10,00
+
+LTCAT
+
+colaboradores × R$ 12,00, respeitando mínimo de R$ 150.
+
+Risco psicossocial
+
+colaboradores × R$ 15,00, respeitando mínimo de R$ 100/mês.
+
+8. Exemplo real de orçamento
+
+Empresa:
+
+32 colaboradores
+
+Serviços identificados:
+
+PCMSO
+PGR
+LTCAT
+Risco psicossocial
+
+Cálculo
+
+PCMSO:
+
+32 × 8,90 = R$ 284,80/mês
+
+PGR:
+
+32 × 10 = R$ 320,00/mês
+
+LTCAT:
+
+32 × 12 = R$ 384,00
+
+Risco psicossocial:
+
+32 × 15 = R$ 480,00/mês
+
+Recorrente
+
+R$ 284,80 + R$ 320 + R$ 480
+
+R$ 1.084,80/mês
+
+LTCAT
+
+R$ 384,00
+
+Depois entram, se necessários:
+
+ASOs;
+exames complementares;
+treinamentos;
+outros laudos;
+outros serviços.
+9. Apresentação do orçamento
+
+A IA não deve simplesmente jogar uma tabela na conversa.
+
+Ela deve "vender" o resultado.
+
+Apresentação da proposta
+
+Perfeito, [NOME].
+
+Terminei o levantamento das informações da [EMPRESA].
+
+Pelo ramo de atividade, quantidade de colaboradores e atividades que você me informou, conseguimos montar uma proposta específica para a realidade da empresa.
+
+📋 Gestão de Segurança e Medicina
+
+🩺 PCMSO
+32 vidas × R$ 8,90
+R$ 284,80/mês
+
+🦺 PGR
+32 vidas × R$ 10,00
+R$ 320,00/mês
+
+🧠 Gestão de riscos psicossociais
+32 vidas × R$ 15,00
+R$ 480,00/mês
+
+📑 LTCAT
+
+32 vidas × R$ 12,00
+R$ 384,00
+
+💰 Investimento mensal
+
+R$ 1.084,80/mês
+
+O LTCAT será cobrado separadamente conforme a contratação.
+
+Os ASOs e exames complementares são cobrados conforme utilização.
+
+Também identifiquei a necessidade de avaliarmos os treinamentos aplicáveis aos trabalhadores.
+
+Se você quiser, posso montar agora a proposta completa e encaminhar para aprovação.
+
+Posso preparar?
+
+10. O cliente pergunta: "Está caro"
+
+A IA não deve ficar defensiva.
+
+Objeção de preço
+
+Entendo você. 👍
+
+Antes de reduzir qualquer coisa, posso verificar se existe alguma forma de adequar a proposta ao que a empresa realmente precisa.
+
+Posso revisar os serviços que foram incluídos e separar:
+
+✅ o que é necessário para a situação informada;
+
+📋 o que pode ser contratado posteriormente;
+
+🎓 os treinamentos que podem ser programados;
+
+🩺 os exames que serão cobrados somente quando realizados.
+
+Assim conseguimos evitar que você pague por um serviço que não seja necessário neste momento.
+
+Quer que eu faça essa revisão?
+
+11. Cliente pergunta: "E se eu fechar hoje?"
+
+A IA pode responder:
+
+Fechamento
+
+Claro. 😊
+
+Se estiver de acordo com a proposta, posso encaminhar seu cadastro para a etapa de contratação.
+
+Vou confirmar apenas:
+
+🏢 Empresa: [EMPRESA]
+
+👤 Responsável: [NOME]
+
+📱 WhatsApp: [NÚMERO]
+
+📧 E-mail: [E-MAIL]
+
+👷 Colaboradores: [NÚMERO]
+
+💰 Mensalidade: R$ [VALOR]
+
+📋 Serviços contratados: [SERVIÇOS]
+
+Está tudo correto?
+
+Se estiver, responda SIM e eu encaminho para a contratação.
+
+12. Fechamento efetivo
+
+Depois do SIM:
+
+Confirmação de contratação
+
+Perfeito! 🎉
+
+Recebi sua confirmação.
+
+Vou encaminhar os dados da [EMPRESA] para a etapa de contratação da KM SAFETY.
+
+Você receberá as orientações para assinatura do contrato e pagamento.
+
+Assim que essa etapa for concluída, nossa equipe dará início ao processo de implantação e solicitará os documentos e informações necessários.
+
+Obrigado pela confiança na KM SAFETY! 🤝
+
+13. Quando passar para uma pessoa
+
+A IA deve reconhecer situações que precisam de vendedor/técnico:
+
+TRANSFERIR PARA HUMANO quando:
+
+cliente pedir desconto;
+negociação especial;
+empresa grande;
+mais de uma unidade;
+risco complexo;
+obra;
+indústria complexa;
+dúvida técnica;
+fiscalização;
+acidente;
+exigência específica;
+reclamação;
+cliente pedir explicitamente um humano;
+contratação de grande volume.
+
+E o vendedor recebe um resumo:
+
+NOVO LEAD QUENTE
+
+Empresa: ABC Metalúrgica
+CNPJ: XXX
+Responsável: João
+87 colaboradores
+Metalúrgica
+
+Necessidades identificadas:
+
+PGR
+PCMSO
+LTCAT
+eSocial
+Risco psicossocial
+NR-06
+NR-10
+NR-12
+NR-35
+
+Proposta estimada: R$ XXXX/mês
+
+Cliente solicitou negociação.
+
+Assim o vendedor não começa a conversa do zero.
+
+14. Captação de leads de diversos ramos
+
+Aqui eu montaria um motor de campanhas, em vez de uma única campanha genérica.
+
+Campanha 1
+
+Construção Civil
+
+Campanha 2
+
+Indústrias
+
+Campanha 3
+
+Metalúrgicas
+
+Campanha 4
+
+Transportadoras
+
+Campanha 5
+
+Comércio
+
+Campanha 6
+
+Restaurantes
+
+Campanha 7
+
+Condomínios
+
+Campanha 8
+
+Prestadores de serviços
+
+Campanha 9
+
+Oficinas
+
+Campanha 10
+
+Logística
+
+Campanha 11
+
+Supermercados
+
+Campanha 12
+
+Clínicas
+
+Campanha 13
+
+Escritórios
+
+Campanha 14
+
+Empresas de manutenção
+
+Campanha 15
+
+Empresas de limpeza
+
+E assim por diante.
+
+Cada campanha leva para o mesmo WhatsApp, mas o sistema identifica a origem do lead.
+
+15. O sistema também pode fazer prospecção
+
+Aqui há uma diferença importante:
+
+Captação de leads pode vir de:
+
+anúncios;
+formulário do site;
+landing page;
+Google;
+redes sociais;
+indicação;
+campanhas;
+contatos que voluntariamente iniciaram conversa.
+
+Para prospecção ativa, o sistema precisa trabalhar com uma fonte de contatos adequada e regras de consentimento/uso de dados. Não é recomendável simplesmente pegar uma lista de telefones e disparar mensagens indiscriminadamente.
+
+A arquitetura comercial pode, entretanto, registrar empresas potenciais e colocar contatos elegíveis em campanhas de prospecção.
+
+16. O CRM deve mostrar isso
+LEADS DE HOJE
+Status	Quantidade
+Novos	43
+Em diagnóstico	28
+Orçamento	19
+Proposta enviada	15
+Negociação	8
+Contratação	5
+Fechados	4
+
+E:
+
+Origem
+
+Google
+Instagram
+Facebook
+Site
+Indicação
+WhatsApp
+Prospecção
+
+Ramo
+
+Construção
+Indústria
+Comércio
+Serviços
+Transporte
+Restaurante
+Condomínio
+etc.
+17. Uma coisa que eu mudaria na sua ideia
+
+Não faria a IA tentar "empurrar" todos os produtos até o fechamento.
+
+Faria ela funcionar como um consultor comercial inteligente:
+
+descobrir → diagnosticar → explicar → orçar → tirar dúvidas → negociar dentro das regras → fechar → encaminhar para implantação.
+
+Isso tende a produzir uma conversa muito mais natural.
+
+E o sistema deve sempre diferenciar:
+
+"serviço identificado para avaliação/necessidade"
+
+de
+
+"serviço efetivamente contratado."
+
+Isso é especialmente importante em SST porque a necessidade de determinado documento, treinamento ou exame depende das características concretas da atividade e dos riscos ocupacionais.
+
+18. O que falta para transformar isso em sistema funcionando
+
+Já temos:
+
+✅ Fluxo comercial
+✅ Cadastro
+✅ Perguntas
+✅ Diagnóstico
+✅ Regra de até 15 funcionários
+✅ Regra acima de 15
+✅ PCMSO
+✅ PGR
+✅ LTCAT
+✅ Psicossocial
+✅ ASO
+✅ NR-06
+✅ NR-10
+✅ NR-18
+✅ NR-23
+✅ NR-33
+✅ NR-35
+✅ Mínimo de 5 pessoas para treinamento
+✅ Orçamento automático
+✅ Objeções
+✅ Fechamento
+✅ Transferência para vendedor
+✅ CRM
+✅ Captação por ramo
+
+O próximo passo é transformar isso em uma especificação de sistema, com uma tabela que diga, para cada ramo de atividade, quais perguntas o WhatsApp fará, quais respostas ativam quais serviços e como o preço será calculado.
+
+Também precisamos definir os valores fixos mensais para empresas de 1 a 15 colaboradores. Sem esses valores, o robô consegue fazer todo o diagnóstico, mas não consegue finalizar automaticamente o orçamento dessas empresas.
+
+Se você me passar, por exemplo, quanto quer cobrar mensalmente para empresas de 1–5, 6–10 e 11–15 funcionários, eu consigo montar a tabela comercial completa e o roteiro de conversa do WhatsApp, já no formato de especificação que um programador poderá transformar diretamente no sistema.
+
+Empresa de 1 a 5 valor R$ 300,00 de 6 a 10 R$ R$400,00 de 11 a 15 R$650,00 pra os seguintes documentos PGR PCMSO LTCAT e social já incluso o admissional Demissional retorno ao Trabalho já incluso, não incluso no valor exames complementares e laboratório medições de ruido dosímetro, calor, químico, vibração treinamento PPP e abertura de CAT entre outros serviços 
+
+Perfeito. Agora temos a estrutura de preços para empresas de até 15 colaboradores e podemos incorporar as exclusões e serviços adicionais ao motor de orçamento.
+
+Tabela comercial base — KM SAFETY
+Empresas com até 15 colaboradores
+Nº de colaboradores	Mensalidade	Inclui
+1 a 5	R$ 300,00/mês	PGR + PCMSO + LTCAT + eSocial + ASO admissional, demissional e retorno ao trabalho
+6 a 10	R$ 400,00/mês	PGR + PCMSO + LTCAT + eSocial + ASO admissional, demissional e retorno ao trabalho
+11 a 15	R$ 650,00/mês	PGR + PCMSO + LTCAT + eSocial + ASO admissional, demissional e retorno ao trabalho
+Acima de 15 colaboradores
+
+O sistema muda automaticamente para a cobrança por vida:
+
+Serviço	Valor por vida	Mínimo
+PCMSO	R$ 8,90	R$ 100/mês
+PGR	R$ 10,00	R$ 100/mês
+LTCAT	R$ 12,00	R$ 150
+Risco psicossocial	R$ 15,00	R$ 100/mês
+ASO	R$ 8,00	—
+
+Importante: pelos valores que você definiu, o LTCAT está incluído no pacote das empresas de 1–15, mas acima de 15 passa a ser calculado separadamente por vida.
+
+O que NÃO está incluído na mensalidade
+
+O sistema deve deixar isso muito claro para o cliente.
+
+🔬 Exames complementares
+
+Não estão incluídos:
+
+Laboratório;
+exames específicos;
+exames complementares ocupacionais;
+audiometria, quando aplicável;
+espirometria, quando aplicável;
+ECG;
+EEG;
+exames de imagem;
+outros exames definidos conforme os riscos e requisitos ocupacionais.
+📏 Avaliações e medições ambientais
+
+Também ficam fora da mensalidade:
+
+Dosimetria de ruído;
+avaliação de ruído;
+avaliação de calor;
+avaliação de agentes químicos;
+avaliação de vibração;
+outras avaliações quantitativas;
+medições ambientais específicas.
+📋 Outros serviços
+
+Também serão cobrados separadamente:
+
+PPP;
+treinamentos;
+abertura/registro de CAT;
+serviços extraordinários;
+laudos específicos;
+avaliações adicionais;
+outros serviços não contemplados no plano.
+Uma observação importante sobre os ASOs
+
+Para evitar confusão comercial, eu colocaria no sistema:
+
+Incluído nos planos até 15 colaboradores:
+
+ASO admissional, demissional e retorno ao trabalho, conforme as condições e limites definidos no contrato.
+
+E deixaria claro que exames complementares eventualmente necessários não estão incluídos.
+
+Para empresas acima de 15, o sistema aplica a tabela que você definiu para os ASOs e demais serviços.
+
+Como o robô vai responder
+
+Imagine que uma empresa diga:
+
+"Tenho uma empresa com 8 funcionários e quero orçamento."
+
+O WhatsApp não deve responder imediatamente com preço.
+
+Primeiro faz o diagnóstico.
+
+Depois:
+
+Orçamento para até 15 colaboradores
+
+Perfeito, [NOME]. Obrigado pelas informações.
+
+Fiz o levantamento da sua empresa e, considerando que vocês possuem 8 colaboradores, a KM SAFETY possui um plano específico para empresas desse porte.
+
+🛡️ PLANO KM SAFETY
+
+R$ 400,00 por mês
+
+O plano contempla:
+
+✅ PGR
+✅ PCMSO
+✅ LTCAT
+✅ Gestão dos eventos de SST do eSocial
+✅ ASO admissional
+✅ ASO demissional
+✅ ASO de retorno ao trabalho
+
+Alguns serviços são contratados separadamente quando houver necessidade, como exames complementares, laboratório, medições ambientais, dosimetria de ruído, avaliação de calor, agentes químicos, vibração, treinamentos, PPP, abertura de CAT e outros serviços específicos.
+
+Pelas informações que você me passou, também vou verificar se existe alguma necessidade adicional para a atividade da empresa.
+
+Se estiver de acordo, posso continuar e verificar os serviços complementares necessários para sua empresa.
+
+E se for uma empresa com 25 funcionários?
+
+O comportamento muda automaticamente.
+
+Orçamento acima de 15 colaboradores
+
+Entendi, [NOME].
+
+Sua empresa possui 25 colaboradores. Nesse caso, nossa tabela passa a utilizar o modelo de cobrança por vida.
+
+Vou calcular os serviços com base no número de colaboradores e nos riscos identificados durante o diagnóstico.
+
+Para vocês:
+
+🩺 PCMSO
+25 × R$ 8,90 = R$ 222,50/mês
+
+🦺 PGR
+25 × R$ 10,00 = R$ 250,00/mês
+
+📋 LTCAT
+25 × R$ 12,00 = R$ 300,00
+
+🧠 Risco psicossocial, quando aplicável
+25 × R$ 15,00 = R$ 375,00/mês
+
+A proposta final será montada considerando somente os serviços aplicáveis à realidade da empresa.
+
+Os ASOs, exames complementares, treinamentos, medições ambientais e outros serviços seguem suas respectivas condições comerciais.
+
+Posso finalizar o diagnóstico para montar sua proposta completa?
+
+E o sistema deve saber vender sem parecer insistente
+
+Se o cliente disser:
+
+"Só quero saber o preço."
+
+Resposta:
+
+Cliente quer somente preço
+
+Claro. Posso te passar o valor. 😊
+
+Só preciso de duas informações primeiro: quantos colaboradores vocês possuem e qual é o ramo de atividade?
+
+Pergunto porque trabalhamos com preço fixo para empresas de até 15 colaboradores e, acima disso, o cálculo é feito por vida.
+
+Além disso, alguns riscos da atividade podem exigir serviços adicionais.
+
+Me informe essas duas informações e já calculo para você.
+
+Regra automática do sistema
+
+Eu colocaria exatamente esta lógica:
+
+SE colaboradores <= 5
+    PLANO = R$ 300,00/mês
+
+SE colaboradores >= 6 E <= 10
+    PLANO = R$ 400,00/mês
+
+SE colaboradores >= 11 E <= 15
+    PLANO = R$ 650,00/mês
+
+SE colaboradores > 15
+    PCMSO = colaboradores × R$ 8,90
+    PGR = colaboradores × R$ 10,00
+    LTCAT = colaboradores × R$ 12,00
+    PSICOSSOCIAL = colaboradores × R$ 15,00
+
+Com os mínimos:
+
+PCMSO >= R$ 100,00/mês
+PGR >= R$ 100,00/mês
+LTCAT >= R$ 150,00
+PSICOSSOCIAL >= R$ 100,00/mês
+E o treinamento entra como adicional
+
+Se durante o diagnóstico o cliente precisar, por exemplo, de NR-35 para 8 trabalhadores:
+
+8 × R$ 150 = R$ 1.200
+
+A proposta mostra:
+
+Treinamento NR-35: R$ 1.200,00
+
+E o sistema pode informar a modalidade conforme as exigências vigentes para aquele treinamento.
+
+Da mesma forma:
+
+NR-06: 8 × R$120 = R$960
+NR-10: 8 × R$350 = R$2.800
+NR-18: 8 × R$120 = R$960
+NR-23: 8 × R$150 = R$1.200
+NR-33: 8 × R$180 = R$1.440
+
+Sempre respeitando o mínimo de 5 participantes que você definiu.
+
+Agora já temos praticamente o motor comercial
+
+A estrutura está ficando assim:
+
+LEAD → CONVERSA HUMANA → CADASTRO → RAMO → Nº FUNCIONÁRIOS → DIAGNÓSTICO → RISCOS → SERVIÇOS NECESSÁRIOS → PREÇO → PROPOSTA → OBJEÇÕES → NEGOCIAÇÃO → CONTRATO → PAGAMENTO → IMPLANTAÇÃO → PÓS-VENDA.
+
+O próximo nível é criar o "cérebro comercial" da KM SAFETY: uma matriz com dezenas de ramos de atividade (construção, indústria, metalúrgica, comércio, restaurante, condomínio, transportadora, logística, oficina, clínica, escola, supermercado, escritório etc.) e, para cada ramo, definir quais perguntas o WhatsApp deve fazer, quais respostas acionam PGR/PCMSO/LTCAT/psicossocial/eSocial/treinamentos/medições e qual orçamento apresentar. Isso deixa o sistema realmente capaz de atender empresas de praticamente qualquer segmento sem o cliente precisar saber previamente o que precisa.
+
+Se quiser, posso:
+
+Continuar explicando o orçamento para empresas com >15 colaboradores
+Detalhar roteiro de perguntas para diferentes ramos
+Explicar como a IA deve lidar com objeções de preço

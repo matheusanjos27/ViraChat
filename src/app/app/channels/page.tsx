@@ -55,7 +55,7 @@ export default async function ChannelsPage() {
 
   return (
     <div className="app-noise h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-10">
+      <div className="flex flex-col gap-6 px-6 py-8">
         <header>
           <p className="text-sm font-medium uppercase tracking-[0.14em] text-brand">
             Canais

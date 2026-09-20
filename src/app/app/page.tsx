@@ -67,7 +67,7 @@ export default async function AppHomePage() {
 
   return (
     <div className="app-noise h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl px-6 py-10">
+      <div className="px-6 py-8">
         <p className="text-sm font-medium uppercase tracking-[0.14em] text-brand">
           Empresa
         </p>

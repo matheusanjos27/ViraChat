@@ -63,7 +63,7 @@ export function AppShell({
 
   return (
     <div className="flex h-dvh overflow-hidden bg-[#eef1f0] text-ink">
-      <aside className="relative hidden w-[232px] shrink-0 flex-col bg-[#0b2f2a] text-white md:flex">
+      <aside className="relative hidden w-[270px] shrink-0 flex-col bg-[#0b2f2a] text-white md:flex">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -73,15 +73,12 @@ export function AppShell({
           }}
         />
         <div className="relative z-10 flex h-full flex-col px-4 py-5">
-          <Link href="/app/conversations" className="flex flex-col gap-1.5 px-1">
+          <Link href="/app/conversations" className="block px-1">
             <img
               src="/logo.png"
               alt="ViraChat"
-              style={{ height: 40, width: "auto", maxWidth: "none" }}
+              className="h-20 w-auto"
             />
-            <span className="block text-[11px] leading-snug text-white/50">
-              Todos os seus números em um só lugar
-            </span>
           </Link>
 
           <nav className="mt-8 flex flex-1 flex-col gap-0.5">
