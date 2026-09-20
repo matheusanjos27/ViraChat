@@ -90,6 +90,55 @@ export async function fetchPhoneNumberDetails(
   return data;
 }
 
+/**
+ * When the WA_EMBEDDED_SIGNUP postMessage is missing (common if the spawn
+ * domain is not in Allowed Domains), recover the shared WABA from the token.
+ * Newest WABA is first in target_ids.
+ */
+export async function discoverWabaIdFromToken(accessToken: string) {
+  const appId = process.env.NEXT_PUBLIC_META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appId || !appSecret) {
+    throw new Error("META app credentials are not configured");
+  }
+
+  const url = new URL(`${GRAPH_BASE}/debug_token`);
+  url.searchParams.set("input_token", accessToken);
+  url.searchParams.set("access_token", `${appId}|${appSecret}`);
+
+  const res = await fetch(url, { method: "GET" });
+  const payload = (await res.json()) as {
+    data?: {
+      is_valid?: boolean;
+      scopes?: string[];
+      granular_scopes?: { scope?: string; target_ids?: string[] }[];
+    };
+    error?: { message?: string };
+  };
+
+  if (!res.ok || payload.error) {
+    throw new Error(
+      payload.error?.message ?? "Failed to inspect Meta access token",
+    );
+  }
+
+  const granular = payload.data?.granular_scopes ?? [];
+  const management = granular.find(
+    (s) => s.scope === "whatsapp_business_management",
+  );
+  const messaging = granular.find(
+    (s) => s.scope === "whatsapp_business_messaging",
+  );
+  const wabaId =
+    management?.target_ids?.[0] ?? messaging?.target_ids?.[0] ?? null;
+
+  return {
+    wabaId,
+    scopes: payload.data?.scopes ?? [],
+    isValid: payload.data?.is_valid !== false,
+  };
+}
+
 /** When Embedded Signup returns only waba_id, discover the first phone number. */
 export async function listPhoneNumbersForWaba(
   wabaId: string,

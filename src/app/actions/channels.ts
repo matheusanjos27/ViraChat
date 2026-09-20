@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { encryptToken } from "@/lib/crypto/tokens";
 import {
+  discoverWabaIdFromToken,
   exchangeEmbeddedSignupCode,
   fetchPhoneNumberDetails,
   listPhoneNumbersForWaba,
@@ -181,12 +182,25 @@ export async function completeEmbeddedSignup(
     };
   }
 
-  // If session info missed phone/waba, discover via Graph after token exchange
+  // Session postMessage may be missing (domain not allowlisted, race, etc.)
   if (!wabaId) {
-    return {
-      error:
-        "A Meta não enviou o WABA ID. Conclua o Embedded Signup até o fim e tente de novo.",
-    };
+    try {
+      const discovered = await discoverWabaIdFromToken(accessToken);
+      if (!discovered.wabaId) {
+        return {
+          error:
+            "Login na Meta ok, mas nenhuma conta WhatsApp Business (WABA) foi compartilhada. No popup: depois de “Continuar como…”, avance até escolher/criar o número do WhatsApp. Também confira no app da Meta: Facebook Login → Settings → Allowed Domains e Valid OAuth Redirect URIs (inclua o domínio atual, ex. localhost).",
+        };
+      }
+      wabaId = discovered.wabaId;
+    } catch (err) {
+      return {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Não foi possível descobrir o WABA pelo token da Meta.",
+      };
+    }
   }
 
   if (!phoneNumberId) {

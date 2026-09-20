@@ -24,12 +24,22 @@ declare global {
 
 const initial: ChannelActionState = {};
 
-const META_ORIGINS = new Set([
-  "https://www.facebook.com",
-  "https://web.facebook.com",
-  "https://business.facebook.com",
-  "https://www.business.facebook.com",
-]);
+function isMetaOrigin(origin: string) {
+  try {
+    const host = new URL(origin).hostname;
+    return (
+      host === "facebook.com" ||
+      host === "www.facebook.com" ||
+      host === "web.facebook.com" ||
+      host === "business.facebook.com" ||
+      host === "www.business.facebook.com" ||
+      host.endsWith(".facebook.com") ||
+      host.endsWith(".facebook.net")
+    );
+  } catch {
+    return false;
+  }
+}
 
 type SessionInfo = {
   phoneNumberId?: string;
@@ -81,12 +91,13 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
     document.body.appendChild(script);
   }, [appId, configId]);
 
-  function trySubmit() {
+  function trySubmit(opts?: { allowCodeOnly?: boolean }) {
     if (submittedRef.current) return;
     const code = codeRef.current;
     const info = sessionRef.current;
-    // Need code + at least waba_id (phone can be discovered server-side)
-    if (!code || !info.wabaId) return;
+    if (!code) return;
+    // Prefer waiting for session info; after timeout allow code-only (server discovers WABA)
+    if (!info.wabaId && !opts?.allowCodeOnly) return;
 
     submittedRef.current = true;
     setWaiting(false);
@@ -97,7 +108,8 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
     (form.elements.namedItem("code") as HTMLInputElement).value = code;
     (form.elements.namedItem("phoneNumberId") as HTMLInputElement).value =
       info.phoneNumberId ?? "";
-    (form.elements.namedItem("wabaId") as HTMLInputElement).value = info.wabaId;
+    (form.elements.namedItem("wabaId") as HTMLInputElement).value =
+      info.wabaId ?? "";
     (form.elements.namedItem("businessId") as HTMLInputElement).value =
       info.businessId ?? "";
     (form.elements.namedItem("event") as HTMLInputElement).value =
@@ -107,7 +119,7 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (!META_ORIGINS.has(event.origin)) return;
+      if (!isMetaOrigin(event.origin)) return;
       try {
         const data =
           typeof event.data === "string" ? JSON.parse(event.data) : event.data;
@@ -169,11 +181,11 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
           const status = response.status ?? "unknown";
           if (status === "unknown" || status === "not_authorized") {
             setLocalError(
-              "A Meta não devolveu autorização. Causas comuns: (1) popup fechado no meio da confirmação do código; (2) domínio do app não autorizado no Facebook Login; (3) usuário não é testador do app (modo Development). Complete o fluxo até o fim, sem fechar o popup.",
+              "A Meta não devolveu autorização. Causas comuns: (1) popup fechado no meio; (2) domínio não autorizado no Facebook Login; (3) usuário não é testador do app. Complete até escolher o número do WhatsApp.",
             );
           } else {
             setLocalError(
-              `Fluxo incompleto (status: ${status}). Não feche o popup da Meta até escolher o número do WhatsApp.`,
+              `Fluxo incompleto (status: ${status}). Não feche o popup até escolher o número do WhatsApp.`,
             );
           }
           return;
@@ -182,17 +194,22 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         codeRef.current = code;
         trySubmit();
 
-        // Wait up to ~8s for postMessage session info (race with FB.login)
+        // Wait for postMessage; then fall back to code-only (server discovers WABA)
         let attempts = 0;
         const timer = window.setInterval(() => {
           attempts += 1;
           trySubmit();
-          if (submittedRef.current || attempts >= 40) {
+          if (submittedRef.current) {
             window.clearInterval(timer);
+            return;
+          }
+          if (attempts >= 50) {
+            window.clearInterval(timer);
+            trySubmit({ allowCodeOnly: true });
             if (!submittedRef.current) {
               setWaiting(false);
               setLocalError(
-                "A Meta não enviou waba_id/phone_number_id. Conclua o fluxo até o fim (escolha o número) e tente de novo. Se persistir, verifique o domínio do SDK e o config_id.",
+                "Não foi possível concluir a conexão. Tente de novo e, no popup, avance além do login até escolher o número do WhatsApp.",
               );
             }
           }
@@ -204,7 +221,6 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         override_default_response_type: true,
         extras: {
           setup: {},
-          // Cloud API Embedded Signup padrão (sem forçar migração do app Business)
           sessionInfoVersion: "3",
           version: "v3",
         },
@@ -253,11 +269,11 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         <p className="text-sm text-teal-700">{state.success}</p>
       )}
       <p className="text-xs text-zinc-500">
-        No popup da Meta: confirme o código do Facebook, depois avance até
-        escolher/confirmar o número do WhatsApp. Não feche o popup no meio.
-        Em localhost, o domínio precisa estar autorizado no app da Meta
-        (Facebook Login → Settings → Allowed Domains / Valid OAuth Redirect
-        URIs).
+        Depois de “Continuar como…”, o popup deve mostrar telas do WhatsApp
+        Business (empresa / número). Se fechar só no login, o fluxo não
+        terminou. Em localhost, inclua{" "}
+        <code className="font-mono">localhost</code> em Allowed Domains e em
+        Valid OAuth Redirect URIs no app da Meta.
       </p>
     </div>
   );
