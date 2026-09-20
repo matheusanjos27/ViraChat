@@ -507,6 +507,8 @@ export type Database = {
           status: "ai_active" | "waiting_human" | "human_active" | "resolved";
           assigned_to: string | null;
           last_message_at: string | null;
+          waiting_human_at: string | null;
+          handoff_busy_sent_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -518,6 +520,8 @@ export type Database = {
           status?: "ai_active" | "waiting_human" | "human_active" | "resolved";
           assigned_to?: string | null;
           last_message_at?: string | null;
+          waiting_human_at?: string | null;
+          handoff_busy_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -529,8 +533,43 @@ export type Database = {
           status?: "ai_active" | "waiting_human" | "human_active" | "resolved";
           assigned_to?: string | null;
           last_message_at?: string | null;
+          waiting_human_at?: string | null;
+          handoff_busy_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      app_notifications: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          type: string;
+          title: string;
+          body: string | null;
+          conversation_id: string | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          type?: string;
+          title: string;
+          body?: string | null;
+          conversation_id?: string | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          type?: string;
+          title?: string;
+          body?: string | null;
+          conversation_id?: string | null;
+          read_at?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };

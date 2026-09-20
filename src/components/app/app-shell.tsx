@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
+import {
+  NotificationBell,
+  type NotificationItem,
+} from "@/components/app/notification-bell";
 
 const nav = [
   { href: "/app/conversations", label: "Conversas", icon: IconChat },
@@ -20,18 +24,24 @@ function initials(name?: string) {
 
 export function AppShell({
   children,
+  tenantId,
   tenantName,
   userName,
   userRole,
   isPlatformAdmin,
   openCount = 0,
+  waitingCount = 0,
+  initialNotifications = [],
 }: {
   children: React.ReactNode;
+  tenantId?: string;
   tenantName?: string;
   userName?: string;
   userRole?: string;
   isPlatformAdmin?: boolean;
   openCount?: number;
+  waitingCount?: number;
+  initialNotifications?: NotificationItem[];
 }) {
   const pathname = usePathname();
   const roleLabel =
@@ -57,9 +67,17 @@ export function AppShell({
           }}
         />
         <div className="relative z-10 flex h-full flex-col px-4 py-5">
-          <Link href="/app/conversations" className="block px-1">
-            <img src="/logo.png" alt="ViraChat" className="h-20 w-auto" />
-          </Link>
+          <div className="flex items-start justify-between gap-2 px-1">
+            <Link href="/app/conversations" className="block">
+              <img src="/logo.png" alt="ViraChat" className="h-20 w-auto" />
+            </Link>
+            {tenantId ? (
+              <NotificationBell
+                tenantId={tenantId}
+                initialItems={initialNotifications}
+              />
+            ) : null}
+          </div>
 
           <nav className="mt-8 flex flex-1 flex-col gap-1.5">
             {nav.map((item) => {
@@ -72,6 +90,11 @@ export function AppShell({
                     : pathname.startsWith(item.href);
               const isConversas = item.label === "Conversas";
               const Icon = item.icon;
+              const badge = isConversas
+                ? waitingCount > 0
+                  ? waitingCount
+                  : openCount
+                : 0;
               return (
                 <Link
                   key={item.label}
@@ -86,9 +109,15 @@ export function AppShell({
                   <span className="flex-1 leading-snug tracking-tight">
                     {item.label}
                   </span>
-                  {isConversas && openCount > 0 ? (
-                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold tabular-nums">
-                      {openCount > 99 ? "99+" : openCount}
+                  {isConversas && badge > 0 ? (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+                        waitingCount > 0
+                          ? "bg-[#f59e0b] text-[#1a1205]"
+                          : "bg-white/20 text-white"
+                      }`}
+                    >
+                      {badge > 99 ? "99+" : badge}
                     </span>
                   ) : null}
                 </Link>
@@ -139,11 +168,21 @@ export function AppShell({
           <Link href="/app/conversations">
             <img src="/logo.png" alt="ViraChat" className="h-8 w-auto" />
           </Link>
-          <form action={signOut}>
-            <button type="submit" className="text-sm text-ink-muted">
-              Sair
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            {tenantId ? (
+              <div className="rounded-full bg-[#0b2f2a] p-0.5">
+                <NotificationBell
+                  tenantId={tenantId}
+                  initialItems={initialNotifications}
+                />
+              </div>
+            ) : null}
+            <form action={signOut}>
+              <button type="submit" className="text-sm text-ink-muted">
+                Sair
+              </button>
+            </form>
+          </div>
         </header>
         <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
       </div>

@@ -18,6 +18,7 @@ import {
 } from "@/lib/crm/pricing";
 import { decryptToken } from "@/lib/crypto/tokens";
 import { canAiReply } from "@/lib/conversations/status";
+import { createAppNotification } from "@/lib/notifications";
 import { sendWhatsAppText } from "@/lib/meta/whatsapp";
 import { createServiceClient } from "@/lib/supabase/admin";
 
@@ -314,9 +315,25 @@ export async function runAiForConversation(conversationId: string) {
       .update({
         status: "waiting_human",
         last_message_at: now,
+        waiting_human_at: now,
+        handoff_busy_sent_at: null,
       })
       .eq("id", conversationId)
       .eq("status", "ai_active");
+
+    const contactLabel =
+      contact?.display_name ||
+      contact?.phone_e164 ||
+      contact?.external_id ||
+      "Contato";
+
+    await createAppNotification({
+      tenantId: conversation.tenant_id,
+      type: "handoff",
+      title: "Atendimento humano solicitado",
+      body: `${contactLabel} pediu um atendente. Assuma em até 5 minutos.`,
+      conversationId,
+    });
   } else {
     await supabase
       .from("conversations")

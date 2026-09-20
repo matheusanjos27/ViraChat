@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
+import type { NotificationItem } from "@/components/app/notification-bell";
 import { isCurrentUserPlatformAdmin } from "@/lib/platform/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,22 +28,44 @@ export default async function AppLayout({
   const tenantName = (
     membership?.tenants as unknown as { name: string } | null
   )?.name;
+  const tenantId = membership?.tenant_id;
 
   let openCount = 0;
-  if (membership?.tenant_id) {
-    const { count } = await supabase
-      .from("conversations")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", membership.tenant_id)
-      .neq("status", "resolved");
+  let waitingCount = 0;
+  let initialNotifications: NotificationItem[] = [];
+
+  if (tenantId) {
+    const [{ count }, { count: waiting }, { data: notes }] = await Promise.all([
+      supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .neq("status", "resolved"),
+      supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("status", "waiting_human"),
+      supabase
+        .from("app_notifications")
+        .select("id, type, title, body, conversation_id, read_at, created_at")
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false })
+        .limit(30),
+    ]);
     openCount = count ?? 0;
+    waitingCount = waiting ?? 0;
+    initialNotifications = (notes as NotificationItem[]) ?? [];
   }
 
   return (
     <AppShell
+      tenantId={tenantId}
       tenantName={tenantName}
       userRole={membership?.role}
       openCount={openCount}
+      waitingCount={waitingCount}
+      initialNotifications={initialNotifications}
       isPlatformAdmin={await isCurrentUserPlatformAdmin()}
       userName={
         (user.user_metadata?.full_name as string | undefined) ||
