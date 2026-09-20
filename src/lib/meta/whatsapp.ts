@@ -32,20 +32,40 @@ export async function exchangeEmbeddedSignupCode(code: string) {
     throw new Error("META app credentials are not configured");
   }
 
-  const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
-  url.searchParams.set("client_id", appId);
-  url.searchParams.set("client_secret", appSecret);
-  url.searchParams.set("code", code);
+  // Prefer unversioned OAuth endpoint with form body (Embedded Signup / Login for Business).
+  // GET /{version}/oauth/access_token is sometimes parsed as a Graph field and returns
+  // "(#100) Tried accessing nonexisting field (access_token)".
+  const body = new URLSearchParams({
+    client_id: appId,
+    client_secret: appSecret,
+    code,
+  });
 
-  const res = await fetch(url, { method: "GET" });
-  const data = (await res.json()) as {
-    access_token?: string;
-    error?: { message?: string };
-  };
-  if (!res.ok || !data.access_token) {
-    throw new Error(data.error?.message ?? "Failed to exchange Meta code");
+  const endpoints = [
+    "https://graph.facebook.com/oauth/access_token",
+    `${GRAPH_BASE}/oauth/access_token`,
+  ];
+
+  let lastError = "Failed to exchange Meta code";
+  for (const endpoint of endpoints) {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const data = (await res.json()) as {
+      access_token?: string;
+      error?: { message?: string; code?: number; error_subcode?: number };
+    };
+    if (res.ok && data.access_token) {
+      return data.access_token;
+    }
+    lastError =
+      data.error?.message ??
+      `Failed to exchange Meta code (HTTP ${res.status})`;
   }
-  return data.access_token;
+
+  throw new Error(lastError);
 }
 
 export async function subscribeWabaToWebhooks(

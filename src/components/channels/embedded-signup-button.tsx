@@ -58,6 +58,7 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
   const [ready, setReady] = useState(false);
   const sessionRef = useRef<SessionInfo>({});
   const codeRef = useRef<string | null>(null);
+  const waEventSeenRef = useRef(false);
   const submittedRef = useRef(false);
   const [state, action, pending] = useActionState(
     completeEmbeddedSignup,
@@ -96,7 +97,7 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
     const code = codeRef.current;
     const info = sessionRef.current;
     if (!code) return;
-    // Prefer waiting for session info; after timeout allow code-only (server discovers WABA)
+    // Only skip waiting for waba_id if Embedded Signup actually ran (WA event seen)
     if (!info.wabaId && !opts?.allowCodeOnly) return;
 
     submittedRef.current = true;
@@ -125,6 +126,7 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
           typeof event.data === "string" ? JSON.parse(event.data) : event.data;
         if (data?.type !== "WA_EMBEDDED_SIGNUP") return;
 
+        waEventSeenRef.current = true;
         const eventName = String(data.event ?? "").toUpperCase();
         if (eventName === "CANCEL" || eventName === "ERROR") {
           setWaiting(false);
@@ -143,13 +145,14 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         const waba =
           data.data?.waba_id || data.data?.waba_ids?.[0] || undefined;
 
+        sessionRef.current = {
+          phoneNumberId: phone ?? sessionRef.current.phoneNumberId,
+          wabaId: waba ?? sessionRef.current.wabaId,
+          businessId: data.data?.business_id ?? sessionRef.current.businessId,
+          event: eventName || sessionRef.current.event,
+        };
+
         if (waba || phone) {
-          sessionRef.current = {
-            phoneNumberId: phone ?? sessionRef.current.phoneNumberId,
-            wabaId: waba ?? sessionRef.current.wabaId,
-            businessId: data.data?.business_id ?? sessionRef.current.businessId,
-            event: eventName || sessionRef.current.event,
-          };
           trySubmit();
         }
       } catch {
@@ -164,6 +167,7 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
     setLocalError(null);
     submittedRef.current = false;
     codeRef.current = null;
+    waEventSeenRef.current = false;
     sessionRef.current = {};
 
     if (!window.FB || !configId) {
@@ -181,7 +185,7 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
           const status = response.status ?? "unknown";
           if (status === "unknown" || status === "not_authorized") {
             setLocalError(
-              "A Meta não devolveu autorização. Causas comuns: (1) popup fechado no meio; (2) domínio não autorizado no Facebook Login; (3) usuário não é testador do app. Complete até escolher o número do WhatsApp.",
+              "A Meta não devolveu autorização. Complete o fluxo até escolher o número do WhatsApp (não feche só no login do Facebook).",
             );
           } else {
             setLocalError(
@@ -194,7 +198,6 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         codeRef.current = code;
         trySubmit();
 
-        // Wait for postMessage; then fall back to code-only (server discovers WABA)
         let attempts = 0;
         const timer = window.setInterval(() => {
           attempts += 1;
@@ -203,15 +206,17 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
             window.clearInterval(timer);
             return;
           }
-          if (attempts >= 50) {
+          if (attempts >= 40) {
             window.clearInterval(timer);
-            trySubmit({ allowCodeOnly: true });
-            if (!submittedRef.current) {
-              setWaiting(false);
-              setLocalError(
-                "Não foi possível concluir a conexão. Tente de novo e, no popup, avance além do login até escolher o número do WhatsApp.",
-              );
+            // Only fall back to code-only if WhatsApp ES actually posted an event
+            if (waEventSeenRef.current || sessionRef.current.wabaId) {
+              trySubmit({ allowCodeOnly: true });
+              if (submittedRef.current) return;
             }
+            setWaiting(false);
+            setLocalError(
+              "O popup só fez login no Facebook — o fluxo do WhatsApp não abriu. No Meta for Developers: App → WhatsApp → API Setup / Embedded Signup → copie a Configuration ID correta para NEXT_PUBLIC_META_CONFIG_ID. Também adicione localhost em Allowed Domains e Valid OAuth Redirect URIs. Enquanto isso, use “Conectar com token (dev)”.",
+            );
           }
         }, 200);
       },
@@ -269,11 +274,10 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         <p className="text-sm text-teal-700">{state.success}</p>
       )}
       <p className="text-xs text-zinc-500">
-        Depois de “Continuar como…”, o popup deve mostrar telas do WhatsApp
-        Business (empresa / número). Se fechar só no login, o fluxo não
-        terminou. Em localhost, inclua{" "}
-        <code className="font-mono">localhost</code> em Allowed Domains e em
-        Valid OAuth Redirect URIs no app da Meta.
+        Depois de “Continuar como…”, devem aparecer telas de WhatsApp Business
+        (empresa e número). Se só fechar no Facebook, a{" "}
+        <code className="font-mono">config_id</code> provavelmente não é do
+        Embedded Signup do WhatsApp — use o token manual abaixo.
       </p>
     </div>
   );
