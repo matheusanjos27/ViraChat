@@ -1,58 +1,51 @@
 # ViraChat
 
-Plataforma SaaS multi-tenant de atendimento empresarial com IA no WhatsApp (API oficial Meta). Escopo completo em [`escopo.txt`](./escopo.txt).
+CRM/atendimento multi-tenant com IA no WhatsApp. Escopo comercial em [`track/Escopo-eduardo.txt`](./track/Escopo-eduardo.txt). Mapa do sistema: [`track/SISTEMA-ATUAL.md`](./track/SISTEMA-ATUAL.md).
 
 ## Stack
 
-- **Next.js 16** (App Router) na **Vercel**
+- **Next.js 16** (App Router) — Vercel ou VPS
 - **Supabase** (Postgres + Auth + RLS + Realtime)
-- **WhatsApp Cloud API** (oficial) — Embedded Signup + webhooks HMAC
-- Processamento assíncrono (Fase 4+): **Inngest**
-- LLM (Fase 4+): **Claude (Anthropic)**
-- Tokens Meta: **AES-256-GCM** (`TOKEN_ENCRYPTION_KEY`)
+- **WhatsApp via Evolution API (Baileys)** — QR Code, N números por tenant
+- **OpenAI** (`gpt-4o-mini` por padrão)
+- Meta Cloud API ainda existe como legado (opcional)
 
-## Números Business vs comuns
+## WhatsApp (caminho recomendado)
 
-Só a **Cloud API oficial** é suportada:
+1. Suba a Evolution no VPS: ver [`docker/README.md`](./docker/README.md)
+2. Configure `EVOLUTION_API_URL` + `EVOLUTION_API_KEY` no app
+3. Em **Canais** → **Gerar QR Code** → escanear no celular
+4. Repita para quantos números o tenant precisar; a IA responde em todos
 
-| Tipo | Como conectar |
-|---|---|
-| WhatsApp Business (app) | Embedded Signup com migração (`FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`) |
-| Número comum / pessoal | Só se migrar para Cloud API — **para de funcionar no celular** |
-| Já na Cloud API / sandbox | Conectar com token (dev) ou Embedded Signup |
-
-Não há suporte a WhatsApp Web / QR / automações não oficiais.
+Webhook Evolution: `{NEXT_PUBLIC_APP_URL}/api/webhooks/evolution`
 
 ## Setup local
 
 ```bash
 cp .env.example .env.local
-# Preencha Supabase + TOKEN_ENCRYPTION_KEY (+ Meta quando for testar API)
+# Supabase + TOKEN_ENCRYPTION_KEY + Evolution (se for testar WhatsApp)
 npm install
 npx supabase db push
 npm run dev
 ```
 
-Abra `/app/channels` após login/criar empresa.
+Evolution local (opcional):
 
-Webhook Meta (precisa de URL pública, ex. ngrok ou Vercel):
+```bash
+cd docker && cp .env.example .env && docker compose up -d
+```
 
-`{APP_URL}/api/webhooks/meta`
+## Custo enxuto (referência)
 
-Variáveis Meta: `NEXT_PUBLIC_META_APP_ID`, `NEXT_PUBLIC_META_CONFIG_ID`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`.
+| Peça | ~US$/mês |
+|---|---|
+| VPS (Evolution + opcional Next) | 8–15 |
+| Supabase (Free → Pro) | 0–25 |
+| OpenAI | 5–10 |
+| **Total típico** | **~15–50** |
 
 ## Status
 
-- [x] Fase 1 — Fundação (auth, tenant, RLS)
-- [x] Fase 2 — Canais WhatsApp (webhook, ingest, connect)
-- [x] Fase 3 — Central de conversas
-- [x] Fase 4 — IA (Claude + handoff + config)
-- [ ] Deploy Vercel (quando houver repo)
-
-## Roadmap
-
-1. Fundação
-2. WhatsApp (parcialmente feito)
-3. Central de conversas + Realtime
-4. IA (Inngest + Claude)
-5. Handoff humano
+- [x] Auth, tenant, RLS, CRM, inbox, IA, handoff
+- [x] WhatsApp Baileys (Evolution) + QR multi-número
+- [x] Meta Cloud API (legado)

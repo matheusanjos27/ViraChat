@@ -1,7 +1,15 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { encryptToken } from "@/lib/crypto/tokens";
+import {
+  connectEvolutionInstance,
+  createEvolutionInstance,
+  deleteEvolutionInstance,
+  getEvolutionConnectionState,
+  isEvolutionConfigured,
+} from "@/lib/evolution/client";
 import {
   discoverWabaIdFromToken,
   exchangeEmbeddedSignupCode,
@@ -14,6 +22,11 @@ import { createClient } from "@/lib/supabase/server";
 export type ChannelActionState = {
   error?: string;
   success?: string;
+  instanceName?: string;
+  channelId?: string;
+  qrcodeBase64?: string | null;
+  pairingCode?: string | null;
+  connectionStatus?: string;
 };
 
 async function requireTenantAdmin(tenantId: string) {
@@ -250,6 +263,21 @@ export async function disconnectChannel(
     return { error: gate.error ?? "Não autenticado." };
   }
 
+  const { data: account } = await gate.supabase
+    .from("whatsapp_accounts")
+    .select("phone_number_id, onboard_source")
+    .eq("channel_id", channelId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  if (account?.onboard_source === "baileys" && isEvolutionConfigured()) {
+    try {
+      await deleteEvolutionInstance(account.phone_number_id);
+    } catch (err) {
+      console.warn("[baileys] delete instance", err);
+    }
+  }
+
   const { error } = await gate.supabase
     .from("channels")
     .delete()
@@ -259,4 +287,173 @@ export async function disconnectChannel(
   if (error) return { error: error.message };
   revalidatePath("/app/channels");
   return { success: "Canal removido." };
+}
+
+function makeInstanceName(tenantId: string) {
+  const short = tenantId.replace(/-/g, "").slice(0, 8);
+  const suffix = randomBytes(3).toString("hex");
+  return `vira_${short}_${suffix}`;
+}
+
+/** Cria instância Evolution/Baileys e devolve QR para o tenant escanear. */
+export async function startBaileysChannel(
+  _prev: ChannelActionState,
+  formData: FormData,
+): Promise<ChannelActionState> {
+  if (!isEvolutionConfigured()) {
+    return {
+      error:
+        "Evolution API não configurada. Defina EVOLUTION_API_URL e EVOLUTION_API_KEY no servidor.",
+    };
+  }
+
+  const tenantId = String(formData.get("tenantId") ?? "");
+  const displayName = String(formData.get("displayName") ?? "").trim();
+  const gate = await requireTenantAdmin(tenantId);
+  if (gate.error || !gate.user) {
+    return { error: gate.error ?? "Não autenticado." };
+  }
+  const { supabase } = gate;
+
+  const instanceName = makeInstanceName(tenantId);
+  let created: Awaited<ReturnType<typeof createEvolutionInstance>>;
+  try {
+    created = await createEvolutionInstance({
+      instanceName,
+      displayName: displayName || undefined,
+    });
+  } catch (err) {
+    return {
+      error:
+        err instanceof Error
+          ? err.message
+          : "Falha ao criar instância WhatsApp (Baileys).",
+    };
+  }
+
+  const label = displayName || `WhatsApp ${instanceName.slice(-6)}`;
+  // Placeholder criptografado — envio Baileys usa EVOLUTION_API_KEY do servidor
+  const encrypted = encryptToken(`evolution:${instanceName}`);
+
+  const { data: channel, error: channelError } = await supabase
+    .from("channels")
+    .insert({
+      tenant_id: tenantId,
+      provider_id: "whatsapp",
+      display_name: label,
+      is_active: true,
+    })
+    .select("id")
+    .single();
+
+  if (channelError || !channel) {
+    try {
+      await deleteEvolutionInstance(instanceName);
+    } catch {
+      /* ignore */
+    }
+    return { error: channelError?.message ?? "Falha ao criar canal." };
+  }
+
+  const { error: accountError } = await supabase.from("whatsapp_accounts").insert({
+    tenant_id: tenantId,
+    channel_id: channel.id,
+    phone_number_id: instanceName,
+    waba_id: "evolution",
+    access_token_encrypted: encrypted,
+    display_phone: null,
+    verified_name: label,
+    onboard_source: "baileys",
+    connection_status: "pending_qr",
+  });
+
+  if (accountError) {
+    await supabase.from("channels").delete().eq("id", channel.id);
+    try {
+      await deleteEvolutionInstance(instanceName);
+    } catch {
+      /* ignore */
+    }
+    if (accountError.code === "23505") {
+      return { error: "Instância já existe — tente de novo." };
+    }
+    return { error: accountError.message };
+  }
+
+  let qrcodeBase64 = created.qrcodeBase64;
+  let pairingCode = created.pairingCode;
+  if (!qrcodeBase64) {
+    try {
+      const again = await connectEvolutionInstance(instanceName);
+      qrcodeBase64 = again.qrcodeBase64;
+      pairingCode = again.pairingCode ?? pairingCode;
+    } catch (err) {
+      console.warn("[baileys] connect for QR", err);
+    }
+  }
+
+  revalidatePath("/app/channels");
+  return {
+    success: "Escaneie o QR Code no WhatsApp do celular.",
+    instanceName,
+    channelId: channel.id,
+    qrcodeBase64,
+    pairingCode,
+    connectionStatus: "pending_qr",
+  };
+}
+
+export async function refreshBaileysQr(
+  channelId: string,
+  tenantId: string,
+): Promise<ChannelActionState> {
+  if (!isEvolutionConfigured()) {
+    return { error: "Evolution API não configurada." };
+  }
+  const gate = await requireTenantAdmin(tenantId);
+  if (gate.error || !gate.user) {
+    return { error: gate.error ?? "Não autenticado." };
+  }
+
+  const { data: account } = await gate.supabase
+    .from("whatsapp_accounts")
+    .select("phone_number_id, onboard_source, connection_status")
+    .eq("channel_id", channelId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  if (!account || account.onboard_source !== "baileys") {
+    return { error: "Canal Baileys não encontrado." };
+  }
+
+  try {
+    const state = await getEvolutionConnectionState(account.phone_number_id);
+    if (state === "open") {
+      await gate.supabase
+        .from("whatsapp_accounts")
+        .update({ connection_status: "open" })
+        .eq("channel_id", channelId);
+      revalidatePath("/app/channels");
+      return {
+        success: "WhatsApp conectado.",
+        connectionStatus: "open",
+        channelId,
+        instanceName: account.phone_number_id,
+      };
+    }
+
+    const qr = await connectEvolutionInstance(account.phone_number_id);
+    return {
+      connectionStatus: "pending_qr",
+      channelId,
+      instanceName: account.phone_number_id,
+      qrcodeBase64: qr.qrcodeBase64,
+      pairingCode: qr.pairingCode,
+    };
+  } catch (err) {
+    return {
+      error:
+        err instanceof Error ? err.message : "Falha ao atualizar QR / status.",
+    };
+  }
 }

@@ -24,7 +24,7 @@ import {
 import { decryptToken } from "@/lib/crypto/tokens";
 import { canAiReply } from "@/lib/conversations/status";
 import { createAppNotification } from "@/lib/notifications";
-import { sendWhatsAppText } from "@/lib/meta/whatsapp";
+import { sendOutboundText } from "@/lib/whatsapp/send";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 export async function runAiForConversation(conversationId: string) {
@@ -33,7 +33,7 @@ export async function runAiForConversation(conversationId: string) {
   const { data: conversation, error: convError } = await supabase
     .from("conversations")
     .select(
-      "id, tenant_id, status, channel_id, contact_id, contacts(phone_e164, external_id, display_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted))",
+      "id, tenant_id, status, channel_id, contact_id, contacts(phone_e164, external_id, display_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
     )
     .eq("id", conversationId)
     .single();
@@ -301,8 +301,16 @@ export async function runAiForConversation(conversationId: string) {
 
   const channel = conversation.channels as unknown as {
     whatsapp_accounts:
-      | { phone_number_id: string; access_token_encrypted: string }
-      | { phone_number_id: string; access_token_encrypted: string }[]
+      | {
+          phone_number_id: string;
+          access_token_encrypted: string;
+          onboard_source?: string;
+        }
+      | {
+          phone_number_id: string;
+          access_token_encrypted: string;
+          onboard_source?: string;
+        }[]
       | null;
   } | null;
 
@@ -327,8 +335,8 @@ export async function runAiForConversation(conversationId: string) {
   let providerMessageId: string | null = null;
   try {
     const token = decryptToken(wa.access_token_encrypted);
-    providerMessageId = await sendWhatsAppText({
-      phoneNumberId: wa.phone_number_id,
+    providerMessageId = await sendOutboundText({
+      channel: wa,
       accessToken: token,
       toE164: to,
       body: outboundText,

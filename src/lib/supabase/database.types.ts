@@ -146,8 +146,9 @@ export type Database = {
           display_phone: string | null;
           verified_name: string | null;
           quality_rating: string | null;
-          onboard_source: "manual" | "embedded_signup" | "business_app";
+          onboard_source: "manual" | "embedded_signup" | "business_app" | "baileys";
           meta_business_id: string | null;
+          connection_status: "pending_qr" | "open" | "close";
           last_webhook_at: string | null;
           created_at: string;
           updated_at: string;
@@ -162,8 +163,9 @@ export type Database = {
           display_phone?: string | null;
           verified_name?: string | null;
           quality_rating?: string | null;
-          onboard_source?: "manual" | "embedded_signup" | "business_app";
+          onboard_source?: "manual" | "embedded_signup" | "business_app" | "baileys";
           meta_business_id?: string | null;
+          connection_status?: "pending_qr" | "open" | "close";
           last_webhook_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -178,8 +180,9 @@ export type Database = {
           display_phone?: string | null;
           verified_name?: string | null;
           quality_rating?: string | null;
-          onboard_source?: "manual" | "embedded_signup" | "business_app";
+          onboard_source?: "manual" | "embedded_signup" | "business_app" | "baileys";
           meta_business_id?: string | null;
+          connection_status?: "pending_qr" | "open" | "close";
           last_webhook_at?: string | null;
           created_at?: string;
           updated_at?: string;

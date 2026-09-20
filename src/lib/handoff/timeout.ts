@@ -1,6 +1,6 @@
 import { decryptToken } from "@/lib/crypto/tokens";
 import { createAppNotification } from "@/lib/notifications";
-import { sendWhatsAppText } from "@/lib/meta/whatsapp";
+import { sendOutboundText } from "@/lib/whatsapp/send";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 export const HANDOFF_TIMEOUT_MS = 5 * 60 * 1000;
@@ -16,7 +16,7 @@ export async function processHandoffTimeouts(now = new Date()) {
   const { data: overdue, error } = await supabase
     .from("conversations")
     .select(
-      "id, tenant_id, contact_id, channel_id, waiting_human_at, contacts(phone_e164, external_id, display_name), channels(whatsapp_accounts(phone_number_id, access_token_encrypted))",
+      "id, tenant_id, contact_id, channel_id, waiting_human_at, contacts(phone_e164, external_id, display_name), channels(whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
     )
     .eq("status", "waiting_human")
     .is("handoff_busy_sent_at", null)
@@ -66,8 +66,16 @@ export async function sendBusyMessageForConversation(conversationId: string) {
 
   const channel = conversation.channels as unknown as {
     whatsapp_accounts:
-      | { phone_number_id: string; access_token_encrypted: string }
-      | { phone_number_id: string; access_token_encrypted: string }[]
+      | {
+          phone_number_id: string;
+          access_token_encrypted: string;
+          onboard_source?: string;
+        }
+      | {
+          phone_number_id: string;
+          access_token_encrypted: string;
+          onboard_source?: string;
+        }[]
       | null;
   } | null;
 
@@ -97,8 +105,8 @@ export async function sendBusyMessageForConversation(conversationId: string) {
 
   try {
     const token = decryptToken(wa.access_token_encrypted);
-    const providerMessageId = await sendWhatsAppText({
-      phoneNumberId: wa.phone_number_id,
+    const providerMessageId = await sendOutboundText({
+      channel: wa,
       accessToken: token,
       toE164: to,
       body: HANDOFF_BUSY_MESSAGE,

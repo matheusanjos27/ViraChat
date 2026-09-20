@@ -2,7 +2,8 @@
 
 > Documento para remodelagem. Descreve **como o produto funciona hoje** (telas, dados, fluxos), não o roadmap ideal.
 >
-> Data de referência: setembro/2026 · Stack: Next.js (App Router) + Supabase + WhatsApp Cloud API (Meta) + OpenAI
+> Data de referência: setembro/2026 · Stack: Next.js (App Router) + Supabase + **Evolution/Baileys (WhatsApp QR)** + OpenAI · Meta Cloud API = legado
+
 
 ---
 
@@ -21,12 +22,14 @@
 ## 2. Arquitetura em uma frase
 
 ```
-WhatsApp (Meta Cloud API)
-    → Webhook /api/webhooks/meta
+WhatsApp (Evolution/Baileys — QR)
+    → Webhook /api/webhooks/evolution
     → grava contato/conversa/mensagem (Supabase)
     → dispara IA (OpenAI) em background
-    → responde no WhatsApp
+    → responde via Evolution sendText
     → atualiza CRM (atributos, deal/funil, notificações)
+
+(Legado) Meta Cloud API → /api/webhooks/meta → mesmo ingest/IA
 ```
 
 UI web: operadores veem inbox, leads, funil e configurações.
@@ -70,7 +73,7 @@ UI web: operadores veem inbox, leads, funil e configurações.
 | `/app/conversations` | **Conversas** | Inbox WhatsApp ao vivo: lista, thread, assumir/devolver IA, filtro status + **canal** |
 | `/app/leads` | **Leads** | Contatos + atributos + temperatura (hot/warm/cold) |
 | `/app/deals` | **Funil** | Kanban de oportunidades por etapa |
-| `/app/channels` | **Canais** | Conectar WhatsApp (token manual / Embedded Signup) |
+| `/app/channels` | **Canais** | Conectar WhatsApp por **QR (Baileys/Evolution)**; N números/tenant; Meta legado em accordion |
 | `/app/settings` | Hub configurações | Cards para subpáginas |
 | `/app/settings/company` | Empresa | Nome, about, telefone, site (IA usa na apresentação) |
 | `/app/settings/ai` | Atendimento com IA | Liga/desliga IA, instruções, abas: campos, catálogo, playbook |

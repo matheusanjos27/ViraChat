@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { decryptToken } from "@/lib/crypto/tokens";
-import { sendWhatsAppText } from "@/lib/meta/whatsapp";
+import { sendOutboundText } from "@/lib/whatsapp/send";
 import { createClient } from "@/lib/supabase/server";
 
 export type ConversationActionState = {
@@ -36,7 +36,7 @@ export async function sendAgentMessage(
   const { data: conversation, error: convError } = await supabase
     .from("conversations")
     .select(
-      "id, tenant_id, status, channel_id, contact_id, contacts(phone_e164, external_id), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted))",
+      "id, tenant_id, status, channel_id, contact_id, contacts(phone_e164, external_id), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
     )
     .eq("id", conversationId)
     .single();
@@ -62,10 +62,12 @@ export async function sendAgentMessage(
       | {
           phone_number_id: string;
           access_token_encrypted: string;
+          onboard_source?: string;
         }
       | {
           phone_number_id: string;
           access_token_encrypted: string;
+          onboard_source?: string;
         }[]
       | null;
   } | null;
@@ -82,8 +84,8 @@ export async function sendAgentMessage(
   let providerMessageId: string | null = null;
   try {
     const token = decryptToken(wa.access_token_encrypted);
-    providerMessageId = await sendWhatsAppText({
-      phoneNumberId: wa.phone_number_id,
+    providerMessageId = await sendOutboundText({
+      channel: wa,
       accessToken: token,
       toE164: to,
       body,

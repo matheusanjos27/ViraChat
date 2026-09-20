@@ -26,7 +26,7 @@ const cards = [
   {
     href: "/app/channels",
     title: "Canais WhatsApp",
-    desc: "Conecte e gerencie números oficiais da Cloud API.",
+    desc: "Conecte números por QR (Baileys) — a IA responde em todos.",
   },
 ] as const;
 

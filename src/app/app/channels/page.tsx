@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import { BaileysConnectForm } from "@/components/channels/baileys-connect-form";
 import { DisconnectChannelButton } from "@/components/channels/disconnect-channel-button";
 import { EmbeddedSignupButton } from "@/components/channels/embedded-signup-button";
 import { ManualConnectForm } from "@/components/channels/manual-connect-form";
+import { isEvolutionConfigured } from "@/lib/evolution/client";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ChannelsPage() {
@@ -22,11 +24,12 @@ export default async function ChannelsPage() {
 
   const tenant = membership.tenants as unknown as { id: string; name: string };
   const tenantId = membership.tenant_id;
+  const evolutionOn = isEvolutionConfigured();
 
   const { data: channels } = await supabase
     .from("channels")
     .select(
-      "id, display_name, is_active, created_at, whatsapp_accounts(display_phone, verified_name, phone_number_id, onboard_source, last_webhook_at)",
+      "id, display_name, is_active, created_at, whatsapp_accounts(display_phone, verified_name, phone_number_id, onboard_source, connection_status, last_webhook_at)",
     )
     .eq("tenant_id", tenantId)
     .eq("provider_id", "whatsapp")
@@ -40,12 +43,14 @@ export default async function ChannelsPage() {
           display_phone: string | null;
           phone_number_id: string;
           onboard_source: string;
+          connection_status?: string | null;
           last_webhook_at: string | null;
         }
       | {
           display_phone: string | null;
           phone_number_id: string;
           onboard_source: string;
+          connection_status?: string | null;
           last_webhook_at: string | null;
         }[]
       | null;
@@ -65,17 +70,16 @@ export default async function ChannelsPage() {
           </h1>
           <p className="mt-2 text-ink-muted">
             Empresa <span className="font-medium text-ink">{tenant.name}</span>.
-            Cliente final usa Embedded Signup; token manual é só para teste.
+            Conecte um ou mais números por QR (Baileys). A IA responde em todos.
           </p>
         </header>
 
         <section className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
           <div className="rounded-xl border border-brand/15 bg-brand-soft/70 px-4 py-3 text-sm text-brand-deep">
-            <p className="font-semibold">Business e número comum</p>
+            <p className="font-semibold">Conexão rápida (recomendado)</p>
             <p className="mt-1 text-brand-deep/80">
-              Ambos entram só pela Cloud API oficial. Número do app Business
-              migra no Embedded Signup. Número comum precisa migrar para a API
-              (sai do celular).
+              Escaneie o QR no celular. O número continua no aparelho. Cada
+              empresa pode cadastrar N números — inbox e IA usam todos.
             </p>
           </div>
 
@@ -90,6 +94,13 @@ export default async function ChannelsPage() {
                 const wa = Array.isArray(ch.whatsapp_accounts)
                   ? ch.whatsapp_accounts[0]
                   : ch.whatsapp_accounts;
+                const status = wa?.connection_status ?? "open";
+                const statusLabel =
+                  status === "open"
+                    ? "conectado"
+                    : status === "pending_qr"
+                      ? "aguardando QR"
+                      : "desconectado";
                 return (
                   <li
                     key={ch.id}
@@ -99,7 +110,7 @@ export default async function ChannelsPage() {
                       <p className="font-medium">{ch.display_name}</p>
                       <p className="text-sm text-ink-muted">
                         {wa?.display_phone ?? wa?.phone_number_id} ·{" "}
-                        {wa?.onboard_source ?? "—"}
+                        {wa?.onboard_source ?? "—"} · {statusLabel}
                       </p>
                     </div>
                     <DisconnectChannelButton
@@ -114,28 +125,42 @@ export default async function ChannelsPage() {
         </section>
 
         <section className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
-          <h2 className="text-lg font-semibold">Conectar via Meta</h2>
+          <h2 className="text-lg font-semibold">Conectar por QR (Baileys)</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Fluxo oficial Embedded Signup (produção).
+            Evolution API no VPS — sem Meta Business Manager.
           </p>
           <div className="mt-4">
-            <EmbeddedSignupButton
-              tenantId={tenantId}
-              appId={process.env.NEXT_PUBLIC_META_APP_ID}
-              configId={process.env.NEXT_PUBLIC_META_CONFIG_ID}
-            />
+            <BaileysConnectForm tenantId={tenantId} enabled={evolutionOn} />
           </div>
         </section>
 
-        <section className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
-          <h2 className="text-lg font-semibold">Conectar com token (dev)</h2>
-          <p className="mt-1 text-sm text-ink-muted">
-            Phone Number ID, WABA ID e token do painel Meta / sandbox.
+        <details className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
+          <summary className="cursor-pointer text-lg font-semibold">
+            Meta Cloud API (legado)
+          </summary>
+          <p className="mt-2 text-sm text-ink-muted">
+            Embedded Signup e token manual — use só se ainda precisar da API
+            oficial.
           </p>
-          <div className="mt-4">
-            <ManualConnectForm tenantId={tenantId} />
+          <div className="mt-4 space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold">Embedded Signup</h3>
+              <div className="mt-2">
+                <EmbeddedSignupButton
+                  tenantId={tenantId}
+                  appId={process.env.NEXT_PUBLIC_META_APP_ID}
+                  configId={process.env.NEXT_PUBLIC_META_CONFIG_ID}
+                />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Token manual (dev)</h3>
+              <div className="mt-2">
+                <ManualConnectForm tenantId={tenantId} />
+              </div>
+            </div>
           </div>
-        </section>
+        </details>
       </div>
     </div>
   );
