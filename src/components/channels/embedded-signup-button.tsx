@@ -166,7 +166,16 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         const code = response.authResponse?.code;
         if (!code) {
           setWaiting(false);
-          setLocalError("Fluxo cancelado ou sem código de autorização.");
+          const status = response.status ?? "unknown";
+          if (status === "unknown" || status === "not_authorized") {
+            setLocalError(
+              "A Meta não devolveu autorização. Causas comuns: (1) popup fechado no meio da confirmação do código; (2) domínio do app não autorizado no Facebook Login; (3) usuário não é testador do app (modo Development). Complete o fluxo até o fim, sem fechar o popup.",
+            );
+          } else {
+            setLocalError(
+              `Fluxo incompleto (status: ${status}). Não feche o popup da Meta até escolher o número do WhatsApp.`,
+            );
+          }
           return;
         }
 
@@ -195,8 +204,9 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         override_default_response_type: true,
         extras: {
           setup: {},
-          featureType: "whatsapp_business_app_onboarding",
+          // Cloud API Embedded Signup padrão (sem forçar migração do app Business)
           sessionInfoVersion: "3",
+          version: "v3",
         },
       },
     );
@@ -243,8 +253,11 @@ export function EmbeddedSignupButton({ tenantId, appId, configId }: Props) {
         <p className="text-sm text-teal-700">{state.success}</p>
       )}
       <p className="text-xs text-zinc-500">
-        No popup da Meta, complete até escolher/confirmar o número. Não feche
-        antes do fim.
+        No popup da Meta: confirme o código do Facebook, depois avance até
+        escolher/confirmar o número do WhatsApp. Não feche o popup no meio.
+        Em localhost, o domínio precisa estar autorizado no app da Meta
+        (Facebook Login → Settings → Allowed Domains / Valid OAuth Redirect
+        URIs).
       </p>
     </div>
   );
