@@ -2,7 +2,7 @@
 
 > Documento para remodelagem. Descreve **como o produto funciona hoje** (telas, dados, fluxos), não o roadmap ideal.
 >
-> Data de referência: setembro/2026 · Stack: Next.js (App Router) + Supabase + **Evolution/Baileys (WhatsApp QR)** + OpenAI · Meta Cloud API = legado
+> Data de referência: setembro/2026 · Stack: Next.js + Supabase + **Evolution/Baileys** + OpenAI · Meta Cloud API = fora do produto (revisar no futuro)
 
 
 ---
@@ -28,8 +28,6 @@ WhatsApp (Evolution/Baileys — QR)
     → dispara IA (OpenAI) em background
     → responde via Evolution sendText
     → atualiza CRM (atributos, deal/funil, notificações)
-
-(Legado) Meta Cloud API → /api/webhooks/meta → mesmo ingest/IA
 ```
 
 UI web: operadores veem inbox, leads, funil e configurações.

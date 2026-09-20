@@ -2,7 +2,6 @@ import {
   isEvolutionConfigured,
   sendEvolutionText,
 } from "@/lib/evolution/client";
-import { sendWhatsAppText } from "@/lib/meta/whatsapp";
 
 export type OutboundChannel = {
   phone_number_id: string;
@@ -10,34 +9,24 @@ export type OutboundChannel = {
   onboard_source?: string | null;
 };
 
-/**
- * Envia texto pelo provedor do canal (Meta Cloud API ou Evolution/Baileys).
- */
+/** Envia texto via Evolution/Baileys. */
 export async function sendOutboundText(params: {
   channel: OutboundChannel;
   accessToken: string;
   toE164: string;
   body: string;
 }) {
-  const source = params.channel.onboard_source ?? "manual";
+  void params.accessToken;
 
-  if (source === "baileys") {
-    if (!isEvolutionConfigured()) {
-      throw new Error(
-        "Canal Baileys conectado, mas EVOLUTION_API_URL/KEY não estão configuradas.",
-      );
-    }
-    return sendEvolutionText({
-      instanceName: params.channel.phone_number_id,
-      toE164: params.toE164,
-      text: params.body,
-    });
+  if (!isEvolutionConfigured()) {
+    throw new Error(
+      "EVOLUTION_API_URL/KEY não configuradas — WhatsApp só via Baileys.",
+    );
   }
 
-  return sendWhatsAppText({
-    phoneNumberId: params.channel.phone_number_id,
-    accessToken: params.accessToken,
+  return sendEvolutionText({
+    instanceName: params.channel.phone_number_id,
     toE164: params.toE164,
-    body: params.body,
+    text: params.body,
   });
 }

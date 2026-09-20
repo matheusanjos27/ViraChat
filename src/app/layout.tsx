@@ -16,7 +16,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "ViraChat",
   description:
-    "Atendimento empresarial com IA no WhatsApp — centralizado, oficial e multi-tenant.",
+    "Atendimento empresarial com IA no WhatsApp — centralizado e multi-tenant.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
