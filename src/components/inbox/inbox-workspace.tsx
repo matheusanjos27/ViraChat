@@ -227,6 +227,13 @@ export function InboxWorkspace({
     const supabase = createClient();
     let cancelled = false;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    // Fallback imediatamente; Realtime só melhora depois
+    setLiveState("polling");
+    pollTimer = setInterval(() => {
+      void refreshList();
+    }, 8000);
 
     async function fetchConversationCard(
       conversationId: string,
@@ -362,119 +369,119 @@ export function InboxWorkspace({
       }
     }
 
-    const channel = supabase
-      .channel(`inbox-${tenantId}-${crypto.randomUUID()}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          const row = payload.new as InboxMessage & {
-            conversation_id: string;
-          };
-          if (!row?.conversation_id) return;
-
-          if (selectedIdRef.current === row.conversation_id) {
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === row.id)) return prev;
-              return [
-                ...prev,
-                {
-                  id: row.id,
-                  body: row.body,
-                  direction: row.direction,
-                  sender_type: row.sender_type,
-                  created_at: row.created_at,
-                },
-              ];
-            });
-          }
-
-          setConversations((prev) => {
-            const idx = prev.findIndex((c) => c.id === row.conversation_id);
-            if (idx < 0) {
-              void ensureConversation(row.conversation_id);
-              return prev;
-            }
-            const item = {
-              ...prev[idx],
-              preview: row.body,
-              last_message_at: row.created_at,
+    try {
+      channel = supabase
+        .channel(`inbox-${tenantId}-${crypto.randomUUID()}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `tenant_id=eq.${tenantId}`,
+          },
+          (payload) => {
+            const row = payload.new as InboxMessage & {
+              conversation_id: string;
             };
-            const next = [...prev];
-            next.splice(idx, 1);
-            next.unshift(item);
-            return next;
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "conversations",
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          const row = payload.new as { id?: string };
-          if (row?.id) void ensureConversation(row.id);
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "conversations",
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          const row = payload.new as {
-            id: string;
-            status: InboxConversation["status"];
-            last_message_at: string | null;
-            assigned_to: string | null;
-          };
-          bumpConversation(row.id, {
-            status: row.status,
-            last_message_at: row.last_message_at,
-            assigned_to: row.assigned_to,
-          });
-        },
-      );
+            if (!row?.conversation_id) return;
 
-    channel.subscribe((status) => {
-      if (cancelled) return;
-      if (status === "SUBSCRIBED") {
-        setLiveState("live");
-        if (pollTimer) {
-          clearInterval(pollTimer);
-          pollTimer = null;
-        }
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        setLiveState("polling");
-        if (!pollTimer) {
-          pollTimer = setInterval(() => {
-            void refreshList();
-          }, 5000);
-        }
-      }
-    });
+            if (selectedIdRef.current === row.conversation_id) {
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === row.id)) return prev;
+                return [
+                  ...prev,
+                  {
+                    id: row.id,
+                    body: row.body,
+                    direction: row.direction,
+                    sender_type: row.sender_type,
+                    created_at: row.created_at,
+                  },
+                ];
+              });
+            }
 
-    // Safety net: soft poll even when live (covers missed inserts / RLS quirks)
-    pollTimer = setInterval(() => {
-      void refreshList();
-    }, 8000);
+            setConversations((prev) => {
+              const idx = prev.findIndex((c) => c.id === row.conversation_id);
+              if (idx < 0) {
+                void ensureConversation(row.conversation_id);
+                return prev;
+              }
+              const item = {
+                ...prev[idx],
+                preview: row.body,
+                last_message_at: row.created_at,
+              };
+              const next = [...prev];
+              next.splice(idx, 1);
+              next.unshift(item);
+              return next;
+            });
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "conversations",
+            filter: `tenant_id=eq.${tenantId}`,
+          },
+          (payload) => {
+            const row = payload.new as { id?: string };
+            if (row?.id) void ensureConversation(row.id);
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "conversations",
+            filter: `tenant_id=eq.${tenantId}`,
+          },
+          (payload) => {
+            const row = payload.new as {
+              id: string;
+              status: InboxConversation["status"];
+              last_message_at: string | null;
+              assigned_to: string | null;
+            };
+            bumpConversation(row.id, {
+              status: row.status,
+              last_message_at: row.last_message_at,
+              assigned_to: row.assigned_to,
+            });
+          },
+        );
+
+      channel.subscribe((status) => {
+        if (cancelled) return;
+        if (status === "SUBSCRIBED") {
+          setLiveState("live");
+          if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+          }
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setLiveState("polling");
+          if (!pollTimer) {
+            pollTimer = setInterval(() => {
+              void refreshList();
+            }, 5000);
+          }
+        }
+      });
+    } catch (err) {
+      console.error("[inbox] realtime setup failed", err);
+      setLiveState("polling");
+    }
 
     return () => {
       cancelled = true;
       if (pollTimer) clearInterval(pollTimer);
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [tenantId]);
 

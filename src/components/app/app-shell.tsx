@@ -1,12 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
-import {
-  NotificationBell,
-  type NotificationItem,
-} from "@/components/app/notification-bell";
+import type { NotificationItem } from "@/components/app/notification-bell";
+
+const NotificationBell = dynamic(
+  () =>
+    import("@/components/app/notification-bell").then((m) => m.NotificationBell),
+  { ssr: false },
+);
 
 const nav = [
   { href: "/app/conversations", label: "Conversas", icon: IconChat },
