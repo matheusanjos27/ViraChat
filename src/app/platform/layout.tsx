@@ -16,7 +16,7 @@ export default async function PlatformLayout({
   return (
     <div className="min-h-dvh bg-paper text-ink">
       <header className="border-b border-line bg-brand-deep px-6 py-4 text-white">
-        <img src="/logo.png" alt="ViraChat" className="h-8 w-auto rounded-lg bg-white px-2 py-0.5" />
+        <img src="/logo.png" alt="ViraChat" className="h-8 w-auto" />
         <p className="mt-1 text-xs text-white/60">Painel da plataforma</p>
       </header>
       {children}

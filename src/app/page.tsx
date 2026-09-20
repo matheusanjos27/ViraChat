@@ -24,7 +24,7 @@ export default function Home() {
         <img
           src="/logo.png"
           alt="ViraChat"
-          className="rise-in h-16 w-auto rounded-2xl bg-white px-3 py-2 sm:h-20"
+          className="rise-in h-16 w-auto sm:h-20"
         />
         <h1 className="rise-in mt-5 max-w-xl text-xl font-normal leading-relaxed text-white/80 sm:text-2xl [animation-delay:80ms]">
           Atendimento com IA no WhatsApp. A IA responde; o humano entra quando

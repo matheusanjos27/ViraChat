@@ -77,7 +77,7 @@ export function AppShell({
             <img
               src="/logo.png"
               alt="ViraChat"
-              className="h-10 w-auto rounded-xl bg-white px-2 py-1"
+              className="h-10 w-auto"
             />
             <span className="block text-[11px] leading-snug text-white/50">
               Todos os seus números em um só lugar
