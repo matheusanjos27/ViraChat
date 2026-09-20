@@ -1,8 +1,21 @@
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
-import { InboxWorkspace } from "@/components/inbox/inbox-workspace";
 import type { ConversationStatus } from "@/lib/conversations/status";
 import type { InboxConversation, InboxMessage } from "@/lib/inbox/types";
 import { createClient } from "@/lib/supabase/server";
+
+const InboxWorkspace = dynamic(
+  () =>
+    import("@/components/inbox/inbox-workspace").then((m) => m.InboxWorkspace),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center bg-[#eef1f0] text-sm text-ink-muted">
+        Carregando conversas…
+      </div>
+    ),
+  },
+);
 
 export default async function ConversationsPage({
   searchParams,
