@@ -4,29 +4,34 @@ import { createClient } from "@/lib/supabase/server";
 
 const cards = [
   {
-    href: "/app/settings/fields",
-    title: "Campos do lead",
-    desc: "Defina o que a IA coleta: empresa, CNPJ, porte, setor — o que fizer sentido para o seu negócio.",
+    href: "/app/settings/company",
+    title: "Empresa",
+    desc: "Nome, descrição e contatos — a IA usa isso para se apresentar no WhatsApp.",
   },
   {
-    href: "/app/settings/pipeline",
-    title: "Funil de vendas",
-    desc: "Etapas do pipeline comercial. Arraste deals no kanban conforme a negociação avança.",
-  },
-  {
-    href: "/app/settings/services",
-    title: "Catálogo e preços",
-    desc: "Serviços com preço fixo, por unidade ou por faixas. A IA usa essa tabela para orçar.",
+    href: "/app/settings/assistant",
+    title: "Assistente",
+    desc: "Liga/desliga o atendimento automático e o nome da IA.",
   },
   {
     href: "/app/settings/playbook",
     title: "Roteiro de conversa",
-    desc: "Playbook que a IA segue: abertura, diagnóstico, orçamento, objeções e fechamento.",
+    desc: "Como a IA conduz: abertura, diagnóstico, orçamento, objeções e fechamento.",
   },
   {
-    href: "/app/ai",
-    title: "Assistente IA",
-    desc: "Instruções, tom de voz e quando transferir para humano.",
+    href: "/app/settings/fields",
+    title: "Campos do lead",
+    desc: "O que a IA coleta: empresa, porte, setor — o que fizer sentido para você.",
+  },
+  {
+    href: "/app/settings/pipeline",
+    title: "Funil de vendas",
+    desc: "Etapas do pipeline. Arraste deals no kanban conforme a negociação avança.",
+  },
+  {
+    href: "/app/settings/services",
+    title: "Catálogo e preços",
+    desc: "Serviços com preço fixo, por unidade ou por faixas.",
   },
   {
     href: "/app/channels",
@@ -52,7 +57,8 @@ export default async function SettingsPage() {
           Preferências
         </h1>
         <p className="mt-2 text-ink-muted">
-          Tudo genérico — cada empresa configura o próprio CRM.
+          Empresa e roteiro alimentam a IA. O assistente só liga ou desliga o
+          automático.
         </p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">

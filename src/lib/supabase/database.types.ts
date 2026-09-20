@@ -18,6 +18,9 @@ export type Database = {
           id: string;
           name: string;
           slug: string;
+          about: string | null;
+          website: string | null;
+          phone: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -25,6 +28,9 @@ export type Database = {
           id?: string;
           name: string;
           slug: string;
+          about?: string | null;
+          website?: string | null;
+          phone?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -32,6 +38,9 @@ export type Database = {
           id?: string;
           name?: string;
           slug?: string;
+          about?: string | null;
+          website?: string | null;
+          phone?: string | null;
           created_at?: string;
           updated_at?: string;
         };

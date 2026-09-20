@@ -14,12 +14,12 @@ export async function updateAiConfig(
 ): Promise<AiConfigState> {
   const tenantId = String(formData.get("tenantId") ?? "");
   const name = String(formData.get("name") ?? "").trim() || "Assistente";
-  const instructions = String(formData.get("instructions") ?? "").trim();
+  const instructions =
+    String(formData.get("instructions") ?? "").trim() ||
+    "Siga o roteiro de conversa e os dados da empresa.";
   const isEnabled = formData.get("isEnabled") === "on";
 
-  if (!tenantId || !instructions) {
-    return { error: "Preencha as instruções da IA." };
-  }
+  if (!tenantId) return { error: "Tenant inválido." };
 
   const supabase = await createClient();
   const {
@@ -49,6 +49,8 @@ export async function updateAiConfig(
 
   if (error) return { error: error.message };
 
+  revalidatePath("/app/settings/assistant");
   revalidatePath("/app/ai");
-  return { success: "Configuração salva." };
+  revalidatePath("/app/settings");
+  return { success: "Assistente atualizado." };
 }

@@ -47,6 +47,12 @@ export async function runAiForConversation(conversationId: string) {
     return { skipped: "ai_disabled" as const };
   }
 
+  const { data: tenantProfile } = await supabase
+    .from("tenants")
+    .select("name, about, phone, website")
+    .eq("id", conversation.tenant_id)
+    .maybeSingle();
+
   const [
     { data: messages },
     { data: attributes },
@@ -175,12 +181,26 @@ export async function runAiForConversation(conversationId: string) {
   );
   const playbookBlock = buildPlaybookPromptBlock(activePlaybook);
 
+  const tenant = tenantProfile;
+
+  const companyBlock = tenant
+    ? [
+        `EMPRESA QUE VOCÊ REPRESENTA: ${tenant.name}`,
+        tenant.about ? `Sobre: ${tenant.about}` : null,
+        tenant.phone ? `Telefone: ${tenant.phone}` : null,
+        tenant.website ? `Site: ${tenant.website}` : null,
+        "Use esses dados na apresentação e quando o cliente perguntar sobre a empresa.",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
+
   const result = await provider.generateReply({
     agentName: aiConfig.name,
     instructions: aiConfig.instructions,
     history,
     latestUserMessage: latestInbound.body,
-    playbookBlock,
+    playbookBlock: [companyBlock, playbookBlock].filter(Boolean).join("\n\n"),
     attributeBlock,
     catalogBlock,
   });

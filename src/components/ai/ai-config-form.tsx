@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { updateAiConfig, type AiConfigState } from "@/app/actions/ai-config";
 
@@ -11,12 +12,12 @@ const field =
 export function AiConfigForm({
   tenantId,
   name,
-  instructions,
+  notes,
   isEnabled,
 }: {
   tenantId: string;
   name: string;
-  instructions: string;
+  notes: string;
   isEnabled: boolean;
 }) {
   const [state, action, pending] = useActionState(updateAiConfig, initial);
@@ -24,9 +25,27 @@ export function AiConfigForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="tenantId" value={tenantId} />
+
+      <label className="flex items-center justify-between gap-3 rounded-xl border border-line bg-[#f7faf9] px-4 py-3">
+        <span>
+          <span className="block text-sm font-semibold">
+            Atendimento automático
+          </span>
+          <span className="text-xs text-ink-muted">
+            Quando ligado, a IA responde sozinha no WhatsApp
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          name="isEnabled"
+          defaultChecked={isEnabled}
+          className="size-5 accent-[var(--brand)]"
+        />
+      </label>
+
       <div className="flex flex-col gap-1.5">
         <label htmlFor="name" className="text-sm font-medium">
-          Nome da IA
+          Nome do assistente
         </label>
         <input
           id="name"
@@ -34,31 +53,35 @@ export function AiConfigForm({
           defaultValue={name}
           className={field}
           required
+          placeholder="Ex: Ana"
         />
       </div>
+
       <div className="flex flex-col gap-1.5">
         <label htmlFor="instructions" className="text-sm font-medium">
-          Instruções
+          Notas extras{" "}
+          <span className="font-normal text-ink-muted">(opcional)</span>
         </label>
         <textarea
           id="instructions"
           name="instructions"
-          defaultValue={instructions}
-          rows={10}
-          required
+          defaultValue={notes}
+          rows={4}
           className={field}
-          placeholder="Tom de voz, produtos, horários, o que pode/não pode dizer…"
+          placeholder="Horários, restrições pontuais… O roteiro principal fica em Playbook."
         />
+        <p className="text-xs text-ink-muted">
+          O comportamento da conversa (abertura, diagnóstico, orçamento) fica em{" "}
+          <Link
+            href="/app/settings/playbook"
+            className="font-medium text-brand hover:underline"
+          >
+            Roteiro de conversa
+          </Link>
+          .
+        </p>
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          name="isEnabled"
-          defaultChecked={isEnabled}
-          className="size-4 rounded border-line accent-[var(--brand)]"
-        />
-        Atendimento automático ativo
-      </label>
+
       {state.error && (
         <p className="text-sm text-red-600" role="alert">
           {state.error}

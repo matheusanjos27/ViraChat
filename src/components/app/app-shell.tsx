@@ -5,21 +5,11 @@ import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
 
 const nav = [
-  {
-    href: "/app/conversations",
-    label: "Conversas",
-    icon: IconChat,
-  },
+  { href: "/app/conversations", label: "Conversas", icon: IconChat },
   { href: "/app/leads", label: "Leads", icon: IconUsers },
   { href: "/app/deals", label: "Funil", icon: IconFunnel },
   { href: "/app/channels", label: "Canais", icon: IconChannels },
-  { href: "/app/ai", label: "IA", icon: IconSpark },
-  { href: "/app", label: "Empresa", icon: IconBuilding, exact: true },
-  {
-    href: "/app/settings",
-    label: "Configurações",
-    icon: IconSettings,
-  },
+  { href: "/app/settings", label: "Configurações", icon: IconSettings },
 ] as const;
 
 function initials(name?: string) {
@@ -57,7 +47,7 @@ export function AppShell({
 
   return (
     <div className="flex h-dvh overflow-hidden bg-[#eef1f0] text-ink">
-      <aside className="relative hidden w-[270px] shrink-0 flex-col bg-[#0b2f2a] text-white md:flex">
+      <aside className="relative hidden w-[280px] shrink-0 flex-col bg-[#0b2f2a] text-white md:flex">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -68,46 +58,28 @@ export function AppShell({
         />
         <div className="relative z-10 flex h-full flex-col px-4 py-5">
           <Link href="/app/conversations" className="block px-1">
-            <img
-              src="/logo.png"
-              alt="ViraChat"
-              className="h-20 w-auto"
-            />
+            <img src="/logo.png" alt="ViraChat" className="h-20 w-auto" />
           </Link>
 
-          <nav className="mt-8 flex flex-1 flex-col gap-0.5">
+          <nav className="mt-8 flex flex-1 flex-col gap-1.5">
             {nav.map((item) => {
-              const active = "exact" in item && item.exact
-                ? pathname === item.href
-                : item.href !== "/app" && pathname.startsWith(item.href);
+              const active = pathname.startsWith(item.href);
               const isConversas = item.label === "Conversas";
               const Icon = item.icon;
-              if ("soon" in item && item.soon) {
-                return (
-                  <span
-                    key={item.label}
-                    className="flex cursor-default items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/35"
-                    title="Em breve"
-                  >
-                    <Icon className="size-[18px] opacity-70" />
-                    {item.label}
-                  </span>
-                );
-              }
               return (
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                  className={`flex items-center gap-3.5 rounded-xl px-3.5 py-3 text-[15px] transition ${
                     active
-                      ? "bg-[#0f6b5c] font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
-                      : "text-white/70 hover:bg-white/8 hover:text-white"
+                      ? "bg-[#0f6b5c] font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+                      : "font-medium text-white/80 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <Icon className="size-[18px]" />
-                  <span className="flex-1">{item.label}</span>
+                  <Icon className="size-5 shrink-0 opacity-90" />
+                  <span className="flex-1 tracking-tight">{item.label}</span>
                   {isConversas && openCount > 0 ? (
-                    <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums">
+                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold tabular-nums">
                       {openCount > 99 ? "99+" : openCount}
                     </span>
                   ) : null}
@@ -117,40 +89,39 @@ export function AppShell({
             {isPlatformAdmin ? (
               <Link
                 href="/platform"
-                className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-accent/90 transition hover:bg-white/8"
+                className="mt-3 flex items-center gap-3.5 rounded-xl px-3.5 py-3 text-[15px] font-medium text-accent transition hover:bg-white/10"
               >
-                <IconSettings className="size-[18px]" />
+                <IconSettings className="size-5" />
                 Plataforma
               </Link>
             ) : null}
           </nav>
 
           <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
+            {tenantName ? (
+              <p className="truncate px-1 text-xs font-medium text-white/55">
+                {tenantName}
+              </p>
+            ) : null}
             <div className="flex items-center gap-3 rounded-xl px-1 py-1">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#1a6b5c] text-xs font-semibold">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1a6b5c] text-sm font-semibold">
                 {initials(userName)}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-white">
+                <p className="truncate text-[15px] font-semibold text-white">
                   {userName ?? "Usuário"}
                 </p>
-                <p className="truncate text-[11px] text-white/50">{roleLabel}</p>
+                <p className="truncate text-xs text-white/50">{roleLabel}</p>
               </div>
             </div>
             <form action={signOut}>
               <button
                 type="submit"
-                className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-white/45 transition hover:text-white"
+                className="w-full rounded-lg px-2 py-2 text-left text-sm text-white/50 transition hover:text-white"
               >
                 Sair
               </button>
             </form>
-            <p className="px-1 text-[10px] text-white/30">ViraChat v1.0.0</p>
-            {tenantName ? (
-              <p className="truncate px-1 text-[10px] text-white/25">
-                {tenantName}
-              </p>
-            ) : null}
           </div>
         </div>
       </aside>
@@ -172,14 +143,6 @@ export function AppShell({
   );
 }
 
-function IconLogo({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className ?? "size-5"}>
-      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.2 3.15A.75.75 0 0 1 4.5 18.5V16h-.5A2.5 2.5 0 0 1 4 13.5v-8Z" />
-    </svg>
-  );
-}
-
 function IconChat({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
@@ -193,32 +156,6 @@ function IconChannels({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
       <rect x="4" y="5" width="16" height="14" rx="2.5" />
       <path d="M8 9h8M8 12h5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconSpark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
-      <path d="M12 3.5 13.4 8.6 18.5 10 13.4 11.4 12 16.5 10.6 11.4 5.5 10l5.1-1.4L12 3.5Z" strokeLinejoin="round" />
-      <path d="M18 15.5 18.6 17.4 20.5 18 18.6 18.6 18 20.5 17.4 18.6 15.5 18l1.9-.6.6-1.9Z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function IconBuilding({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
-      <path d="M4 20h16M6 20V7.5A1.5 1.5 0 0 1 7.5 6H12v14M12 20V4.5A1.5 1.5 0 0 1 13.5 3H16.5A1.5 1.5 0 0 1 18 4.5V20" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9 9h.01M9 12h.01M15 8h.01M15 11h.01M15 14h.01" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconChart({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
-      <path d="M4 19h16M7 16V10M12 16V7M17 16v-4" strokeLinecap="round" />
     </svg>
   );
 }
