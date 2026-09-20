@@ -4,7 +4,8 @@
 |---|---|
 | `docker-compose.yml` | Só Evolution (dev / Vercel + VPS) |
 | `docker-compose.prod.yml` | **Produção:** Caddy + ViraChat + Evolution |
-| `DEPLOY-VPS.md` | Passo a passo completo na VPS (inclui Supabase self-host) |
+| `DEPLOY-VPS.md` | Passo a passo completo na VPS (inclui Supabase self-host + CI) |
+| `scripts/deploy.sh` | Pull + migration + rebuild (Actions / manual) |
 | `.env.prod.example` | Modelo de env de produção |
 
 ## Produção (recomendado)

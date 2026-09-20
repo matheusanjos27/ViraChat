@@ -206,3 +206,57 @@ cd docker && docker compose -f docker-compose.prod.yml up -d --build
 - Só 80/443 (+ 22 SSH)  
 - Troque todas as senhas do `.env`  
 - Firewall: `ufw allow 22,80,443/tcp && ufw enable`
+
+---
+
+## 7. Deploy automático (push na `main`)
+
+Quando algo sobe na `main`, o GitHub Actions:
+
+1. Entra na VPS por SSH (chave)  
+2. Roda `docker/scripts/deploy.sh`  
+3. `git pull` → **migrations** (`DATABASE_URL`) → `docker compose up --build`
+
+### 7.1 Chave SSH só para deploy
+
+No seu PC:
+
+```bash
+ssh-keygen -t ed25519 -C "virachat-deploy" -f virachat-deploy -N ""
+```
+
+Na VPS:
+
+```bash
+mkdir -p ~/.ssh
+cat >> ~/.ssh/authorized_keys   # cola o conteúdo de virachat-deploy.pub
+chmod 600 ~/.ssh/authorized_keys
+```
+
+### 7.2 Secrets no GitHub
+
+Repo → **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Valor |
+|---|---|
+| `VPS_HOST` | `200.192.27.111` |
+| `VPS_USER` | `root` (ou o user SSH) |
+| `VPS_SSH_KEY` | conteúdo **completo** do arquivo privado `virachat-deploy` |
+| `VPS_PORT` | `22` (opcional) |
+
+### 7.3 DATABASE_URL na VPS
+
+Em `/opt/ViraChat/docker/.env`:
+
+```env
+DATABASE_URL=postgresql://postgres:SENHA@127.0.0.1:5432/postgres
+```
+
+(Use a senha do Postgres do Supabase self-host.)
+
+### 7.4 Testar
+
+- Actions → **Deploy VPS** → **Run workflow**, ou  
+- `git push origin main`
+
+O job falha de propósito se `/opt/ViraChat` ainda não existir — faça o setup inicial uma vez (`DEPLOY-VPS.md` passos 1–3).
