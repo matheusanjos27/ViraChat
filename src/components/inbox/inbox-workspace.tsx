@@ -226,13 +226,14 @@ export function InboxWorkspace({
         .limit(1)
         .maybeSingle();
 
-      const contact = (data.contacts as InboxConversation["contact"] | null) ?? {
-        id: "unknown",
-        display_name: null,
-        phone_e164: null,
-        external_id: null,
-      };
-      const channel = data.channels as {
+      const contact =
+        (data.contacts as unknown as InboxConversation["contact"] | null) ?? {
+          id: "unknown",
+          display_name: null,
+          phone_e164: null,
+          external_id: null,
+        };
+      const channel = data.channels as unknown as {
         id: string;
         display_name: string;
       } | null;
@@ -302,13 +303,13 @@ export function InboxWorkspace({
 
       const next: InboxConversation[] = rows.map((r) => {
         const contact =
-          (r.contacts as InboxConversation["contact"] | null) ?? {
+          (r.contacts as unknown as InboxConversation["contact"] | null) ?? {
             id: "unknown",
             display_name: null,
             phone_e164: null,
             external_id: null,
           };
-        const channel = r.channels as {
+        const channel = r.channels as unknown as {
           id: string;
           display_name: string;
         } | null;
