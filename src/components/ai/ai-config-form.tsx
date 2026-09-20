@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { updateAiConfig, type AiConfigState } from "@/app/actions/ai-config";
 
@@ -66,20 +65,10 @@ export function AiConfigForm({
           id="instructions"
           name="instructions"
           defaultValue={notes}
-          rows={4}
+          rows={3}
           className={field}
-          placeholder="Horários, restrições pontuais… O roteiro principal fica em Playbook."
+          placeholder="Horários, restrições pontuais…"
         />
-        <p className="text-xs text-ink-muted">
-          O comportamento da conversa (abertura, diagnóstico, orçamento) fica em{" "}
-          <Link
-            href="/app/settings/playbook"
-            className="font-medium text-brand hover:underline"
-          >
-            Roteiro de conversa
-          </Link>
-          .
-        </p>
       </div>
 
       {state.error && (

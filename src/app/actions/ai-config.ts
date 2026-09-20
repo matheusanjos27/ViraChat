@@ -49,7 +49,9 @@ export async function updateAiConfig(
 
   if (error) return { error: error.message };
 
+  revalidatePath("/app/settings/ai");
   revalidatePath("/app/settings/assistant");
+  revalidatePath("/app/settings/playbook");
   revalidatePath("/app/ai");
   revalidatePath("/app/settings");
   return { success: "Assistente atualizado." };

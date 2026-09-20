@@ -9,14 +9,9 @@ const cards = [
     desc: "Nome, descrição e contatos — a IA usa isso para se apresentar no WhatsApp.",
   },
   {
-    href: "/app/settings/assistant",
-    title: "Assistente",
-    desc: "Liga/desliga o atendimento automático e o nome da IA.",
-  },
-  {
-    href: "/app/settings/playbook",
-    title: "Roteiro de conversa",
-    desc: "Como a IA conduz: abertura, diagnóstico, orçamento, objeções e fechamento.",
+    href: "/app/settings/ai",
+    title: "Atendimento com IA",
+    desc: "Ligar o automático, nome do assistente e o roteiro completo da conversa.",
   },
   {
     href: "/app/settings/fields",
@@ -57,8 +52,7 @@ export default async function SettingsPage() {
           Preferências
         </h1>
         <p className="mt-2 text-ink-muted">
-          Empresa e roteiro alimentam a IA. O assistente só liga ou desliga o
-          automático.
+          Empresa e IA no centro. O resto alimenta o CRM e o orçamento.
         </p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">

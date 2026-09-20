@@ -59,6 +59,7 @@ export async function savePlaybook(
   }
 
   revalidatePath("/app/settings/playbook");
+  revalidatePath("/app/settings/ai");
   return { success: "Playbook salvo." };
 }
 
@@ -83,6 +84,7 @@ export async function createPlaybookFromTemplate(
   if (error) return { error: error.message };
 
   revalidatePath("/app/settings/playbook");
+  revalidatePath("/app/settings/ai");
   return { success: "Playbook criado a partir do template." };
 }
 
@@ -114,6 +116,7 @@ export async function deletePlaybook(
   if (error) return { error: error.message };
 
   revalidatePath("/app/settings/playbook");
+  revalidatePath("/app/settings/ai");
   return { success: "Playbook removido." };
 }
 
@@ -137,5 +140,6 @@ export async function setPlaybookActive(
   if (error) return { error: error.message };
 
   revalidatePath("/app/settings/playbook");
+  revalidatePath("/app/settings/ai");
   return { success: isActive ? "Ativado." : "Desativado." };
 }
