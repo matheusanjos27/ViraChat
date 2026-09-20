@@ -1,0 +1,47 @@
+# Override para o compose oficial do Supabase (clonado em /opt/supabase/docker).
+# Uso:
+#   cp docker/supabase/docker-compose.override.yml /opt/supabase/docker/
+#   cd /opt/supabase/docker && docker compose up -d
+#
+# Limita RAM (VPS 4GB com Evolution + Next) e expõe Kong na 8000.
+
+services:
+  db:
+    mem_limit: 768m
+    cpus: "1.0"
+
+  auth:
+    mem_limit: 256m
+
+  rest:
+    mem_limit: 256m
+
+  realtime:
+    mem_limit: 320m
+
+  storage:
+    mem_limit: 256m
+
+  meta:
+    mem_limit: 192m
+
+  kong:
+    mem_limit: 256m
+    ports:
+      - "${KONG_HTTP_PORT:-8000}:8000"
+      - "${KONG_HTTPS_PORT:-8443}:8443"
+
+  studio:
+    mem_limit: 384m
+
+  analytics:
+    mem_limit: 256m
+
+  vector:
+    mem_limit: 192m
+
+  imgproxy:
+    mem_limit: 128m
+
+  functions:
+    mem_limit: 192m

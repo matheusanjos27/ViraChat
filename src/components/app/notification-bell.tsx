@@ -53,10 +53,27 @@ export function NotificationBell({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  // Realtime desligado temporariamente (estabilidade no VPS); itens vêm do SSR/layout.
+  // Realtime desligado (estabilidade); polling leve a cada 60s.
   useEffect(() => {
     setItems(initialItems);
   }, [initialItems]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const tick = async () => {
+      const { data } = await supabase
+        .from("app_notifications")
+        .select("id, type, title, body, conversation_id, read_at, created_at")
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (data) setItems(data as NotificationItem[]);
+    };
+    const id = window.setInterval(() => {
+      void tick();
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [tenantId]);
 
   async function markAllRead() {
     const supabase = createClient();
@@ -135,9 +152,12 @@ export function NotificationBell({
               </p>
             ) : (
               items.map((n) => {
-                const href = n.conversation_id
-                  ? `/app/conversations?c=${n.conversation_id}`
-                  : "/app/conversations";
+                const href =
+                  n.type === "channel_disconnected"
+                    ? "/app/channels"
+                    : n.conversation_id
+                      ? `/app/conversations?c=${n.conversation_id}`
+                      : "/app/conversations";
                 return (
                   <Link
                     key={n.id}
@@ -160,12 +180,17 @@ export function NotificationBell({
                     </div>
                     {n.body ? (
                       <p className="mt-1 line-clamp-2 text-xs text-ink-muted">
-                        {n.body}
+                        {n.body.replace(/\s*\(instance:[^)]+\)\s*$/, "")}
                       </p>
                     ) : null}
                     {n.type === "handoff" ? (
                       <p className="mt-1.5 text-[11px] font-medium text-[#b54708]">
                         Aguardando humano
+                      </p>
+                    ) : null}
+                    {n.type === "channel_disconnected" ? (
+                      <p className="mt-1.5 text-[11px] font-medium text-[#b54708]">
+                        Reconectar WhatsApp
                       </p>
                     ) : null}
                   </Link>

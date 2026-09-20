@@ -1,6 +1,12 @@
 import { createServiceClient } from "@/lib/supabase/admin";
 
-export type AppNotificationType = "handoff" | "handoff_busy" | "system";
+export type AppNotificationType =
+  | "handoff"
+  | "handoff_busy"
+  | "system"
+  | "channel_disconnected";
+
+const DISCONNECT_DEBOUNCE_MS = 30 * 60 * 1000;
 
 export async function createAppNotification(input: {
   tenantId: string;
@@ -27,6 +33,42 @@ export async function createAppNotification(input: {
     return null;
   }
   return data?.id ?? null;
+}
+
+/** Evita spam se o WhatsApp ficar oscilando close/open. */
+export async function notifyChannelDisconnected(input: {
+  tenantId: string;
+  instanceName: string;
+  displayName?: string | null;
+  displayPhone?: string | null;
+}) {
+  const supabase = createServiceClient();
+  const since = new Date(Date.now() - DISCONNECT_DEBOUNCE_MS).toISOString();
+  const marker = `instance:${input.instanceName}`;
+
+  const { data: recent } = await supabase
+    .from("app_notifications")
+    .select("id")
+    .eq("tenant_id", input.tenantId)
+    .eq("type", "channel_disconnected")
+    .ilike("body", `%${marker}%`)
+    .gte("created_at", since)
+    .limit(1)
+    .maybeSingle();
+
+  if (recent) return null;
+
+  const label =
+    input.displayPhone ||
+    input.displayName ||
+    input.instanceName;
+
+  return createAppNotification({
+    tenantId: input.tenantId,
+    type: "channel_disconnected",
+    title: "WhatsApp desconectado",
+    body: `${label} perdeu a conexão. Reconecte em Canais. (${marker})`,
+  });
 }
 
 export async function markConversationNotificationsRead(

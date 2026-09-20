@@ -1,5 +1,10 @@
 # Domínios vêm do .env (Caddy substitui {$APP_DOMAIN} e {$WA_DOMAIN})
 # Sem domínio ainda: use o IP e HTTP (ajuste temporário no DEPLOY-VPS.md)
+#
+# API Supabase (Kong): ou exponha a porta 8000 no host, ou adicione manualmente:
+#   api.seudominio.com {
+#     reverse_proxy supabase-kong-1:8000
+#   }
 
 {$APP_DOMAIN} {
 	reverse_proxy virachat:3000

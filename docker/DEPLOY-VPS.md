@@ -75,46 +75,36 @@ Webhook Evolution (já usado pelo código ao criar instância):
 
 ## 4. Self-host Supabase (banco + Auth + Realtime)
 
-### 4.1 Instalar
+Scripts prontos no repo (preferir estes):
+
+| Script | Função |
+|---|---|
+| [`scripts/setup-supabase-vps.sh`](scripts/setup-supabase-vps.sh) | Clone oficial + override de RAM + `docker compose up` |
+| [`scripts/migrate-supabase-cloud-to-vps.sh`](scripts/migrate-supabase-cloud-to-vps.sh) | Dump Cloud → VPS **ou** `--migrations-only` |
+| [`scripts/backup-supabase-pg.sh`](scripts/backup-supabase-pg.sh) | Backup diário |
+| [`supabase/README.md`](supabase/README.md) | Resumo modo IP |
+
+### 4.1 Instalar (modo IP — KingHost atual)
 
 ```bash
-cd /opt
-git clone --depth 1 https://github.com/supabase/supabase
-cd supabase/docker
-cp .env.example .env
-nano .env
+bash /opt/ViraChat/docker/scripts/setup-supabase-vps.sh \
+  http://SEU_IP:3000 \
+  http://SEU_IP:8000
 ```
 
-Ajuste no `.env` do Supabase (mínimo):
+Isso clona `/opt/supabase`, aplica [`supabase/docker-compose.override.yml`](supabase/docker-compose.override.yml) (limites de memória), sobe a stack e **para** Studio/Analytics/Vector.
 
-- `SITE_URL` = `https://app.seudominio.com`
-- `API_EXTERNAL_URL` = `https://api.seudominio.com`
-- `SUPABASE_PUBLIC_URL` = `https://api.seudominio.com`
-- senhas JWT / Postgres fortes
+Firewall: libere `8000/tcp` só se for modo IP sem Caddy (`ufw allow 8000/tcp`). Com domínio, preferir só 80/443.
 
-Suba:
+### 4.1b Instalar (modo domínio)
 
 ```bash
-docker compose up -d
+bash /opt/ViraChat/docker/scripts/setup-supabase-vps.sh \
+  https://app.seudominio.com \
+  https://api.seudominio.com
 ```
 
-Exponha a API no Caddy: adicione ao `ViraChat/docker/Caddyfile`:
-
-```caddy
-api.seudominio.com {
-	reverse_proxy host.docker.internal:8000
-}
-```
-
-Se `host.docker.internal` não existir no Linux, use o IP da bridge ou coloque o Kong do Supabase na mesma rede Docker:
-
-```bash
-# Exemplo: conectar Kong à rede do compose do Vira
-docker network ls
-docker network connect docker_default supabase-kong-1
-```
-
-Depois no Caddyfile:
+No `Caddyfile`, adicione o bloco da API (Kong na mesma rede Docker):
 
 ```caddy
 api.seudominio.com {
@@ -122,47 +112,69 @@ api.seudominio.com {
 }
 ```
 
-(Reinicie o Caddy: `docker compose -f docker-compose.prod.yml restart caddy`)
+```bash
+docker network connect docker_default supabase-kong-1   # ajuste o nome
+docker compose -f docker-compose.prod.yml restart caddy
+```
 
 ### 4.2 Migrar dados do Supabase Cloud → self-host
 
-No PC (com link do projeto cloud):
-
 ```bash
-# Dump (schema + dados)
-supabase db dump -f backup.sql --linked
-# ou pg_dump com a connection string do Dashboard → Database
+# Connection string: Dashboard Cloud → Project Settings → Database
+export CLOUD_DATABASE_URL='postgresql://postgres.[ref]:SENHA@aws-0-....pooler.supabase.com:5432/postgres'
+
+bash /opt/ViraChat/docker/scripts/migrate-supabase-cloud-to-vps.sh
 ```
 
-Na VPS, restaure no Postgres do Supabase self-host (porta/credenciais do `supabase/docker/.env`):
+Banco novo (sem trazer o Cloud):
 
 ```bash
-psql "postgresql://postgres:SUA_SENHA@localhost:5432/postgres" -f backup.sql
-```
-
-Ou use as migrations do repo:
-
-```bash
-cd /opt/ViraChat
-# aponte DATABASE_URL / supabase link para o self-host e:
-npx supabase db push
+bash /opt/ViraChat/docker/scripts/migrate-supabase-cloud-to-vps.sh --migrations-only
+# depois seed do admin: scripts/seed-platform-admin.mjs
 ```
 
 ### 4.3 Ligar o Vira ao Supabase novo
 
-No `ViraChat/docker/.env`:
+No `ViraChat/docker/.env` (chaves em `/opt/supabase/docker/.env`):
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://api.seudominio.com
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...   # do supabase/docker/.env (ANON_KEY)
-SUPABASE_SERVICE_ROLE_KEY=...      # SERVICE_ROLE_KEY
+NEXT_PUBLIC_SUPABASE_URL=http://SEU_IP:8000
+# ou https://api.seudominio.com
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+DATABASE_URL=postgresql://postgres:SENHA@127.0.0.1:5432/postgres
 ```
 
-Rebuild do app (NEXT_PUBLIC_* entram no build):
+Rebuild do app (`NEXT_PUBLIC_*` entram no **build**):
 
 ```bash
 cd /opt/ViraChat/docker
-docker compose -f docker-compose.prod.yml up -d --build virachat
+docker compose -f docker-compose.ip.yml build --no-cache virachat
+docker compose -f docker-compose.ip.yml up -d virachat
+# produção com domínio:
+# docker compose -f docker-compose.prod.yml up -d --build virachat
+```
+
+### 4.4 Checklist pós-migração
+
+- [ ] Login admin (`/platform`) e tenant (`/app`)
+- [ ] Canais → status / reconectar QR
+- [ ] Mensagem teste → inbox
+- [ ] Webhook Evolution continua em `http(s)://APP/api/webhooks/evolution`
+- [ ] Cron backup: `backup-supabase-pg.sh`
+- [ ] Pausar projeto no **Supabase Cloud Free**
+
+### 4.5 Manual (sem scripts)
+
+```bash
+cd /opt
+git clone --depth 1 https://github.com/supabase/supabase
+cd supabase/docker
+cp .env.example .env
+# SITE_URL / API_EXTERNAL_URL / SUPABASE_PUBLIC_URL
+cp /opt/ViraChat/docker/supabase/docker-compose.override.yml ./docker-compose.override.yml
+docker compose up -d
+docker compose stop studio analytics vector
 ```
 
 ---

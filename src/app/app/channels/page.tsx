@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { BaileysConnectForm } from "@/components/channels/baileys-connect-form";
 import { DisconnectChannelButton } from "@/components/channels/disconnect-channel-button";
+import { ReconnectChannelButton } from "@/components/channels/reconnect-channel-button";
 import { isEvolutionConfigured } from "@/lib/evolution/client";
 import { createClient } from "@/lib/supabase/server";
 
@@ -55,6 +56,13 @@ export default async function ChannelsPage() {
   };
 
   const rows = (channels ?? []) as unknown as ChannelRow[];
+  const disconnected = rows.filter((ch) => {
+    const wa = Array.isArray(ch.whatsapp_accounts)
+      ? ch.whatsapp_accounts[0]
+      : ch.whatsapp_accounts;
+    const status = wa?.connection_status ?? "open";
+    return status === "close" || status === "pending_qr";
+  });
 
   return (
     <div className="app-noise h-full overflow-y-auto">
@@ -71,6 +79,23 @@ export default async function ChannelsPage() {
             Conecte números por QR (Baileys). A IA responde em todos.
           </p>
         </header>
+
+        {disconnected.length > 0 ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          >
+            <p className="font-semibold">
+              {disconnected.length === 1
+                ? "1 número precisa reconectar"
+                : `${disconnected.length} números precisam reconectar`}
+            </p>
+            <p className="mt-1 text-amber-900/80">
+              A sessão do WhatsApp caiu. Use <strong>Reconectar</strong> e
+              escaneie o QR no celular.
+            </p>
+          </div>
+        ) : null}
 
         <section className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
           <div className="rounded-xl border border-brand/15 bg-brand-soft/70 px-4 py-3 text-sm text-brand-deep">
@@ -93,6 +118,8 @@ export default async function ChannelsPage() {
                   ? ch.whatsapp_accounts[0]
                   : ch.whatsapp_accounts;
                 const status = wa?.connection_status ?? "open";
+                const needsReconnect =
+                  status === "close" || status === "pending_qr";
                 const statusLabel =
                   status === "open"
                     ? "conectado"
@@ -102,19 +129,39 @@ export default async function ChannelsPage() {
                 return (
                   <li
                     key={ch.id}
-                    className="flex items-start justify-between gap-4 rounded-xl border border-line bg-paper px-4 py-3"
+                    className={`flex items-start justify-between gap-4 rounded-xl border px-4 py-3 ${
+                      needsReconnect
+                        ? "border-amber-300 bg-amber-50/80"
+                        : "border-line bg-paper"
+                    }`}
                   >
                     <div>
                       <p className="font-medium">{ch.display_name}</p>
                       <p className="text-sm text-ink-muted">
                         {wa?.display_phone ?? wa?.phone_number_id} ·{" "}
-                        {statusLabel}
+                        <span
+                          className={
+                            needsReconnect
+                              ? "font-semibold text-[#b54708]"
+                              : "text-[#1f9d55]"
+                          }
+                        >
+                          {statusLabel}
+                        </span>
                       </p>
                     </div>
-                    <DisconnectChannelButton
-                      tenantId={tenantId}
-                      channelId={ch.id}
-                    />
+                    <div className="flex flex-col items-end gap-2">
+                      {needsReconnect ? (
+                        <ReconnectChannelButton
+                          tenantId={tenantId}
+                          channelId={ch.id}
+                        />
+                      ) : null}
+                      <DisconnectChannelButton
+                        tenantId={tenantId}
+                        channelId={ch.id}
+                      />
+                    </div>
                   </li>
                 );
               })}

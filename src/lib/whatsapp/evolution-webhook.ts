@@ -1,4 +1,5 @@
 import { ingestInboundTextMessage } from "@/lib/whatsapp/ingest";
+import { notifyChannelDisconnected } from "@/lib/notifications";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 type EvolutionWebhookBody = {
@@ -33,10 +34,47 @@ function extractText(message: Record<string, unknown> | undefined): string | nul
 
 function jidToWaId(jid: string | undefined): string | null {
   if (!jid) return null;
-  // 5511999999999@s.whatsapp.net or 1234567890@lid
   const user = jid.split("@")[0] ?? "";
   const digits = user.replace(/\D/g, "");
   return digits || null;
+}
+
+async function loadBaileysAccount(instance: string) {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("whatsapp_accounts")
+    .select(
+      "id, tenant_id, channel_id, display_phone, verified_name, connection_status, phone_number_id",
+    )
+    .eq("phone_number_id", instance)
+    .eq("onboard_source", "baileys")
+    .maybeSingle();
+  return data;
+}
+
+async function maybeNotifyDisconnect(
+  prevStatus: string | null | undefined,
+  nextStatus: "pending_qr" | "open" | "close",
+  account: {
+    tenant_id: string;
+    phone_number_id: string;
+    display_phone: string | null;
+    verified_name: string | null;
+  },
+) {
+  if (prevStatus === nextStatus) return;
+  const wasConnected = prevStatus === "open";
+  const needsReconnect =
+    (nextStatus === "close" && wasConnected) ||
+    (nextStatus === "pending_qr" && wasConnected);
+  if (!needsReconnect) return;
+
+  await notifyChannelDisconnected({
+    tenantId: account.tenant_id,
+    instanceName: account.phone_number_id,
+    displayName: account.verified_name,
+    displayPhone: account.display_phone,
+  });
 }
 
 export async function processEvolutionWebhook(payload: EvolutionWebhookBody) {
@@ -65,6 +103,9 @@ export async function processEvolutionWebhook(payload: EvolutionWebhookBody) {
           ? jidToWaId((data as { owner: string }).owner)
           : null;
 
+    const account = await loadBaileysAccount(instance);
+    const prevStatus = account?.connection_status;
+
     const patch: {
       connection_status: typeof connection_status;
       last_webhook_at: string;
@@ -81,10 +122,20 @@ export async function processEvolutionWebhook(payload: EvolutionWebhookBody) {
       .eq("phone_number_id", instance)
       .eq("onboard_source", "baileys");
 
+    if (account) {
+      await maybeNotifyDisconnect(prevStatus, connection_status, {
+        ...account,
+        display_phone: patch.display_phone ?? account.display_phone,
+      });
+    }
+
     return { handled: 1, conversationIds: [] as string[] };
   }
 
   if (event === "qrcode.updated") {
+    const account = await loadBaileysAccount(instance);
+    const prevStatus = account?.connection_status;
+
     await supabase
       .from("whatsapp_accounts")
       .update({
@@ -93,6 +144,11 @@ export async function processEvolutionWebhook(payload: EvolutionWebhookBody) {
       })
       .eq("phone_number_id", instance)
       .eq("onboard_source", "baileys");
+
+    if (account) {
+      await maybeNotifyDisconnect(prevStatus, "pending_qr", account);
+    }
+
     return { handled: 1, conversationIds: [] as string[] };
   }
 
@@ -109,7 +165,6 @@ export async function processEvolutionWebhook(payload: EvolutionWebhookBody) {
     return { handled: 0, conversationIds: [] as string[] };
   }
 
-  // Ignora grupos
   if (key.remoteJid?.endsWith("@g.us")) {
     return { handled: 0, conversationIds: [] as string[] };
   }
