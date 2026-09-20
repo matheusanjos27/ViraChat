@@ -1,6 +1,12 @@
 import { getDefaultAiProvider } from "@/lib/ai/providers/openai";
 import type { AiChatMessage } from "@/lib/ai/types";
 import { buildAttributePromptBlock } from "@/lib/crm/attributes";
+import {
+  buildCatalogPromptBlock,
+  formatQuoteMessage,
+  quoteCatalog,
+  type ServiceForQuote,
+} from "@/lib/crm/pricing";
 import { decryptToken } from "@/lib/crypto/tokens";
 import { canAiReply } from "@/lib/conversations/status";
 import { sendWhatsAppText } from "@/lib/meta/whatsapp";
@@ -36,26 +42,46 @@ export async function runAiForConversation(conversationId: string) {
     return { skipped: "ai_disabled" as const };
   }
 
-  const [{ data: messages }, { data: attributes }, { data: attrValues }] =
-    await Promise.all([
-      supabase
-        .from("messages")
-        .select("body, direction, sender_type, created_at")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true })
-        .limit(30),
-      supabase
-        .from("contact_attributes")
-        .select(
-          "id, key, label, type, options, required, collect_via_ai, sort_order, tenant_id, created_at, updated_at",
-        )
-        .eq("tenant_id", conversation.tenant_id)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("contact_attribute_values")
-        .select("attribute_id, value")
-        .eq("contact_id", conversation.contact_id),
-    ]);
+  const [
+    { data: messages },
+    { data: attributes },
+    { data: attrValues },
+    { data: services },
+    { data: tiers },
+  ] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("body, direction, sender_type, created_at")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true })
+      .limit(30),
+    supabase
+      .from("contact_attributes")
+      .select(
+        "id, key, label, type, options, required, collect_via_ai, sort_order, tenant_id, created_at, updated_at",
+      )
+      .eq("tenant_id", conversation.tenant_id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("contact_attribute_values")
+      .select("attribute_id, value")
+      .eq("contact_id", conversation.contact_id),
+    supabase
+      .from("services")
+      .select(
+        "id, name, description, billing_type, unit_label, unit_attribute_key, base_price, min_price, is_active",
+      )
+      .eq("tenant_id", conversation.tenant_id)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("service_pricing_tiers")
+      .select(
+        "id, service_id, min_units, max_units, price, price_mode, sort_order",
+      )
+      .eq("tenant_id", conversation.tenant_id)
+      .order("sort_order", { ascending: true }),
+  ]);
 
   const latestInbound = [...(messages ?? [])]
     .reverse()
@@ -85,6 +111,53 @@ export async function runAiForConversation(conversationId: string) {
   }
   const attributeBlock = buildAttributePromptBlock(attrList, currentValues);
 
+  const tiersByService = new Map<string, NonNullable<typeof tiers>>();
+  for (const t of tiers ?? []) {
+    const list = tiersByService.get(t.service_id) ?? [];
+    list.push(t);
+    tiersByService.set(t.service_id, list);
+  }
+
+  const catalog: ServiceForQuote[] = (services ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    billing_type: s.billing_type,
+    unit_label: s.unit_label,
+    unit_attribute_key: s.unit_attribute_key,
+    base_price: Number(s.base_price),
+    min_price: s.min_price != null ? Number(s.min_price) : null,
+    is_active: s.is_active,
+    tiers: (tiersByService.get(s.id) ?? []).map((t) => ({
+      id: t.id,
+      min_units: t.min_units,
+      max_units: t.max_units,
+      price: Number(t.price),
+      price_mode: t.price_mode,
+      sort_order: t.sort_order,
+    })),
+  }));
+
+  let catalogBlock = buildCatalogPromptBlock(catalog);
+  const units = resolveUnits(catalog, currentValues);
+  if (units != null && units > 0 && catalog.length > 0) {
+    const quote = quoteCatalog(catalog, units);
+    catalogBlock = `${catalogBlock}\n\nORÇAMENTO PRÉ-CALCULADO PELO SISTEMA (${units} unidades) — use estes números, não recalcule:\n${formatQuoteMessage(quote, units)}`;
+
+    const { data: deal } = await supabase
+      .from("deals")
+      .select("id")
+      .eq("contact_id", conversation.contact_id)
+      .limit(1)
+      .maybeSingle();
+    if (deal && quote.total > 0) {
+      await supabase
+        .from("deals")
+        .update({ value: quote.total })
+        .eq("id", deal.id);
+    }
+  }
+
   const provider = getDefaultAiProvider();
   const result = await provider.generateReply({
     agentName: aiConfig.name,
@@ -92,9 +165,9 @@ export async function runAiForConversation(conversationId: string) {
     history,
     latestUserMessage: latestInbound.body,
     attributeBlock,
+    catalogBlock,
   });
 
-  // Persist collected attributes before sending (so CRM stays ahead)
   if (result.collected && Object.keys(result.collected).length > 0) {
     await persistCollectedAttributes({
       supabase,
@@ -189,7 +262,6 @@ export async function runAiForConversation(conversationId: string) {
       .eq("id", conversationId);
   }
 
-  // Auto-open a deal when enough data is collected and none exists
   await maybeCreateDealFromConversation({
     supabase,
     tenantId: conversation.tenant_id,
@@ -204,6 +276,27 @@ export async function runAiForConversation(conversationId: string) {
     conversationId,
     collected: result.collected,
   };
+}
+
+function resolveUnits(
+  catalog: ServiceForQuote[],
+  values: Record<string, string | null>,
+): number | null {
+  const keys = new Set<string>();
+  for (const s of catalog) {
+    if (s.unit_attribute_key) keys.add(s.unit_attribute_key);
+  }
+  keys.add("tamanho");
+  keys.add("funcionarios");
+  keys.add("colaboradores");
+
+  for (const key of keys) {
+    const raw = values[key];
+    if (!raw) continue;
+    const n = Number(String(raw).replace(/\D/g, ""));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
 }
 
 async function persistCollectedAttributes({
@@ -281,7 +374,6 @@ async function maybeCreateDealFromConversation({
     .eq("contact_id", contactId)
     .not("value", "is", null);
 
-  // Only open a deal after at least 2 fields collected
   if ((count ?? 0) < 2) return;
 
   const { data: firstStage } = await supabase

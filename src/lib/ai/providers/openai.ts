@@ -69,6 +69,7 @@ export class OpenAiProvider implements AiProvider {
     history: { role: "user" | "assistant"; content: string }[];
     latestUserMessage: string;
     attributeBlock?: string;
+    catalogBlock?: string;
   }): Promise<AiReplyResult> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -93,15 +94,17 @@ export class OpenAiProvider implements AiProvider {
       content: m.content,
     }));
 
-    const extra = input.attributeBlock ? `\n\n${input.attributeBlock}` : "";
+    const extras = [input.attributeBlock, input.catalogBlock]
+      .filter(Boolean)
+      .join("\n\n");
 
     const response = await client.chat.completions.create({
       model,
-      max_tokens: 700,
+      max_tokens: 900,
       messages: [
         {
           role: "system",
-          content: `${SYSTEM_RULES}\n\nNome do assistente: ${input.agentName}\nInstruções da empresa:\n${input.instructions}${extra}`,
+          content: `${SYSTEM_RULES}\n\nNome do assistente: ${input.agentName}\nInstruções da empresa:\n${input.instructions}${extras ? `\n\n${extras}` : ""}`,
         },
         ...history,
         { role: "user", content: input.latestUserMessage },

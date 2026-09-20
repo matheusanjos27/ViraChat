@@ -212,7 +212,7 @@ DEV-10  Notificações                ← polimento
 | DEV-02 | ✅ Concluído (campos customizados + coleta via IA) |
 | DEV-03 | ✅ Concluído (funil / deals kanban) |
 | DEV-04 | ✅ Concluído (temperatura hot/warm/cold) |
-| DEV-05 | 🔲 Aguardando |
+| DEV-05 | ✅ Concluído (catálogo + motor de preço + simulador) |
 | DEV-06 | 🔲 Aguardando |
 | DEV-07 | 🔲 Aguardando |
 | DEV-08 | 🔲 Aguardando |

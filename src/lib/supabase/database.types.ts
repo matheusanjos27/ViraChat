@@ -366,6 +366,93 @@ export type Database = {
         };
         Relationships: [];
       };
+      services: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          description: string | null;
+          billing_type: "fixed" | "per_unit" | "tiered";
+          unit_label: string;
+          unit_attribute_key: string | null;
+          base_price: number;
+          min_price: number | null;
+          currency: string;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name: string;
+          description?: string | null;
+          billing_type?: "fixed" | "per_unit" | "tiered";
+          unit_label?: string;
+          unit_attribute_key?: string | null;
+          base_price?: number;
+          min_price?: number | null;
+          currency?: string;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          name?: string;
+          description?: string | null;
+          billing_type?: "fixed" | "per_unit" | "tiered";
+          unit_label?: string;
+          unit_attribute_key?: string | null;
+          base_price?: number;
+          min_price?: number | null;
+          currency?: string;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      service_pricing_tiers: {
+        Row: {
+          id: string;
+          service_id: string;
+          tenant_id: string;
+          min_units: number;
+          max_units: number | null;
+          price: number;
+          price_mode: "flat" | "per_unit";
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          service_id: string;
+          tenant_id: string;
+          min_units?: number;
+          max_units?: number | null;
+          price: number;
+          price_mode?: "flat" | "per_unit";
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          service_id?: string;
+          tenant_id?: string;
+          min_units?: number;
+          max_units?: number | null;
+          price?: number;
+          price_mode?: "flat" | "per_unit";
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       conversations: {
         Row: {
           id: string;
@@ -568,6 +655,8 @@ export type Database = {
         | "resolved";
       attribute_type: "text" | "number" | "select" | "date" | "email" | "phone";
       lead_temperature: "hot" | "warm" | "cold";
+      billing_type: "fixed" | "per_unit" | "tiered";
+      tier_price_mode: "flat" | "per_unit";
     };
     CompositeTypes: Record<string, never>;
   };

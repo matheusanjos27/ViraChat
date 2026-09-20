@@ -14,6 +14,11 @@ const cards = [
     desc: "Etapas do pipeline comercial. Arraste deals no kanban conforme a negociação avança.",
   },
   {
+    href: "/app/settings/services",
+    title: "Catálogo e preços",
+    desc: "Serviços com preço fixo, por unidade ou por faixas. A IA usa essa tabela para orçar.",
+  },
+  {
     href: "/app/ai",
     title: "Assistente IA",
     desc: "Instruções, tom de voz e quando transferir para humano.",

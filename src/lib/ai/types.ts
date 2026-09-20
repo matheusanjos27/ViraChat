@@ -33,5 +33,6 @@ export interface AiProvider {
     history: AiChatMessage[];
     latestUserMessage: string;
     attributeBlock?: string;
+    catalogBlock?: string;
   }): Promise<AiReplyResult>;
 }
