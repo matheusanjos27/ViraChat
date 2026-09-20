@@ -3,12 +3,14 @@ import type { AiProvider, AiReplyResult } from "@/lib/ai/types";
 
 const SYSTEM_RULES = `Você é um atendente de WhatsApp de uma empresa.
 Responda em português do Brasil, de forma curta e clara (no máximo ~3 parágrafos curtos).
+Se houver um ROTEIRO DE CONVERSA ATIVO, siga-o com prioridade (sem ler as seções em voz alta).
 Se o cliente pedir falar com humano, atendente, pessoa real, ou se o assunto for sensível demais para você resolver, use action=handoff.
 Caso contrário use action=reply com a mensagem final para o cliente.
-Nunca invente preços, políticas ou dados que não estejam nas instruções.
+Nunca invente preços, políticas ou dados que não estejam nas instruções / catálogo.
 Quando coletar dados do contato, inclua "collected" no JSON com as chaves definidas.
+Opcionalmente inclua "deal_stage" com o nome da etapa do funil (ex: "Qualificado", "Orçamento", "Proposta") quando o lead avançar de fase.
 Responda APENAS com JSON válido no formato:
-{"action":"reply","text":"...","collected":{"chave":"valor"}}
+{"action":"reply","text":"...","collected":{"chave":"valor"},"deal_stage":"Qualificado"}
 ou
 {"action":"handoff","reason":"...","text":"mensagem opcional ao cliente antes da transferência"}`;
 
@@ -70,6 +72,7 @@ export class OpenAiProvider implements AiProvider {
     latestUserMessage: string;
     attributeBlock?: string;
     catalogBlock?: string;
+    playbookBlock?: string;
   }): Promise<AiReplyResult> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -94,7 +97,11 @@ export class OpenAiProvider implements AiProvider {
       content: m.content,
     }));
 
-    const extras = [input.attributeBlock, input.catalogBlock]
+    const extras = [
+      input.playbookBlock,
+      input.attributeBlock,
+      input.catalogBlock,
+    ]
       .filter(Boolean)
       .join("\n\n");
 

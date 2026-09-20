@@ -213,7 +213,7 @@ DEV-10  Notificações                ← polimento
 | DEV-03 | ✅ Concluído (funil / deals kanban) |
 | DEV-04 | ✅ Concluído (temperatura hot/warm/cold) |
 | DEV-05 | ✅ Concluído (catálogo + motor de preço + simulador) |
-| DEV-06 | 🔲 Aguardando |
+| DEV-06 | ✅ Concluído (playbook / roteiro de conversa) |
 | DEV-07 | 🔲 Aguardando |
 | DEV-08 | 🔲 Aguardando |
 | DEV-09 | 🔲 Aguardando |

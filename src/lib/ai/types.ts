@@ -34,5 +34,6 @@ export interface AiProvider {
     latestUserMessage: string;
     attributeBlock?: string;
     catalogBlock?: string;
+    playbookBlock?: string;
   }): Promise<AiReplyResult>;
 }

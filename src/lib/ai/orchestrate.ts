@@ -2,6 +2,11 @@ import { getDefaultAiProvider } from "@/lib/ai/providers/openai";
 import type { AiChatMessage } from "@/lib/ai/types";
 import { buildAttributePromptBlock } from "@/lib/crm/attributes";
 import {
+  buildPlaybookPromptBlock,
+  pickActivePlaybook,
+  type Playbook,
+} from "@/lib/crm/playbook";
+import {
   buildCatalogPromptBlock,
   formatQuoteMessage,
   quoteCatalog,
@@ -48,6 +53,7 @@ export async function runAiForConversation(conversationId: string) {
     { data: attrValues },
     { data: services },
     { data: tiers },
+    { data: playbooks },
   ] = await Promise.all([
     supabase
       .from("messages")
@@ -81,6 +87,10 @@ export async function runAiForConversation(conversationId: string) {
       )
       .eq("tenant_id", conversation.tenant_id)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("playbooks")
+      .select("id, name, trigger, trigger_keyword, is_active, content")
+      .eq("tenant_id", conversation.tenant_id),
   ]);
 
   const latestInbound = [...(messages ?? [])]
@@ -159,11 +169,18 @@ export async function runAiForConversation(conversationId: string) {
   }
 
   const provider = getDefaultAiProvider();
+  const activePlaybook = pickActivePlaybook(
+    (playbooks ?? []) as Playbook[],
+    latestInbound.body,
+  );
+  const playbookBlock = buildPlaybookPromptBlock(activePlaybook);
+
   const result = await provider.generateReply({
     agentName: aiConfig.name,
     instructions: aiConfig.instructions,
     history,
     latestUserMessage: latestInbound.body,
+    playbookBlock,
     attributeBlock,
     catalogBlock,
   });
@@ -175,6 +192,15 @@ export async function runAiForConversation(conversationId: string) {
       contactId: conversation.contact_id,
       attributes: attrList,
       collected: result.collected,
+    });
+  }
+
+  if (result.action === "reply" && result.deal_stage) {
+    await maybeMoveDealStage({
+      supabase,
+      tenantId: conversation.tenant_id,
+      contactId: conversation.contact_id,
+      stageNameHint: result.deal_stage,
     });
   }
 
@@ -297,6 +323,47 @@ function resolveUnits(
     if (Number.isFinite(n) && n > 0) return n;
   }
   return null;
+}
+
+async function maybeMoveDealStage({
+  supabase,
+  tenantId,
+  contactId,
+  stageNameHint,
+}: {
+  supabase: ReturnType<typeof createServiceClient>;
+  tenantId: string;
+  contactId: string;
+  stageNameHint: string;
+}) {
+  const hint = stageNameHint.trim().toLowerCase();
+  if (!hint) return;
+
+  const { data: stages } = await supabase
+    .from("deal_stages")
+    .select("id, name")
+    .eq("tenant_id", tenantId);
+
+  const stage = (stages ?? []).find(
+    (s) =>
+      s.name.toLowerCase() === hint ||
+      s.name.toLowerCase().includes(hint) ||
+      hint.includes(s.name.toLowerCase()),
+  );
+  if (!stage) return;
+
+  const { data: deal } = await supabase
+    .from("deals")
+    .select("id")
+    .eq("contact_id", contactId)
+    .limit(1)
+    .maybeSingle();
+  if (!deal) return;
+
+  await supabase
+    .from("deals")
+    .update({ stage_id: stage.id })
+    .eq("id", deal.id);
 }
 
 async function persistCollectedAttributes({

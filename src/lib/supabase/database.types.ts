@@ -453,6 +453,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      playbooks: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          trigger: "new_contact" | "keyword" | "manual";
+          trigger_keyword: string | null;
+          is_active: boolean;
+          content: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name: string;
+          trigger?: "new_contact" | "keyword" | "manual";
+          trigger_keyword?: string | null;
+          is_active?: boolean;
+          content: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          name?: string;
+          trigger?: "new_contact" | "keyword" | "manual";
+          trigger_keyword?: string | null;
+          is_active?: boolean;
+          content?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       conversations: {
         Row: {
           id: string;
@@ -657,6 +693,7 @@ export type Database = {
       lead_temperature: "hot" | "warm" | "cold";
       billing_type: "fixed" | "per_unit" | "tiered";
       tier_price_mode: "flat" | "per_unit";
+      playbook_trigger: "new_contact" | "keyword" | "manual";
     };
     CompositeTypes: Record<string, never>;
   };

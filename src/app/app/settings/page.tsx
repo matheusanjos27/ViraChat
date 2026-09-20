@@ -19,6 +19,11 @@ const cards = [
     desc: "Serviços com preço fixo, por unidade ou por faixas. A IA usa essa tabela para orçar.",
   },
   {
+    href: "/app/settings/playbook",
+    title: "Roteiro de conversa",
+    desc: "Playbook que a IA segue: abertura, diagnóstico, orçamento, objeções e fechamento.",
+  },
+  {
     href: "/app/ai",
     title: "Assistente IA",
     desc: "Instruções, tom de voz e quando transferir para humano.",
