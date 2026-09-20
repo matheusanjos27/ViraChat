@@ -30,24 +30,32 @@ export default async function ConversationsPage({
   const { data: rows } = await supabase
     .from("conversations")
     .select(
-      "id, status, last_message_at, assigned_to, contacts(id, display_name, phone_e164, external_id), channels(display_name)",
+      "id, status, last_message_at, assigned_to, channel_id, contacts(id, display_name, phone_e164, external_id), channels(id, display_name)",
     )
     .eq("tenant_id", tenantId)
     .order("last_message_at", { ascending: false })
     .limit(80);
+
+  const { data: channelRows } = await supabase
+    .from("channels")
+    .select("id, display_name")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .order("display_name", { ascending: true });
 
   type Row = {
     id: string;
     status: ConversationStatus;
     last_message_at: string | null;
     assigned_to: string | null;
+    channel_id: string | null;
     contacts: {
       id: string;
       display_name: string | null;
       phone_e164: string | null;
       external_id: string | null;
     } | null;
-    channels: { display_name: string } | null;
+    channels: { id: string; display_name: string } | null;
   };
 
   const list = (rows ?? []) as unknown as Row[];
@@ -74,6 +82,7 @@ export default async function ConversationsPage({
     status: r.status,
     last_message_at: r.last_message_at,
     assigned_to: r.assigned_to,
+    channel_id: r.channel_id,
     contact: r.contacts ?? {
       id: "unknown",
       display_name: null,
@@ -82,6 +91,11 @@ export default async function ConversationsPage({
     },
     preview: previewByConv.get(r.id) ?? null,
     channel_name: r.channels?.display_name ?? null,
+  }));
+
+  const channels = (channelRows ?? []).map((c) => ({
+    id: c.id,
+    display_name: c.display_name,
   }));
 
   const selectedId =
@@ -102,6 +116,7 @@ export default async function ConversationsPage({
   return (
     <InboxWorkspace
       tenantId={tenantId}
+      channels={channels}
       initialConversations={conversations}
       initialMessages={initialMessages}
       initialSelectedId={selectedId}

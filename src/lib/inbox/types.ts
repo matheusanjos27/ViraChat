@@ -20,9 +20,15 @@ export type InboxConversation = {
   status: ConversationStatus;
   last_message_at: string | null;
   assigned_to: string | null;
+  channel_id: string | null;
   contact: InboxContact;
   preview: string | null;
   channel_name: string | null;
+};
+
+export type InboxChannelOption = {
+  id: string;
+  display_name: string;
 };
 
 export function statusLabel(status: ConversationStatus) {

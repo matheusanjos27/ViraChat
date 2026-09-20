@@ -11,6 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import {
   statusLabel,
+  type InboxChannelOption,
   type InboxConversation,
   type InboxMessage,
 } from "@/lib/inbox/types";
@@ -112,11 +113,13 @@ function demoTags(status: InboxConversation["status"]) {
 
 export function InboxWorkspace({
   tenantId,
+  channels = [],
   initialConversations,
   initialMessages,
   initialSelectedId,
 }: {
   tenantId: string;
+  channels?: InboxChannelOption[];
   initialConversations: InboxConversation[];
   initialMessages: InboxMessage[];
   initialSelectedId: string | null;
@@ -128,6 +131,7 @@ export function InboxWorkspace({
   const [messages, setMessages] = useState<InboxMessage[]>(initialMessages);
   const [filter, setFilter] = useState("");
   const [listFilter, setListFilter] = useState<ListFilter>("all");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [loadingThread, setLoadingThread] = useState(false);
   const [liveState, setLiveState] = useState<"connecting" | "live" | "polling">(
@@ -142,21 +146,40 @@ export function InboxWorkspace({
     [conversations, selectedId],
   );
 
+  const channelOptions = useMemo(() => {
+    const fromProps = new Map(channels.map((c) => [c.id, c.display_name]));
+    for (const c of conversations) {
+      if (c.channel_id && c.channel_name && !fromProps.has(c.channel_id)) {
+        fromProps.set(c.channel_id, c.channel_name);
+      }
+    }
+    return [...fromProps.entries()]
+      .map(([id, display_name]) => ({ id, display_name }))
+      .sort((a, b) => a.display_name.localeCompare(b.display_name, "pt-BR"));
+  }, [channels, conversations]);
+
   const counts = useMemo(() => {
-    const active = conversations.filter((c) => c.status !== "resolved");
+    const scoped =
+      channelFilter === "all"
+        ? conversations
+        : conversations.filter((c) => c.channel_id === channelFilter);
+    const active = scoped.filter((c) => c.status !== "resolved");
     return {
-      all: conversations.length,
+      all: scoped.length,
       active: active.length,
-      unread: conversations.filter((c) => c.status === "waiting_human").length,
-      waiting: conversations.filter((c) => c.status === "waiting_human").length,
-      served: conversations.filter(
+      unread: scoped.filter((c) => c.status === "waiting_human").length,
+      waiting: scoped.filter((c) => c.status === "waiting_human").length,
+      served: scoped.filter(
         (c) => c.status === "human_active" || c.status === "resolved",
       ).length,
     };
-  }, [conversations]);
+  }, [conversations, channelFilter]);
 
   const filtered = useMemo(() => {
     let list = conversations;
+    if (channelFilter !== "all") {
+      list = list.filter((c) => c.channel_id === channelFilter);
+    }
     if (listFilter === "unread" || listFilter === "waiting") {
       list = list.filter((c) => c.status === "waiting_human");
     } else if (listFilter === "served") {
@@ -171,7 +194,7 @@ export function InboxWorkspace({
         `${c.contact.display_name ?? ""} ${c.contact.phone_e164 ?? ""} ${c.preview ?? ""} ${c.channel_name ?? ""}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [conversations, filter, listFilter]);
+  }, [conversations, filter, listFilter, channelFilter]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -188,7 +211,7 @@ export function InboxWorkspace({
       const { data } = await supabase
         .from("conversations")
         .select(
-          "id, status, last_message_at, assigned_to, contacts(id, display_name, phone_e164, external_id), channels(display_name)",
+          "id, status, last_message_at, assigned_to, channel_id, contacts(id, display_name, phone_e164, external_id), channels(id, display_name)",
         )
         .eq("id", conversationId)
         .eq("tenant_id", tenantId)
@@ -209,13 +232,17 @@ export function InboxWorkspace({
         phone_e164: null,
         external_id: null,
       };
-      const channel = data.channels as { display_name: string } | null;
+      const channel = data.channels as {
+        id: string;
+        display_name: string;
+      } | null;
 
       return {
         id: data.id,
         status: data.status as InboxConversation["status"],
         last_message_at: data.last_message_at,
         assigned_to: data.assigned_to,
+        channel_id: data.channel_id ?? channel?.id ?? null,
         contact,
         preview: lastMsg?.body ?? null,
         channel_name: channel?.display_name ?? null,
@@ -250,7 +277,7 @@ export function InboxWorkspace({
       const { data: rows } = await supabase
         .from("conversations")
         .select(
-          "id, status, last_message_at, assigned_to, contacts(id, display_name, phone_e164, external_id), channels(display_name)",
+          "id, status, last_message_at, assigned_to, channel_id, contacts(id, display_name, phone_e164, external_id), channels(id, display_name)",
         )
         .eq("tenant_id", tenantId)
         .order("last_message_at", { ascending: false })
@@ -281,12 +308,16 @@ export function InboxWorkspace({
             phone_e164: null,
             external_id: null,
           };
-        const channel = r.channels as { display_name: string } | null;
+        const channel = r.channels as {
+          id: string;
+          display_name: string;
+        } | null;
         return {
           id: r.id,
           status: r.status as InboxConversation["status"],
           last_message_at: r.last_message_at,
           assigned_to: r.assigned_to,
+          channel_id: r.channel_id ?? channel?.id ?? null,
           contact,
           preview: previewByConv.get(r.id) ?? null,
           channel_name: channel?.display_name ?? null,
@@ -480,6 +511,24 @@ export function InboxWorkspace({
               className="w-full rounded-full border border-[#d9e2de] bg-[#f4f7f6] py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
             />
           </label>
+
+          {channelOptions.length > 0 ? (
+            <label className="mt-2 block">
+              <span className="sr-only">Canal</span>
+              <select
+                value={channelFilter}
+                onChange={(e) => setChannelFilter(e.target.value)}
+                className="w-full rounded-full border border-[#d9e2de] bg-[#f4f7f6] px-3 py-2 text-sm outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
+              >
+                <option value="all">Todos os canais</option>
+                {channelOptions.map((ch) => (
+                  <option key={ch.id} value={ch.id}>
+                    {ch.display_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           <div className="mt-3 flex gap-1.5 overflow-x-auto pb-0.5">
             {(
