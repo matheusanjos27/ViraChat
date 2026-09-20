@@ -50,15 +50,15 @@ if [ -n "${VIRA_NET:-}" ] && [ -n "${KONG_ID:-}" ]; then
 fi
 
 echo
-echo "==> Pronto. Chaves em $SUPABASE_DIR/docker/.env :"
-grep -E '^(ANON_KEY|SERVICE_ROLE_KEY|POSTGRES_PASSWORD)=' .env || true
+echo "Próximo (banco limpo + admin):"
+echo "  bash $VIRA_DOCKER/scripts/bootstrap-fresh-vps.sh"
 echo
 echo "No ViraChat/docker/.env defina:"
 echo "  NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
 echo "  NEXT_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY>"
 echo "  SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY>"
 echo "  DATABASE_URL=postgresql://postgres:<POSTGRES_PASSWORD>@127.0.0.1:5432/postgres"
+echo "  PLATFORM_ADMIN_EMAILS=seu@gmail.com"
+echo "  PLATFORM_ADMIN_PASSWORD=senha-forte"
 echo
-echo "Depois:"
-echo "  bash $VIRA_DOCKER/scripts/migrate-supabase-cloud-to-vps.sh"
-echo "  cd $VIRA_DOCKER && docker compose -f docker-compose.ip.yml up -d --build virachat"
+echo "Depois rebuild virachat + seed (ver bootstrap-fresh-vps.sh)."

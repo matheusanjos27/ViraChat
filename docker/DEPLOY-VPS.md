@@ -80,7 +80,8 @@ Scripts prontos no repo (preferir estes):
 | Script | Função |
 |---|---|
 | [`scripts/setup-supabase-vps.sh`](scripts/setup-supabase-vps.sh) | Clone oficial + override de RAM + `docker compose up` |
-| [`scripts/migrate-supabase-cloud-to-vps.sh`](scripts/migrate-supabase-cloud-to-vps.sh) | Dump Cloud → VPS **ou** `--migrations-only` |
+| [`scripts/bootstrap-fresh-vps.sh`](scripts/bootstrap-fresh-vps.sh) | **Recomendado:** schema limpo + passos do seed admin |
+| [`scripts/migrate-supabase-cloud-to-vps.sh`](scripts/migrate-supabase-cloud-to-vps.sh) | Migrations (padrão) ou `--from-cloud` |
 | [`scripts/backup-supabase-pg.sh`](scripts/backup-supabase-pg.sh) | Backup diário |
 | [`supabase/README.md`](supabase/README.md) | Resumo modo IP |
 
@@ -117,20 +118,30 @@ docker network connect docker_default supabase-kong-1   # ajuste o nome
 docker compose -f docker-compose.prod.yml restart caddy
 ```
 
-### 4.2 Migrar dados do Supabase Cloud → self-host
+### 4.2 Banco limpo (recomendado) — só admin Gmail
+
+Não precisa importar o Cloud Free. Schema do repo + seed:
 
 ```bash
-# Connection string: Dashboard Cloud → Project Settings → Database
-export CLOUD_DATABASE_URL='postgresql://postgres.[ref]:SENHA@aws-0-....pooler.supabase.com:5432/postgres'
-
-bash /opt/ViraChat/docker/scripts/migrate-supabase-cloud-to-vps.sh
+bash /opt/ViraChat/docker/scripts/bootstrap-fresh-vps.sh
 ```
 
-Banco novo (sem trazer o Cloud):
+No `/opt/ViraChat/docker/.env` defina `PLATFORM_ADMIN_EMAILS` e `PLATFORM_ADMIN_PASSWORD`, aponte as chaves do Supabase self-host, rebuild do `virachat`, depois:
 
 ```bash
-bash /opt/ViraChat/docker/scripts/migrate-supabase-cloud-to-vps.sh --migrations-only
-# depois seed do admin: scripts/seed-platform-admin.mjs
+docker run --rm --env-file /opt/ViraChat/docker/.env \
+  -v /opt/ViraChat/scripts/seed-platform-admin.mjs:/seed.mjs:ro \
+  -w /tmp node:22-alpine \
+  sh -c 'npm init -y >/dev/null 2>&1 && npm i @supabase/supabase-js@2 --silent && node /seed.mjs'
+```
+
+Login → `/platform` → criar tenants e convites do zero.
+
+Importar Cloud (opcional, legado):
+
+```bash
+export CLOUD_DATABASE_URL='postgresql://...'
+bash /opt/ViraChat/docker/scripts/migrate-supabase-cloud-to-vps.sh --from-cloud
 ```
 
 ### 4.3 Ligar o Vira ao Supabase novo

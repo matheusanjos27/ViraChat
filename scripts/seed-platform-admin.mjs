@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 function loadEnv() {
-  for (const file of [".env.local", ".env"]) {
+  for (const file of [".env.local", ".env", "docker/.env"]) {
     try {
       const raw = readFileSync(resolve(process.cwd(), file), "utf8");
       for (const line of raw.split(/\r?\n/)) {
