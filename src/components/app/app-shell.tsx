@@ -8,7 +8,7 @@ const nav = [
   { href: "/app/conversations", label: "Conversas", icon: IconChat },
   { href: "/app/leads", label: "Leads", icon: IconUsers },
   { href: "/app/deals", label: "Funil", icon: IconFunnel },
-  { href: "/app/channels", label: "Canais", icon: IconChannels },
+  { href: "/app/settings/ai", label: "Atendimento com IA", icon: IconSpark },
   { href: "/app/settings", label: "Configurações", icon: IconSettings },
 ] as const;
 
@@ -63,7 +63,13 @@ export function AppShell({
 
           <nav className="mt-8 flex flex-1 flex-col gap-1.5">
             {nav.map((item) => {
-              const active = pathname.startsWith(item.href);
+              const active =
+                item.href === "/app/settings/ai"
+                  ? pathname.startsWith("/app/settings/ai")
+                  : item.href === "/app/settings"
+                    ? pathname.startsWith("/app/settings") &&
+                      !pathname.startsWith("/app/settings/ai")
+                    : pathname.startsWith(item.href);
               const isConversas = item.label === "Conversas";
               const Icon = item.icon;
               return (
@@ -77,7 +83,9 @@ export function AppShell({
                   }`}
                 >
                   <Icon className="size-5 shrink-0 opacity-90" />
-                  <span className="flex-1 tracking-tight">{item.label}</span>
+                  <span className="flex-1 leading-snug tracking-tight">
+                    {item.label}
+                  </span>
                   {isConversas && openCount > 0 ? (
                     <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold tabular-nums">
                       {openCount > 99 ? "99+" : openCount}
@@ -151,11 +159,11 @@ function IconChat({ className }: { className?: string }) {
   );
 }
 
-function IconChannels({ className }: { className?: string }) {
+function IconSpark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
-      <rect x="4" y="5" width="16" height="14" rx="2.5" />
-      <path d="M8 9h8M8 12h5" strokeLinecap="round" />
+      <path d="M12 3.5 13.4 8.6 18.5 10 13.4 11.4 12 16.5 10.6 11.4 5.5 10l5.1-1.4L12 3.5Z" strokeLinejoin="round" />
+      <path d="M18 15.5 18.6 17.4 20.5 18 18.6 18.6 18 20.5 17.4 18.6 15.5 18l1.9-.6.6-1.9Z" strokeLinejoin="round" />
     </svg>
   );
 }
