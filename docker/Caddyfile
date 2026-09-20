@@ -1,0 +1,10 @@
+# Domínios vêm do .env (Caddy substitui {$APP_DOMAIN} e {$WA_DOMAIN})
+# Sem domínio ainda: use o IP e HTTP (ajuste temporário no DEPLOY-VPS.md)
+
+{$APP_DOMAIN} {
+	reverse_proxy virachat:3000
+}
+
+{$WA_DOMAIN} {
+	reverse_proxy evolution-api:8080
+}

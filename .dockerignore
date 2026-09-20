@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+docker/.env
+docker/.env.*
+!docker/.env.example
+!docker/.env.prod.example
+track
+*.md
+!docker/README.md
+!docker/DEPLOY-VPS.md
+agent-transcripts
+.cursor
