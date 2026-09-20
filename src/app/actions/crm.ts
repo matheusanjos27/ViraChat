@@ -60,6 +60,7 @@ export async function createContactAttribute(
   }
 
   revalidatePath("/app/settings/fields");
+  revalidatePath("/app/settings/ai");
   revalidatePath("/app/leads");
   return { success: "Campo criado." };
 }
@@ -83,6 +84,7 @@ export async function deleteContactAttribute(
   if (error) return { error: error.message };
 
   revalidatePath("/app/settings/fields");
+  revalidatePath("/app/settings/ai");
   revalidatePath("/app/leads");
   return { success: "Campo removido." };
 }

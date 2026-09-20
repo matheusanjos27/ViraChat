@@ -93,6 +93,8 @@ export async function createService(
   }
 
   revalidatePath("/app/settings/services");
+  revalidatePath("/app/settings/ai");
+  revalidatePath("/app/settings/ai");
   return { success: "Serviço criado." };
 }
 
@@ -166,6 +168,7 @@ export async function updateService(
   }
 
   revalidatePath("/app/settings/services");
+  revalidatePath("/app/settings/ai");
   return { success: "Serviço atualizado." };
 }
 
@@ -188,6 +191,7 @@ export async function deleteService(
   if (error) return { error: error.message };
 
   revalidatePath("/app/settings/services");
+  revalidatePath("/app/settings/ai");
   return { success: "Serviço removido." };
 }
 
@@ -211,5 +215,6 @@ export async function toggleServiceActive(
   if (error) return { error: error.message };
 
   revalidatePath("/app/settings/services");
+  revalidatePath("/app/settings/ai");
   return { success: isActive ? "Ativado." : "Desativado." };
 }

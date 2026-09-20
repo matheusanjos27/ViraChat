@@ -11,22 +11,12 @@ const cards = [
   {
     href: "/app/settings/ai",
     title: "Atendimento com IA",
-    desc: "Ligar o automático, nome do assistente e o roteiro completo da conversa.",
-  },
-  {
-    href: "/app/settings/fields",
-    title: "Campos do lead",
-    desc: "O que a IA coleta: empresa, porte, setor — o que fizer sentido para você.",
+    desc: "Ligar, roteiro, campos do lead e catálogo de preços — tudo da IA.",
   },
   {
     href: "/app/settings/pipeline",
     title: "Funil de vendas",
     desc: "Etapas do pipeline. Arraste deals no kanban conforme a negociação avança.",
-  },
-  {
-    href: "/app/settings/services",
-    title: "Catálogo e preços",
-    desc: "Serviços com preço fixo, por unidade ou por faixas.",
   },
   {
     href: "/app/channels",
@@ -52,7 +42,7 @@ export default async function SettingsPage() {
           Preferências
         </h1>
         <p className="mt-2 text-ink-muted">
-          Empresa e IA no centro. O resto alimenta o CRM e o orçamento.
+          Empresa, IA e canais. O funil fica separado do atendimento.
         </p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">

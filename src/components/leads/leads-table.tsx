@@ -393,7 +393,7 @@ function LeadDetail({
           {attributes.length === 0 ? (
             <p className="text-xs text-ink-muted">
               Nenhum campo configurado.{" "}
-              <a href="/app/settings/fields" className="text-brand hover:underline">
+              <a href="/app/settings/ai?tab=campos" className="text-brand hover:underline">
                 Criar campos →
               </a>
             </p>

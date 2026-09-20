@@ -230,7 +230,7 @@ export default async function LeadsPage() {
           </div>
           <div className="flex gap-2">
             <a
-              href="/app/settings/fields"
+              href="/app/settings/ai?tab=campos"
               className="rounded-lg border border-line bg-surface px-3 py-2 text-xs font-medium hover:bg-[#f4f7f6]"
             >
               Campos
