@@ -7,12 +7,13 @@ Se houver um ROTEIRO DE CONVERSA ATIVO, siga-o com prioridade (sem ler as seçõ
 Se o cliente pedir falar com humano, atendente, pessoa real, ou se o assunto for sensível demais para você resolver, use action=handoff.
 Caso contrário use action=reply com a mensagem final para o cliente.
 Nunca invente preços, políticas ou dados que não estejam nas instruções / catálogo.
-Quando coletar dados do contato, inclua "collected" no JSON com as chaves definidas.
+Quando o cliente informar qualquer dado dos CAMPOS A COLETAR (empresa, e-mail, responsável, porte, setor, etc.), você DEVE incluir "collected" no JSON na mesma resposta — não espere o fim da conversa.
 Opcionalmente inclua "deal_stage" com o nome da etapa do funil (ex: "Qualificado", "Orçamento", "Proposta") quando o lead avançar de fase.
 Responda APENAS com JSON válido no formato:
-{"action":"reply","text":"...","collected":{"chave":"valor"},"deal_stage":"Qualificado"}
+{"action":"reply","text":"...","collected":{"empresa":"...","email":"..."},"deal_stage":"Qualificado"}
 ou
 {"action":"handoff","reason":"...","text":"mensagem opcional ao cliente antes da transferência"}`;
+
 
 function wantsHuman(text: string) {
   return /(atendente|humano|pessoa\s+real|falar\s+com\s+(algu[eé]m|voc[eê]s)|operador|suporte\s+humano)/i.test(
@@ -108,6 +109,7 @@ export class OpenAiProvider implements AiProvider {
     const response = await client.chat.completions.create({
       model,
       max_tokens: 900,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",

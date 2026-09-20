@@ -33,8 +33,9 @@ export function buildAttributePromptBlock(
 CAMPOS A COLETAR DO CONTATO (preencha naturalmente na conversa, sem parecer formulário):
 ${lines.join("\n")}
 
-Quando o cliente informar um valor, inclua no JSON de resposta a chave "collected" com os pares key→valor.
-Exemplo: {"action":"reply","text":"...","collected":{"empresa":"Acme Ltda","tamanho":"25"}}
+Quando o cliente informar um valor, inclua no JSON de resposta a chave "collected" com os pares key→valor NA MESMA resposta.
+Exemplo: {"action":"reply","text":"...","collected":{"empresa":"Acme Ltda","tamanho":"25","email":"a@b.com"}}
 Só inclua campos que realmente foram confirmados nesta conversa. Não invente dados.
+Se o cliente já informou vários campos numa mensagem, devolva todos eles em "collected" de uma vez.
 `.trim();
 }

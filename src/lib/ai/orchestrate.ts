@@ -2,6 +2,10 @@ import { getDefaultAiProvider } from "@/lib/ai/providers/openai";
 import type { AiChatMessage } from "@/lib/ai/types";
 import { buildAttributePromptBlock } from "@/lib/crm/attributes";
 import {
+  extractCollectedFromMessages,
+  mergeCollected,
+} from "@/lib/crm/extract-attributes";
+import {
   buildPlaybookPromptBlock,
   pickActivePlaybook,
   type Playbook,
@@ -205,13 +209,25 @@ export async function runAiForConversation(conversationId: string) {
     catalogBlock,
   });
 
-  if (result.collected && Object.keys(result.collected).length > 0) {
+  const extracted = extractCollectedFromMessages(
+    attrList,
+    currentValues,
+    (messages ?? []).map((m) => ({
+      direction: m.direction as "inbound" | "outbound",
+      body: m.body,
+      sender_type: m.sender_type,
+    })),
+    latestInbound.body,
+  );
+  const collected = mergeCollected(extracted, result.collected);
+
+  if (Object.keys(collected).length > 0) {
     await persistCollectedAttributes({
       supabase,
       tenantId: conversation.tenant_id,
       contactId: conversation.contact_id,
       attributes: attrList,
-      collected: result.collected,
+      collected,
     });
   }
 
@@ -320,7 +336,7 @@ export async function runAiForConversation(conversationId: string) {
     ok: true as const,
     action: result.action,
     conversationId,
-    collected: result.collected,
+    collected,
   };
 }
 
@@ -408,29 +424,40 @@ async function persistCollectedAttributes({
 
   for (const [key, value] of Object.entries(collected)) {
     const attributeId = byKey.get(key);
-    if (!attributeId || !value.trim()) continue;
+    const trimmed = value.trim();
+    if (!attributeId || !trimmed) continue;
 
-    await supabase.from("contact_attribute_values").upsert(
+    const { error } = await supabase.from("contact_attribute_values").upsert(
       {
         tenant_id: tenantId,
         contact_id: contactId,
         attribute_id: attributeId,
-        value: value.trim(),
+        value: trimmed,
       },
       { onConflict: "contact_id,attribute_id" },
     );
+    if (error) {
+      console.error("[ai] persist attribute failed", key, error.message);
+      continue;
+    }
 
     if (key === "empresa" || key === "company" || key === "company_name") {
-      contactPatch.company_name = value.trim();
+      contactPatch.company_name = trimmed;
     }
-    if (key === "email") contactPatch.email = value.trim();
+    if (key === "email") contactPatch.email = trimmed;
     if (key === "responsavel" || key === "nome") {
-      contactPatch.display_name = value.trim();
+      contactPatch.display_name = trimmed;
     }
   }
 
   if (Object.keys(contactPatch).length > 0) {
-    await supabase.from("contacts").update(contactPatch).eq("id", contactId);
+    const { error } = await supabase
+      .from("contacts")
+      .update(contactPatch)
+      .eq("id", contactId);
+    if (error) {
+      console.error("[ai] contact patch failed", error.message);
+    }
   }
 }
 
