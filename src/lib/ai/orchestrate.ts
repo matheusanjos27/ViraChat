@@ -1,4 +1,4 @@
-import { getDefaultAiProvider } from "@/lib/ai/providers/claude";
+import { getDefaultAiProvider } from "@/lib/ai/providers/openai";
 import type { AiChatMessage } from "@/lib/ai/types";
 import { decryptToken } from "@/lib/crypto/tokens";
 import { canAiReply } from "@/lib/conversations/status";

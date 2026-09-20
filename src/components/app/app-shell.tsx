@@ -10,6 +10,7 @@ const nav = [
     label: "Conversas",
     icon: IconChat,
   },
+  { href: "/app/leads", label: "Leads", icon: IconUsers },
   { href: "/app/channels", label: "Canais", icon: IconChannels },
   { href: "/app/ai", label: "IA", icon: IconSpark },
   { href: "/app", label: "Empresa", icon: IconBuilding, exact: true },
@@ -242,6 +243,16 @@ function IconSettings({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
       <circle cx="12" cy="12" r="3" />
       <path d="M12 3.5v2.2M12 18.3v2.2M4.9 7.5l1.9 1.1M17.2 15.4l1.9 1.1M3.5 12h2.2M18.3 12h2.2M4.9 16.5l1.9-1.1M17.2 8.6l1.9-1.1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconUsers({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      <circle cx="9" cy="7" r="3.5" />
+      <path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6" strokeLinecap="round" />
+      <path d="M16 3.5a3.5 3.5 0 0 1 0 7M22 20c0-3.3-2.7-5.5-6-5.8" strokeLinecap="round" />
     </svg>
   );
 }

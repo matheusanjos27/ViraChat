@@ -53,11 +53,11 @@ export default async function AiSettingsPage() {
           />
         </div>
 
-        {!process.env.ANTHROPIC_API_KEY ? (
+        {!process.env.OPENAI_API_KEY ? (
           <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Defina <code className="font-mono text-xs">ANTHROPIC_API_KEY</code>{" "}
-            no .env para respostas com Claude. Sem a chave, a IA usa um fallback
-            simples.
+            Defina <code className="font-mono text-xs">OPENAI_API_KEY</code> no
+            .env para ativar as respostas com OpenAI. Sem a chave, a IA usa um
+            fallback simples.
           </p>
         ) : null}
       </div>

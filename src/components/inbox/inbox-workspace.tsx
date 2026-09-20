@@ -294,16 +294,6 @@ export function InboxWorkspace({
                 {counts.active} ativas
               </p>
             </div>
-            <button
-              type="button"
-              className="flex size-9 items-center justify-center rounded-full bg-[#0c6b5c] text-white shadow-sm transition hover:bg-[#084c42]"
-              title="Nova conversa (em breve)"
-              disabled
-            >
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.4">
-                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-              </svg>
-            </button>
           </div>
 
           <label className="relative mt-3 block">
@@ -562,32 +552,6 @@ export function InboxWorkspace({
                 </p>
               </div>
 
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  ["Ligar", "📞"],
-                  ["Chat", "💬"],
-                  ["Info", "ℹ️"],
-                  ["Mais", "⋯"],
-                ].map(([label]) => (
-                  <button
-                    key={label}
-                    type="button"
-                    disabled
-                    className="flex flex-col items-center gap-1 rounded-xl bg-[#f4f7f6] py-2.5 text-[11px] text-ink-muted"
-                  >
-                    <span className="flex size-8 items-center justify-center rounded-full bg-white text-sm shadow-sm">
-                      {label === "Ligar"
-                        ? "☎"
-                        : label === "Chat"
-                          ? "◉"
-                          : label === "Info"
-                            ? "i"
-                            : "···"}
-                    </span>
-                    {label}
-                  </button>
-                ))}
-              </div>
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
@@ -785,14 +749,6 @@ function Composer({
     <div className="border-t border-[#d9e2de] bg-white px-4 py-3">
       <form ref={formRef} action={action} className="flex items-center gap-2">
         <input type="hidden" name="conversationId" value={conversationId} />
-        <button
-          type="button"
-          disabled
-          className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-muted"
-          title="Emoji"
-        >
-          🙂
-        </button>
         <input
           name="body"
           required
@@ -802,14 +758,6 @@ function Composer({
           }
           className="min-h-11 flex-1 rounded-full border border-[#d9e2de] bg-[#f4f7f6] px-4 text-sm outline-none focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10 disabled:opacity-60"
         />
-        <button
-          type="button"
-          disabled
-          className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-muted"
-          title="Anexar"
-        >
-          📎
-        </button>
         <button
           type="submit"
           disabled={!canSend || pending}
