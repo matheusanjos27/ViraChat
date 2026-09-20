@@ -209,9 +209,9 @@ DEV-10  Notificações                ← polimento
 | Task | Status |
 |---|---|
 | DEV-01 | ✅ Concluído (plataforma multi-tenant, convites, IA OpenAI) |
-| DEV-02 | 🔲 Aguardando |
-| DEV-03 | 🔲 Aguardando |
-| DEV-04 | 🔲 Aguardando |
+| DEV-02 | ✅ Concluído (campos customizados + coleta via IA) |
+| DEV-03 | ✅ Concluído (funil / deals kanban) |
+| DEV-04 | ✅ Concluído (temperatura hot/warm/cold) |
 | DEV-05 | 🔲 Aguardando |
 | DEV-06 | 🔲 Aguardando |
 | DEV-07 | 🔲 Aguardando |

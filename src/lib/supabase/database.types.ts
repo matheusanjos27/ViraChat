@@ -181,6 +181,11 @@ export type Database = {
           display_name: string | null;
           phone_e164: string | null;
           external_id: string | null;
+          temperature: "hot" | "warm" | "cold";
+          temperature_updated_at: string | null;
+          email: string | null;
+          company_name: string | null;
+          notes: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -190,6 +195,11 @@ export type Database = {
           display_name?: string | null;
           phone_e164?: string | null;
           external_id?: string | null;
+          temperature?: "hot" | "warm" | "cold";
+          temperature_updated_at?: string | null;
+          email?: string | null;
+          company_name?: string | null;
+          notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -199,6 +209,158 @@ export type Database = {
           display_name?: string | null;
           phone_e164?: string | null;
           external_id?: string | null;
+          temperature?: "hot" | "warm" | "cold";
+          temperature_updated_at?: string | null;
+          email?: string | null;
+          company_name?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      contact_attributes: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          key: string;
+          label: string;
+          type: "text" | "number" | "select" | "date" | "email" | "phone";
+          options: Json;
+          required: boolean;
+          collect_via_ai: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          key: string;
+          label: string;
+          type?: "text" | "number" | "select" | "date" | "email" | "phone";
+          options?: Json;
+          required?: boolean;
+          collect_via_ai?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          key?: string;
+          label?: string;
+          type?: "text" | "number" | "select" | "date" | "email" | "phone";
+          options?: Json;
+          required?: boolean;
+          collect_via_ai?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      contact_attribute_values: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          contact_id: string;
+          attribute_id: string;
+          value: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          contact_id: string;
+          attribute_id: string;
+          value?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          contact_id?: string;
+          attribute_id?: string;
+          value?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      deal_stages: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          color: string;
+          sort_order: number;
+          is_closed_won: boolean;
+          is_closed_lost: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name: string;
+          color?: string;
+          sort_order?: number;
+          is_closed_won?: boolean;
+          is_closed_lost?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          name?: string;
+          color?: string;
+          sort_order?: number;
+          is_closed_won?: boolean;
+          is_closed_lost?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      deals: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          contact_id: string;
+          conversation_id: string | null;
+          stage_id: string;
+          title: string;
+          value: number | null;
+          currency: string;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          contact_id: string;
+          conversation_id?: string | null;
+          stage_id: string;
+          title: string;
+          value?: number | null;
+          currency?: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          contact_id?: string;
+          conversation_id?: string | null;
+          stage_id?: string;
+          title?: string;
+          value?: number | null;
+          currency?: string;
+          notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -384,6 +546,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: boolean;
       };
+      seed_tenant_crm: {
+        Args: { p_tenant_id: string };
+        Returns: undefined;
+      };
       assume_conversation: {
         Args: { p_conversation_id: string };
         Returns: Database["public"]["Tables"]["conversations"]["Row"];
@@ -400,6 +566,8 @@ export type Database = {
         | "waiting_human"
         | "human_active"
         | "resolved";
+      attribute_type: "text" | "number" | "select" | "date" | "email" | "phone";
+      lead_temperature: "hot" | "warm" | "cold";
     };
     CompositeTypes: Record<string, never>;
   };

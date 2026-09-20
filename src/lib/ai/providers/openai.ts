@@ -6,8 +6,9 @@ Responda em português do Brasil, de forma curta e clara (no máximo ~3 parágra
 Se o cliente pedir falar com humano, atendente, pessoa real, ou se o assunto for sensível demais para você resolver, use action=handoff.
 Caso contrário use action=reply com a mensagem final para o cliente.
 Nunca invente preços, políticas ou dados que não estejam nas instruções.
+Quando coletar dados do contato, inclua "collected" no JSON com as chaves definidas.
 Responda APENAS com JSON válido no formato:
-{"action":"reply","text":"..."}
+{"action":"reply","text":"...","collected":{"chave":"valor"}}
 ou
 {"action":"handoff","reason":"...","text":"mensagem opcional ao cliente antes da transferência"}`;
 
@@ -25,16 +26,33 @@ function parseAiJson(raw: string): AiReplyResult | null {
       action?: string;
       text?: string;
       reason?: string;
+      collected?: Record<string, string>;
+      deal_stage?: string;
     };
+    const collected =
+      data.collected && typeof data.collected === "object"
+        ? Object.fromEntries(
+            Object.entries(data.collected)
+              .filter(([, v]) => typeof v === "string" && v.trim())
+              .map(([k, v]) => [k, String(v).trim()]),
+          )
+        : undefined;
+
     if (data.action === "handoff") {
       return {
         action: "handoff",
         reason: data.reason || "handoff",
         text: data.text,
+        collected,
       };
     }
     if (data.action === "reply" && data.text) {
-      return { action: "reply", text: data.text };
+      return {
+        action: "reply",
+        text: data.text,
+        collected,
+        deal_stage: data.deal_stage,
+      };
     }
   } catch {
     return null;
@@ -50,6 +68,7 @@ export class OpenAiProvider implements AiProvider {
     instructions: string;
     history: { role: "user" | "assistant"; content: string }[];
     latestUserMessage: string;
+    attributeBlock?: string;
   }): Promise<AiReplyResult> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -74,13 +93,15 @@ export class OpenAiProvider implements AiProvider {
       content: m.content,
     }));
 
+    const extra = input.attributeBlock ? `\n\n${input.attributeBlock}` : "";
+
     const response = await client.chat.completions.create({
       model,
-      max_tokens: 600,
+      max_tokens: 700,
       messages: [
         {
           role: "system",
-          content: `${SYSTEM_RULES}\n\nNome do assistente: ${input.agentName}\nInstruções da empresa:\n${input.instructions}`,
+          content: `${SYSTEM_RULES}\n\nNome do assistente: ${input.agentName}\nInstruções da empresa:\n${input.instructions}${extra}`,
         },
         ...history,
         { role: "user", content: input.latestUserMessage },

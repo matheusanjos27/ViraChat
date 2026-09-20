@@ -11,20 +11,14 @@ const nav = [
     icon: IconChat,
   },
   { href: "/app/leads", label: "Leads", icon: IconUsers },
+  { href: "/app/deals", label: "Funil", icon: IconFunnel },
   { href: "/app/channels", label: "Canais", icon: IconChannels },
   { href: "/app/ai", label: "IA", icon: IconSpark },
   { href: "/app", label: "Empresa", icon: IconBuilding, exact: true },
   {
-    href: "/app/conversations",
-    label: "Relatórios",
-    icon: IconChart,
-    soon: true,
-  },
-  {
-    href: "/app",
+    href: "/app/settings",
     label: "Configurações",
     icon: IconSettings,
-    soon: true,
   },
 ] as const;
 
@@ -244,6 +238,14 @@ function IconUsers({ className }: { className?: string }) {
       <circle cx="9" cy="7" r="3.5" />
       <path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6" strokeLinecap="round" />
       <path d="M16 3.5a3.5 3.5 0 0 1 0 7M22 20c0-3.3-2.7-5.5-6-5.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconFunnel({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      <path d="M4 5h16l-5.5 7.2V18l-5 2v-7.8L4 5Z" strokeLinejoin="round" />
     </svg>
   );
 }
