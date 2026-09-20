@@ -24,6 +24,14 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
 
+function TimeAgo({ iso }: { iso: string }) {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    setLabel(timeAgo(iso));
+  }, [iso]);
+  return <span suppressHydrationWarning>{label}</span>;
+}
+
 export function NotificationBell({
   tenantId,
   initialItems,
@@ -47,8 +55,10 @@ export function NotificationBell({
 
   useEffect(() => {
     const supabase = createClient();
+    const topic = `notifications-${tenantId}-${crypto.randomUUID()}`;
+
     const channel = supabase
-      .channel(`notifications-${tenantId}`)
+      .channel(topic)
       .on(
         "postgres_changes",
         {
@@ -93,8 +103,9 @@ export function NotificationBell({
             prev.map((n) => (n.id === row.id ? { ...n, ...row } : n)),
           );
         },
-      )
-      .subscribe();
+      );
+
+    channel.subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
@@ -198,7 +209,7 @@ export function NotificationBell({
                         {n.title}
                       </p>
                       <span className="shrink-0 text-[10px] text-ink-muted">
-                        {timeAgo(n.created_at)}
+                        <TimeAgo iso={n.created_at} />
                       </span>
                     </div>
                     {n.body ? (

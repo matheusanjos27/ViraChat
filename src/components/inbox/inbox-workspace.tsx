@@ -79,6 +79,29 @@ function formatLastInteraction(iso: string | null) {
   return sameDay ? `Hoje, ${time}` : formatListTime(iso);
 }
 
+/** Evita mismatch de hidratação (fuso / “agora” vs horário do servidor). */
+function ClientDate({
+  iso,
+  mode,
+  className,
+}: {
+  iso: string | null;
+  mode: "list" | "msg" | "last";
+  className?: string;
+}) {
+  const [text, setText] = useState("");
+  useEffect(() => {
+    if (mode === "msg" && iso) setText(formatMsgTime(iso));
+    else if (mode === "last") setText(formatLastInteraction(iso));
+    else setText(formatListTime(iso));
+  }, [iso, mode]);
+  return (
+    <span className={className} suppressHydrationWarning>
+      {text}
+    </span>
+  );
+}
+
 function initials(name: string | null | undefined, phone?: string | null) {
   if (name?.trim()) {
     return name
@@ -340,7 +363,7 @@ export function InboxWorkspace({
     }
 
     const channel = supabase
-      .channel(`inbox-${tenantId}`)
+      .channel(`inbox-${tenantId}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -423,24 +446,25 @@ export function InboxWorkspace({
             assigned_to: row.assigned_to,
           });
         },
-      )
-      .subscribe((status) => {
-        if (cancelled) return;
-        if (status === "SUBSCRIBED") {
-          setLiveState("live");
-          if (pollTimer) {
-            clearInterval(pollTimer);
-            pollTimer = null;
-          }
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setLiveState("polling");
-          if (!pollTimer) {
-            pollTimer = setInterval(() => {
-              void refreshList();
-            }, 5000);
-          }
+      );
+
+    channel.subscribe((status) => {
+      if (cancelled) return;
+      if (status === "SUBSCRIBED") {
+        setLiveState("live");
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
         }
-      });
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        setLiveState("polling");
+        if (!pollTimer) {
+          pollTimer = setInterval(() => {
+            void refreshList();
+          }, 5000);
+        }
+      }
+    });
 
     // Safety net: soft poll even when live (covers missed inserts / RLS quirks)
     pollTimer = setInterval(() => {
@@ -594,7 +618,7 @@ export function InboxWorkspace({
                         </span>
                       </span>
                       <span className="shrink-0 text-[11px] text-ink-muted">
-                        {formatListTime(c.last_message_at)}
+                        <ClientDate iso={c.last_message_at} mode="list" />
                       </span>
                     </span>
                     <span className="mt-1.5 flex items-center gap-2">
@@ -696,7 +720,7 @@ export function InboxWorkspace({
                             : m.sender_type === "agent"
                               ? "Você · "
                               : ""}
-                          {formatMsgTime(m.created_at)}
+                          <ClientDate iso={m.created_at} mode="msg" />
                           {mine ? (
                             <svg viewBox="0 0 16 12" className="size-3 text-[#3b82f6]">
                               <path
@@ -806,7 +830,9 @@ export function InboxWorkspace({
                 />
                 <DetailRow
                   label="Última interação"
-                  value={formatLastInteraction(selected.last_message_at)}
+                  value={
+                    <ClientDate iso={selected.last_message_at} mode="last" />
+                  }
                 />
                 <DetailRow
                   label="Status"
