@@ -33,7 +33,7 @@ export default async function AppHomePage() {
     return (
       <div className="app-noise h-full overflow-y-auto">
         <div className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6 py-16">
-          <p className="brand-mark text-4xl text-brand-deep">ViraChat</p>
+          <img src="/logo.png" alt="ViraChat" className="h-12 w-auto" />
           <h1 className="mt-4 text-2xl font-semibold tracking-tight">
             Sem acesso a um tenant
           </h1>

@@ -73,17 +73,14 @@ export function AppShell({
           }}
         />
         <div className="relative z-10 flex h-full flex-col px-4 py-5">
-          <Link href="/app/conversations" className="flex items-start gap-2.5 px-1">
-            <span className="mt-0.5 flex size-9 items-center justify-center rounded-xl bg-white/10 text-accent">
-              <IconLogo />
-            </span>
-            <span>
-              <span className="brand-mark block text-[1.55rem] leading-none tracking-tight">
-                ViraChat
-              </span>
-              <span className="mt-1.5 block text-[11px] leading-snug text-white/50">
-                Todos os seus números em um só lugar
-              </span>
+          <Link href="/app/conversations" className="flex flex-col gap-1.5 px-1">
+            <img
+              src="/logo.png"
+              alt="ViraChat"
+              className="h-10 w-auto rounded-xl bg-white px-2 py-1"
+            />
+            <span className="block text-[11px] leading-snug text-white/50">
+              Todos os seus números em um só lugar
             </span>
           </Link>
 
@@ -169,11 +166,8 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-line bg-surface px-4 py-3 md:hidden">
-          <Link
-            href="/app/conversations"
-            className="brand-mark text-xl text-brand-deep"
-          >
-            ViraChat
+          <Link href="/app/conversations">
+            <img src="/logo.png" alt="ViraChat" className="h-8 w-auto" />
           </Link>
           <form action={signOut}>
             <button type="submit" className="text-sm text-ink-muted">

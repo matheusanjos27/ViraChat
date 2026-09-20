@@ -508,8 +508,8 @@ export function InboxWorkspace({
           </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <p className="brand-mark text-3xl text-brand-deep">ViraChat</p>
-            <p className="mt-3 max-w-sm text-sm text-ink-muted">
+            <img src="/logo.png" alt="ViraChat" className="h-12 w-auto opacity-80" />
+            <p className="mt-4 max-w-sm text-sm text-ink-muted">
               Selecione uma conversa à esquerda para ler e responder.
             </p>
           </div>

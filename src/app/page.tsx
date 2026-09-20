@@ -21,9 +21,11 @@ export default function Home() {
       />
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-5xl flex-col justify-center px-6 py-16">
-        <p className="brand-mark rise-in text-5xl sm:text-6xl md:text-7xl">
-          ViraChat
-        </p>
+        <img
+          src="/logo.png"
+          alt="ViraChat"
+          className="rise-in h-16 w-auto rounded-2xl bg-white px-3 py-2 sm:h-20"
+        />
         <h1 className="rise-in mt-5 max-w-xl text-xl font-normal leading-relaxed text-white/80 sm:text-2xl [animation-delay:80ms]">
           Atendimento com IA no WhatsApp. A IA responde; o humano entra quando
           precisa — tudo num só lugar.
