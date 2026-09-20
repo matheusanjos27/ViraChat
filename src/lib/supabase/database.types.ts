@@ -306,6 +306,59 @@ export type Database = {
         };
         Relationships: [];
       };
+      platform_admins: {
+        Row: {
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      tenant_invites: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          email: string;
+          role: "admin" | "supervisor" | "agent";
+          invited_by: string | null;
+          accepted_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          email: string;
+          role?: "admin" | "supervisor" | "agent";
+          invited_by?: string | null;
+          accepted_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          email?: string;
+          role?: "admin" | "supervisor" | "agent";
+          invited_by?: string | null;
+          accepted_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_invites_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -318,6 +371,18 @@ export type Database = {
           created_at: string;
           updated_at: string;
         };
+      };
+      platform_add_tenant_member: {
+        Args: {
+          p_tenant_id: string;
+          p_user_id: string;
+          p_role?: "admin" | "supervisor" | "agent";
+        };
+        Returns: Database["public"]["Tables"]["user_tenant_roles"]["Row"];
+      };
+      is_platform_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
       };
       assume_conversation: {
         Args: { p_conversation_id: string };

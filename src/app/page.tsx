@@ -30,14 +30,8 @@ export default function Home() {
         </h1>
         <div className="rise-in mt-10 flex flex-wrap gap-3 [animation-delay:160ms]">
           <Link
-            href="/signup"
-            className="rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-brand-deep transition hover:brightness-105"
-          >
-            Começar
-          </Link>
-          <Link
             href="/login"
-            className="rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/10"
+            className="rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-brand-deep transition hover:brightness-105"
           >
             Entrar
           </Link>

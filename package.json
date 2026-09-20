@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node scripts/check-conversation-status.mjs"
+    "test:unit": "node scripts/check-conversation-status.mjs",
+    "seed:platform-admin": "node scripts/seed-platform-admin.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
