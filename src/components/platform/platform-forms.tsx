@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import {
   platformCreateTenant,
   platformInviteTenantUser,
+  platformUpdateTenantSeats,
   type PlatformState,
 } from "@/app/actions/platform";
 
@@ -28,6 +29,21 @@ export function CreateTenantPlatformForm() {
           Slug (opcional)
         </label>
         <input id="slug" name="slug" className={field} placeholder="acme" />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium" htmlFor="maxMembers">
+          Máx. colaboradores
+        </label>
+        <input
+          id="maxMembers"
+          name="maxMembers"
+          type="number"
+          min={1}
+          max={500}
+          defaultValue={2}
+          className={field}
+        />
+        <p className="text-xs text-ink-muted">Padrão: 2 (empresa + 1).</p>
       </div>
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state.success && <p className="text-sm text-brand">{state.success}</p>}
@@ -71,13 +87,7 @@ export function InviteUserForm({
         <label className="text-sm font-medium" htmlFor="email">
           E-mail
         </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          className={field}
-        />
+        <input id="email" name="email" type="email" required className={field} />
       </div>
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium" htmlFor="fullName">
@@ -105,5 +115,65 @@ export function InviteUserForm({
         {pending ? "Convidando…" : "Convidar usuário"}
       </button>
     </form>
+  );
+}
+
+export function TenantSeatsForm({
+  tenants,
+}: {
+  tenants: {
+    id: string;
+    name: string;
+    max_members: number;
+    member_count: number;
+  }[];
+}) {
+  const [state, action, pending] = useActionState(
+    platformUpdateTenantSeats,
+    initial,
+  );
+
+  return (
+    <div className="space-y-4">
+      {tenants.length === 0 ? (
+        <p className="text-sm text-ink-muted">Nenhum tenant.</p>
+      ) : (
+        tenants.map((t) => (
+          <form
+            key={t.id}
+            action={action}
+            className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-paper px-3 py-3"
+          >
+            <input type="hidden" name="tenantId" value={t.id} />
+            <div className="min-w-[140px] flex-1">
+              <p className="text-sm font-medium">{t.name}</p>
+              <p className="text-xs text-ink-muted">{t.member_count} em uso</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-ink-muted">
+                Máx. assentos
+              </label>
+              <input
+                name="maxMembers"
+                type="number"
+                min={1}
+                max={500}
+                defaultValue={t.max_members}
+                className="w-24 rounded-lg border border-line bg-white px-2 py-1.5 text-sm"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+            >
+              Salvar
+            </button>
+          </form>
+        ))
+      )}
+      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state.success && <p className="text-sm text-brand">{state.success}</p>}
+    </div>
   );
 }

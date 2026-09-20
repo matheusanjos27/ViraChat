@@ -19,6 +19,11 @@ const cards = [
     desc: "Etapas do pipeline. Arraste deals no kanban conforme a negociação avança.",
   },
   {
+    href: "/app/settings/team",
+    title: "Equipe",
+    desc: "Convide colaboradores por e-mail. Eles definem senha e só acessam esta empresa.",
+  },
+  {
     href: "/app/channels",
     title: "Canais WhatsApp",
     desc: "Conecte e gerencie números oficiais da Cloud API.",

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   CreateTenantPlatformForm,
   InviteUserForm,
+  TenantSeatsForm,
 } from "@/components/platform/platform-forms";
 import { isCurrentUserPlatformAdmin } from "@/lib/platform/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -15,7 +16,7 @@ export default async function PlatformPage() {
   const supabase = await createClient();
   const { data: tenants } = await supabase
     .from("tenants")
-    .select("id, name, slug, created_at")
+    .select("id, name, slug, created_at, max_members")
     .order("created_at", { ascending: false });
 
   const { data: invites } = await supabase
@@ -23,6 +24,25 @@ export default async function PlatformPage() {
     .select("id, email, role, accepted_at, created_at, tenant_id, tenants(name)")
     .order("created_at", { ascending: false })
     .limit(30);
+
+  const tenantIds = (tenants ?? []).map((t) => t.id);
+  const counts = new Map<string, number>();
+  if (tenantIds.length > 0) {
+    const { data: roles } = await supabase
+      .from("user_tenant_roles")
+      .select("tenant_id")
+      .in("tenant_id", tenantIds);
+    for (const r of roles ?? []) {
+      counts.set(r.tenant_id, (counts.get(r.tenant_id) ?? 0) + 1);
+    }
+  }
+
+  const tenantRows = (tenants ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    max_members: t.max_members ?? 2,
+    member_count: counts.get(t.id) ?? 0,
+  }));
 
   return (
     <div className="app-noise h-full overflow-y-auto">
@@ -36,7 +56,7 @@ export default async function PlatformPage() {
               Super admin
             </h1>
             <p className="mt-2 text-ink-muted">
-              Crie tenants e convide usuários. Não há self-serve.
+              Crie tenants, defina limite de colaboradores e convide usuários.
             </p>
           </div>
           <Link
@@ -68,6 +88,16 @@ export default async function PlatformPage() {
         </div>
 
         <section className="mt-6 rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
+          <h2 className="text-lg font-semibold">Limite de colaboradores</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Padrão: 2 (empresa + 1). Ajuste por tenant abaixo.
+          </p>
+          <div className="mt-4">
+            <TenantSeatsForm tenants={tenantRows} />
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
           <h2 className="text-lg font-semibold">Tenants</h2>
           {(tenants ?? []).length === 0 ? (
             <p className="mt-3 text-sm text-ink-muted">Nenhum tenant ainda.</p>
@@ -80,7 +110,10 @@ export default async function PlatformPage() {
                 >
                   <div>
                     <p className="font-medium">{t.name}</p>
-                    <p className="text-ink-muted">{t.slug}</p>
+                    <p className="text-ink-muted">
+                      {t.slug} · {counts.get(t.id) ?? 0}/{t.max_members ?? 2}{" "}
+                      assentos
+                    </p>
                   </div>
                   <p className="text-xs text-ink-muted">
                     {new Date(t.created_at).toLocaleDateString("pt-BR")}

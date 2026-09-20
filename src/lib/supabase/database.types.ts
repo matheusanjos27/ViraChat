@@ -21,6 +21,7 @@ export type Database = {
           about: string | null;
           website: string | null;
           phone: string | null;
+          max_members: number;
           created_at: string;
           updated_at: string;
         };
@@ -31,6 +32,7 @@ export type Database = {
           about?: string | null;
           website?: string | null;
           phone?: string | null;
+          max_members?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -41,6 +43,7 @@ export type Database = {
           about?: string | null;
           website?: string | null;
           phone?: string | null;
+          max_members?: number;
           created_at?: string;
           updated_at?: string;
         };
