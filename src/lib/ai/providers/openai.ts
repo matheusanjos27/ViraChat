@@ -8,9 +8,10 @@ Se o cliente pedir falar com humano, atendente, pessoa real, ou se o assunto for
 Caso contrário use action=reply com a mensagem final para o cliente.
 Nunca invente preços, políticas ou dados que não estejam nas instruções / catálogo.
 Quando o cliente informar qualquer dado dos CAMPOS A COLETAR (empresa, e-mail, responsável, porte, setor, etc.), você DEVE incluir "collected" no JSON na mesma resposta — não espere o fim da conversa.
-Opcionalmente inclua "deal_stage" com o nome da etapa do funil (ex: "Qualificado", "Orçamento", "Proposta") quando o lead avançar de fase.
+Quando o lead avançar no funil (interesse, orçamento apresentado, proposta, etc.), inclua "deal_stage" com o nome EXATO da etapa do FUNIL DE VENDAS.
+Opcionalmente use "deal_stage" junto com collected na mesma resposta.
 Responda APENAS com JSON válido no formato:
-{"action":"reply","text":"...","collected":{"empresa":"...","email":"..."},"deal_stage":"Qualificado"}
+{"action":"reply","text":"...","collected":{"empresa":"...","email":"..."},"deal_stage":"Orçamento"}
 ou
 {"action":"handoff","reason":"...","text":"mensagem opcional ao cliente antes da transferência"}`;
 

@@ -16,6 +16,11 @@ import {
   quoteCatalog,
   type ServiceForQuote,
 } from "@/lib/crm/pricing";
+import {
+  buildFunnelPromptBlock,
+  ensureDealAndAdvanceStage,
+  inferDealStageHint,
+} from "@/lib/crm/deal-stage";
 import { decryptToken } from "@/lib/crypto/tokens";
 import { canAiReply } from "@/lib/conversations/status";
 import { createAppNotification } from "@/lib/notifications";
@@ -65,6 +70,7 @@ export async function runAiForConversation(conversationId: string) {
     { data: services },
     { data: tiers },
     { data: playbooks },
+    { data: dealStages },
   ] = await Promise.all([
     supabase
       .from("messages")
@@ -102,6 +108,11 @@ export async function runAiForConversation(conversationId: string) {
       .from("playbooks")
       .select("id, name, trigger, trigger_keyword, is_active, content")
       .eq("tenant_id", conversation.tenant_id),
+    supabase
+      .from("deal_stages")
+      .select("id, name, sort_order")
+      .eq("tenant_id", conversation.tenant_id)
+      .order("sort_order", { ascending: true }),
   ]);
 
   const latestInbound = [...(messages ?? [])]
@@ -160,24 +171,17 @@ export async function runAiForConversation(conversationId: string) {
   }));
 
   let catalogBlock = buildCatalogPromptBlock(catalog);
+  let quotedThisTurn = false;
+  let quotedTotal: number | null = null;
   const units = resolveUnits(catalog, currentValues);
   if (units != null && units > 0 && catalog.length > 0) {
     const quote = quoteCatalog(catalog, units);
+    quotedThisTurn = quote.total > 0;
+    quotedTotal = quote.total > 0 ? quote.total : null;
     catalogBlock = `${catalogBlock}\n\nORÇAMENTO PRÉ-CALCULADO PELO SISTEMA (${units} unidades) — use estes números, não recalcule:\n${formatQuoteMessage(quote, units)}`;
-
-    const { data: deal } = await supabase
-      .from("deals")
-      .select("id")
-      .eq("contact_id", conversation.contact_id)
-      .limit(1)
-      .maybeSingle();
-    if (deal && quote.total > 0) {
-      await supabase
-        .from("deals")
-        .update({ value: quote.total })
-        .eq("id", deal.id);
-    }
   }
+
+  const funnelBlock = buildFunnelPromptBlock(dealStages ?? []);
 
   const provider = getDefaultAiProvider();
   const activePlaybook = pickActivePlaybook(
@@ -205,7 +209,9 @@ export async function runAiForConversation(conversationId: string) {
     instructions: aiConfig.instructions,
     history,
     latestUserMessage: latestInbound.body,
-    playbookBlock: [companyBlock, playbookBlock].filter(Boolean).join("\n\n"),
+    playbookBlock: [companyBlock, playbookBlock, funnelBlock]
+      .filter(Boolean)
+      .join("\n\n"),
     attributeBlock,
     catalogBlock,
   });
@@ -230,14 +236,56 @@ export async function runAiForConversation(conversationId: string) {
       attributes: attrList,
       collected,
     });
+    for (const [k, v] of Object.entries(collected)) {
+      currentValues[k] = v;
+    }
   }
 
-  if (result.action === "reply" && result.deal_stage) {
-    await maybeMoveDealStage({
+  const filledAttrCount = Object.values(currentValues).filter(
+    (v) => (v ?? "").trim().length > 0,
+  ).length;
+
+  // If quote wasn't ready before collect, recompute with new attrs (e.g. tamanho)
+  if (!quotedThisTurn) {
+    const unitsAfter = resolveUnits(catalog, currentValues);
+    if (unitsAfter != null && unitsAfter > 0 && catalog.length > 0) {
+      const quote = quoteCatalog(catalog, unitsAfter);
+      if (quote.total > 0) {
+        quotedThisTurn = true;
+        quotedTotal = quote.total;
+      }
+    }
+  }
+
+  const aiSaidQuote =
+    result.action === "reply" &&
+    /r\$\s*\d|valor\s+total|or[cç]amento/i.test(result.text ?? "");
+
+  const stageHint =
+    (result.action === "reply" ? result.deal_stage : null) ||
+    inferDealStageHint({
+      latestUserMessage: latestInbound.body,
+      aiReplyText: result.text,
+      collectedKeys: Object.keys(collected),
+      filledAttrCount,
+      quotedThisTurn: quotedThisTurn || aiSaidQuote,
+    });
+
+  const contact = conversation.contacts as unknown as {
+    phone_e164: string | null;
+    external_id: string | null;
+    display_name: string | null;
+  } | null;
+
+  if (stageHint || filledAttrCount >= 1 || quotedThisTurn) {
+    await ensureDealAndAdvanceStage({
       supabase,
       tenantId: conversation.tenant_id,
       contactId: conversation.contact_id,
-      stageNameHint: result.deal_stage,
+      conversationId,
+      contactName: contact?.display_name ?? null,
+      stageHint,
+      dealValue: quotedTotal,
     });
   }
 
@@ -250,12 +298,6 @@ export async function runAiForConversation(conversationId: string) {
   if (!fresh || !canAiReply(fresh.status)) {
     return { skipped: "status_changed" as const, status: fresh?.status };
   }
-
-  const contact = conversation.contacts as unknown as {
-    phone_e164: string | null;
-    external_id: string | null;
-    display_name: string | null;
-  } | null;
 
   const channel = conversation.channels as unknown as {
     whatsapp_accounts:
@@ -341,12 +383,14 @@ export async function runAiForConversation(conversationId: string) {
       .eq("id", conversationId);
   }
 
-  await maybeCreateDealFromConversation({
+  await ensureDealAndAdvanceStage({
     supabase,
     tenantId: conversation.tenant_id,
     contactId: conversation.contact_id,
     conversationId,
     contactName: contact?.display_name ?? null,
+    stageHint: result.action === "handoff" ? "Qualificado" : stageHint,
+    dealValue: quotedTotal,
   });
 
   return {
@@ -354,6 +398,7 @@ export async function runAiForConversation(conversationId: string) {
     action: result.action,
     conversationId,
     collected,
+    stageHint,
   };
 }
 
@@ -376,47 +421,6 @@ function resolveUnits(
     if (Number.isFinite(n) && n > 0) return n;
   }
   return null;
-}
-
-async function maybeMoveDealStage({
-  supabase,
-  tenantId,
-  contactId,
-  stageNameHint,
-}: {
-  supabase: ReturnType<typeof createServiceClient>;
-  tenantId: string;
-  contactId: string;
-  stageNameHint: string;
-}) {
-  const hint = stageNameHint.trim().toLowerCase();
-  if (!hint) return;
-
-  const { data: stages } = await supabase
-    .from("deal_stages")
-    .select("id, name")
-    .eq("tenant_id", tenantId);
-
-  const stage = (stages ?? []).find(
-    (s) =>
-      s.name.toLowerCase() === hint ||
-      s.name.toLowerCase().includes(hint) ||
-      hint.includes(s.name.toLowerCase()),
-  );
-  if (!stage) return;
-
-  const { data: deal } = await supabase
-    .from("deals")
-    .select("id")
-    .eq("contact_id", contactId)
-    .limit(1)
-    .maybeSingle();
-  if (!deal) return;
-
-  await supabase
-    .from("deals")
-    .update({ stage_id: stage.id })
-    .eq("id", deal.id);
 }
 
 async function persistCollectedAttributes({
@@ -476,64 +480,4 @@ async function persistCollectedAttributes({
       console.error("[ai] contact patch failed", error.message);
     }
   }
-}
-
-async function maybeCreateDealFromConversation({
-  supabase,
-  tenantId,
-  contactId,
-  conversationId,
-  contactName,
-}: {
-  supabase: ReturnType<typeof createServiceClient>;
-  tenantId: string;
-  contactId: string;
-  conversationId: string;
-  contactName: string | null;
-}) {
-  const { data: existing } = await supabase
-    .from("deals")
-    .select("id")
-    .eq("contact_id", contactId)
-    .limit(1)
-    .maybeSingle();
-  if (existing) return;
-
-  const { count } = await supabase
-    .from("contact_attribute_values")
-    .select("id", { count: "exact", head: true })
-    .eq("contact_id", contactId)
-    .not("value", "is", null);
-
-  if ((count ?? 0) < 2) return;
-
-  const { data: firstStage } = await supabase
-    .from("deal_stages")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (!firstStage) return;
-
-  const { data: contact } = await supabase
-    .from("contacts")
-    .select("display_name, company_name, phone_e164")
-    .eq("id", contactId)
-    .maybeSingle();
-
-  const title =
-    contact?.company_name ||
-    contact?.display_name ||
-    contactName ||
-    contact?.phone_e164 ||
-    "Novo lead";
-
-  await supabase.from("deals").insert({
-    tenant_id: tenantId,
-    contact_id: contactId,
-    conversation_id: conversationId,
-    stage_id: firstStage.id,
-    title,
-  });
 }
