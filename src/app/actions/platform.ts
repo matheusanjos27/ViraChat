@@ -183,3 +183,71 @@ export async function platformInviteTenantUser(
   revalidatePath("/platform/tenants");
   return result;
 }
+
+export async function platformCancelInvite(
+  _prev: PlatformState,
+  formData: FormData,
+): Promise<PlatformState> {
+  if (!(await isCurrentUserPlatformAdmin())) {
+    return { error: "Apenas super admin." };
+  }
+
+  const inviteId = String(formData.get("inviteId") ?? "");
+  if (!inviteId) return { error: "Convite inválido." };
+
+  const admin = createServiceClient();
+  const { data: invite, error: fetchError } = await admin
+    .from("tenant_invites")
+    .select("id, email, tenant_id, accepted_at")
+    .eq("id", inviteId)
+    .maybeSingle();
+
+  if (fetchError) return { error: fetchError.message };
+  if (!invite) return { error: "Convite não encontrado." };
+
+  const email = invite.email.trim().toLowerCase();
+
+  // Remove membership no tenant, se existir
+  const { data: listed } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 200,
+  });
+  const authUser = listed?.users?.find(
+    (u) => u.email?.toLowerCase() === email,
+  );
+
+  if (authUser) {
+    await admin
+      .from("user_tenant_roles")
+      .delete()
+      .eq("tenant_id", invite.tenant_id)
+      .eq("user_id", authUser.id);
+
+    const { count } = await admin
+      .from("user_tenant_roles")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", authUser.id);
+
+    // Sem nenhum tenant: apaga o usuário Auth órfão
+    if ((count ?? 0) === 0) {
+      await admin.from("platform_admins").delete().eq("user_id", authUser.id);
+      await admin.from("profiles").delete().eq("id", authUser.id);
+      await admin.auth.admin.deleteUser(authUser.id);
+    }
+  }
+
+  const { error: delError } = await admin
+    .from("tenant_invites")
+    .delete()
+    .eq("id", inviteId);
+
+  if (delError) return { error: delError.message };
+
+  revalidatePath("/platform/invites");
+  revalidatePath("/platform/tenants");
+  return {
+    success: invite.accepted_at
+      ? `Acesso de ${email} removido.`
+      : `Convite pendente de ${email} cancelado.`,
+  };
+}
