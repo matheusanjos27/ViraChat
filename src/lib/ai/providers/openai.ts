@@ -122,18 +122,33 @@ export class OpenAiProvider implements AiProvider {
     });
 
     const raw = response.choices[0]?.message?.content?.trim() ?? "";
+    const usage =
+      response.usage != null
+        ? {
+            model,
+            prompt_tokens: response.usage.prompt_tokens ?? 0,
+            completion_tokens: response.usage.completion_tokens ?? 0,
+            total_tokens: response.usage.total_tokens ?? 0,
+          }
+        : undefined;
+
     const parsed = parseAiJson(raw);
-    if (parsed) return parsed;
+    if (parsed) return { ...parsed, usage };
 
     if (wantsHuman(input.latestUserMessage)) {
       return {
         action: "handoff",
         reason: "Pedido explícito de humano",
         text: "Claro — vou te transferir para um atendente.",
+        usage,
       };
     }
 
-    return { action: "reply", text: raw || "Desculpe, não entendi. Pode repetir?" };
+    return {
+      action: "reply",
+      text: raw || "Desculpe, não entendi. Pode repetir?",
+      usage,
+    };
   }
 }
 

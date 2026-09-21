@@ -3,18 +3,27 @@ export type AiChatMessage = {
   content: string;
 };
 
+export type AiTokenUsage = {
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+};
+
 export type AiReplyResult =
   | {
       action: "reply";
       text: string;
       collected?: Record<string, string>;
       deal_stage?: string;
+      usage?: AiTokenUsage;
     }
   | {
       action: "handoff";
       reason: string;
       text?: string;
       collected?: Record<string, string>;
+      usage?: AiTokenUsage;
     };
 
 export type AiAttributeHint = {

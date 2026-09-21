@@ -22,6 +22,8 @@ export type Database = {
           website: string | null;
           phone: string | null;
           max_members: number;
+          monthly_fee_cents: number;
+          billing_status: "trial" | "active" | "past_due" | "canceled";
           created_at: string;
           updated_at: string;
         };
@@ -33,6 +35,8 @@ export type Database = {
           website?: string | null;
           phone?: string | null;
           max_members?: number;
+          monthly_fee_cents?: number;
+          billing_status?: "trial" | "active" | "past_due" | "canceled";
           created_at?: string;
           updated_at?: string;
         };
@@ -44,6 +48,8 @@ export type Database = {
           website?: string | null;
           phone?: string | null;
           max_members?: number;
+          monthly_fee_cents?: number;
+          billing_status?: "trial" | "active" | "past_due" | "canceled";
           created_at?: string;
           updated_at?: string;
         };
@@ -575,6 +581,42 @@ export type Database = {
           body?: string | null;
           conversation_id?: string | null;
           read_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_usage_events: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          provider: string;
+          model: string;
+          prompt_tokens: number;
+          completion_tokens: number;
+          total_tokens: number;
+          conversation_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          provider?: string;
+          model?: string;
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+          conversation_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          provider?: string;
+          model?: string;
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+          conversation_id?: string | null;
           created_at?: string;
         };
         Relationships: [];

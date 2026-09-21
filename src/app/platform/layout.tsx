@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PlatformShell } from "@/components/platform/platform-shell";
 import { isCurrentUserPlatformAdmin } from "@/lib/platform/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,13 +14,8 @@ export default async function PlatformLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   if (!(await isCurrentUserPlatformAdmin())) redirect("/app");
+
   return (
-    <div className="min-h-dvh bg-paper text-ink">
-      <header className="border-b border-line bg-brand-deep px-6 py-4 text-white">
-        <img src="/logo.png" alt="ViraChat" className="h-8 w-auto" />
-        <p className="mt-1 text-xs text-white/60">Painel da plataforma</p>
-      </header>
-      {children}
-    </div>
+    <PlatformShell userEmail={user.email ?? undefined}>{children}</PlatformShell>
   );
 }

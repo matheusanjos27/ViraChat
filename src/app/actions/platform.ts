@@ -55,8 +55,71 @@ export async function platformCreateTenant(
     await admin.from("tenants").update({ max_members: maxMembers }).eq("slug", slug);
   }
 
+  const feeReais = Number.parseFloat(
+    String(formData.get("monthlyFee") ?? "0").replace(",", "."),
+  );
+  const feeCents = Number.isFinite(feeReais)
+    ? Math.max(0, Math.round(feeReais * 100))
+    : 0;
+  const billingStatus = String(formData.get("billingStatus") ?? "trial");
+  if (feeCents > 0 || billingStatus !== "active") {
+    const admin = createServiceClient();
+    await admin
+      .from("tenants")
+      .update({
+        monthly_fee_cents: feeCents,
+        billing_status:
+          billingStatus === "trial" ||
+          billingStatus === "past_due" ||
+          billingStatus === "canceled"
+            ? billingStatus
+            : "active",
+      })
+      .eq("slug", slug);
+  }
+
   revalidatePath("/platform");
+  revalidatePath("/platform/tenants");
+  revalidatePath("/platform/finance");
   return { success: `Tenant “${name}” criado (${maxMembers} assentos).` };
+}
+
+export async function platformUpdateTenantBilling(
+  _prev: PlatformState,
+  formData: FormData,
+): Promise<PlatformState> {
+  if (!(await isCurrentUserPlatformAdmin())) {
+    return { error: "Apenas super admin." };
+  }
+
+  const tenantId = String(formData.get("tenantId") ?? "");
+  if (!tenantId) return { error: "Tenant inválido." };
+
+  const feeReais = Number.parseFloat(
+    String(formData.get("monthlyFee") ?? "0").replace(",", "."),
+  );
+  const feeCents = Number.isFinite(feeReais)
+    ? Math.max(0, Math.round(feeReais * 100))
+    : 0;
+  const billingStatus = String(formData.get("billingStatus") ?? "active");
+  const status =
+    billingStatus === "trial" ||
+    billingStatus === "past_due" ||
+    billingStatus === "canceled"
+      ? billingStatus
+      : "active";
+
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("tenants")
+    .update({ monthly_fee_cents: feeCents, billing_status: status })
+    .eq("id", tenantId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/platform");
+  revalidatePath("/platform/tenants");
+  revalidatePath("/platform/finance");
+  return { success: "Financeiro do cliente atualizado." };
 }
 
 export async function platformUpdateTenantSeats(
@@ -82,6 +145,7 @@ export async function platformUpdateTenantSeats(
 
   if (error) return { error: error.message };
   revalidatePath("/platform");
+  revalidatePath("/platform/tenants");
   return { success: `Limite atualizado para ${maxMembers} colaboradores.` };
 }
 
@@ -113,5 +177,7 @@ export async function platformInviteTenantUser(
   });
 
   revalidatePath("/platform");
+  revalidatePath("/platform/invites");
+  revalidatePath("/platform/tenants");
   return result;
 }

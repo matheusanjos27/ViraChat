@@ -24,6 +24,7 @@ import {
 import { decryptToken } from "@/lib/crypto/tokens";
 import { canAiReply } from "@/lib/conversations/status";
 import { createAppNotification } from "@/lib/notifications";
+import { recordAiUsage } from "@/lib/platform/usage";
 import { sendOutboundText } from "@/lib/whatsapp/send";
 import { createServiceClient } from "@/lib/supabase/admin";
 
@@ -214,6 +215,13 @@ export async function runAiForConversation(conversationId: string) {
       .join("\n\n"),
     attributeBlock,
     catalogBlock,
+  });
+
+  await recordAiUsage({
+    tenantId: conversation.tenant_id,
+    conversationId,
+    provider: provider.id,
+    usage: result.usage,
   });
 
   const extracted = extractCollectedFromMessages(
