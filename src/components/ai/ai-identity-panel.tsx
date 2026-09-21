@@ -18,11 +18,22 @@ const PRESENTATION_MAX = 500;
 const PROMPT_MAX = AI_LIMITS.instructions;
 
 export function splitAiInstructions(raw: string) {
-  if (raw.includes(SEP)) {
-    const [a, b] = raw.split(SEP);
-    return { presentation: (a ?? "").trim(), prompt: (b ?? "").trim() };
+  const text = (raw ?? "").trim();
+  if (!text) return { presentation: "", prompt: "" };
+  if (text.includes(SEP)) {
+    const parts = text.split(SEP);
+    return {
+      presentation: (parts[0] ?? "").trim(),
+      prompt: parts.slice(1).join(SEP).trim(),
+    };
   }
-  return { presentation: raw.trim(), prompt: "" };
+  // Legado (sem separador): era nota/prompt da IA, não a frase de apresentação.
+  return { presentation: "", prompt: text };
+}
+
+export function joinAiInstructions(presentation: string, prompt: string) {
+  // Sempre grava o separador — senão o reload joga o prompt em "Como ela se apresenta".
+  return `${(presentation ?? "").trim()}${SEP}${(prompt ?? "").trim()}`;
 }
 
 export function AiIdentityPanel({
@@ -67,7 +78,7 @@ export function AiIdentityPanel({
         <input
           type="hidden"
           name="instructions"
-          value={[presentation, prompt].filter(Boolean).join(SEP)}
+          value={joinAiInstructions(presentation, prompt)}
         />
 
         <div
