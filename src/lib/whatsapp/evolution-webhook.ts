@@ -350,7 +350,8 @@ export async function processEvolutionWebhook(payload: EvolutionWebhookBody) {
       }
     : undefined;
 
-  if (media && !media.base64) {
+  // Sempre tenta baixar pela Evolution se o webhook não trouxe base64 útil.
+  if (media && !(media.base64 && media.base64.length > 64)) {
     try {
       const downloaded = await getEvolutionMediaBase64({
         instanceName: instance,
@@ -358,7 +359,7 @@ export async function processEvolutionWebhook(payload: EvolutionWebhookBody) {
       });
       attachment = {
         kind: kindFromMime(
-          downloaded.mimeType,
+          downloaded.mimeType ?? media.mimeType,
           downloaded.mediaType ?? media.kind,
         ),
         fileName: downloaded.fileName ?? media.fileName,
@@ -368,6 +369,7 @@ export async function processEvolutionWebhook(payload: EvolutionWebhookBody) {
       };
     } catch (err) {
       console.warn("[evolution] media download failed", err);
+      // Mantém meta sem bytes → ingest grava pending/failed conforme o caso
     }
   }
 

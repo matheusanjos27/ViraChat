@@ -5,19 +5,23 @@
 export const AI_LIMITS = {
   /** Max chars of model-facing instructions (after stripping preview block). */
   instructions: 2_000,
-  playbook: 1_200,
+  /** Max chars kept when injecting playbook into the model prompt. */
+  playbook: 2_200,
+  /** Max chars the editor may save (must fit DEFAULT_PLAYBOOK_CONTENT). */
+  playbookSaved: 4_500,
   about: 400,
-  catalogBlock: 2_000,
-  attributeBlock: 800,
-  serviceDescription: 160,
+  catalogBlock: 2_500,
+  attributeBlock: 1_400,
+  serviceDescription: 200,
   messageBody: 1_200,
-  historyTurns: 4,
+  /** Turns of prior chat kept in the prompt (was 4 — caused re-asks). */
+  historyTurns: 12,
   /** Default monthly token budget when tenant has no override. */
   defaultMonthlyTokens: 2_000_000,
   /** Wait before running AI so bursts coalesce into one call. */
   debounceMs: 1_500,
   /** Max completion tokens (provider). */
-  maxCompletionTokens: 220,
+  maxCompletionTokens: 280,
 } as const;
 
 const SEP = "\n---\n";

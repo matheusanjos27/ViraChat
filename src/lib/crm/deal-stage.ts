@@ -8,7 +8,8 @@ export function buildFunnelPromptBlock(stages: { name: string }[]) {
   const names = stages.map((s) => s.name).join(" → ");
   return `
 FUNIL: ${names}
-Ao avançar, inclua "deal_stage" com o nome exato (ex.: Qualificado, Orçamento, Proposta, Negociação, Fechado, Perdido).
+Ao avançar, inclua "deal_stage" com o nome exato (ex.: Qualificado, Orçamento, Proposta, Negociação).
+Nunca use "Fechado" sozinho — após orçamento/interesse, faça handoff para humano finalizar.
 `.trim();
 }
 
@@ -37,7 +38,8 @@ export function inferDealStageHint(input: {
       user,
     )
   ) {
-    return "Fechado";
+    // IA não fecha sozinha — sinaliza Negociação; handoff cuida do humano.
+    return "Negociação";
   }
 
   if (

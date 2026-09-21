@@ -1,6 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   refreshBaileysQr,
   startBaileysChannel,
@@ -10,7 +16,7 @@ import {
 const initial: ChannelActionState = {};
 
 const field =
-  "w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
+  "w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
 
 export function BaileysConnectForm({
   tenantId,
@@ -31,8 +37,16 @@ export function BaileysConnectForm({
   const [status, setStatus] = useState<string | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const hasQrRef = useRef(false);
 
   useEffect(() => {
+    hasQrRef.current = Boolean(qr);
+  }, [qr]);
+
+  useEffect(() => {
+    if (state.channelId || state.qrcodeBase64 || state.success) {
+      setPollError(null);
+    }
     if (state.qrcodeBase64) setQr(state.qrcodeBase64);
     if (state.pairingCode) setPairing(state.pairingCode);
     if (state.channelId) setChannelId(state.channelId);
@@ -45,22 +59,29 @@ export function BaileysConnectForm({
     const tick = () => {
       startTransition(async () => {
         const next = await refreshBaileysQr(channelId, tenantId);
+        if (next.connectionStatus === "open") {
+          setPollError(null);
+          setStatus("open");
+          window.location.reload();
+          return;
+        }
         if (next.error) {
-          setPollError(next.error);
+          if (!hasQrRef.current) setPollError(next.error);
           return;
         }
         setPollError(null);
         if (next.qrcodeBase64) setQr(next.qrcodeBase64);
         if (next.pairingCode) setPairing(next.pairingCode);
         if (next.connectionStatus) setStatus(next.connectionStatus);
-        if (next.connectionStatus === "open") {
-          window.location.reload();
-        }
       });
     };
 
-    const id = window.setInterval(tick, 4000);
-    return () => window.clearInterval(id);
+    const first = window.setTimeout(tick, 2500);
+    const id = window.setInterval(tick, 5000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
   }, [channelId, status, tenantId]);
 
   if (!enabled) {
@@ -78,6 +99,9 @@ export function BaileysConnectForm({
     );
   }
 
+  const waitingQr = Boolean(channelId) && status === "pending_qr";
+  const startError = state.error && !qr ? state.error : null;
+
   return (
     <div className="flex flex-col gap-4">
       <form action={action} className="flex flex-col gap-3">
@@ -91,60 +115,61 @@ export function BaileysConnectForm({
             name="displayName"
             placeholder="Vendas · Principal"
             className={field}
-            disabled={Boolean(channelId) && status !== "open"}
+            disabled={waitingQr}
           />
         </div>
-        {state.error && (
+        {startError ? (
           <p className="text-sm text-red-600" role="alert">
-            {state.error}
+            {startError}
           </p>
-        )}
+        ) : null}
         <button
           type="submit"
-          disabled={pending || (Boolean(channelId) && status === "pending_qr")}
+          disabled={pending || waitingQr}
           className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
         >
           {pending
             ? "Gerando QR…"
-            : channelId && status === "pending_qr"
+            : waitingQr
               ? "Aguardando leitura do QR…"
               : "Gerar QR Code"}
         </button>
       </form>
 
-      {(qr || pairing || pollError) && (
+      {(qr || pairing) && (
         <div className="rounded-xl border border-line bg-paper p-4">
           <p className="text-sm font-medium text-ink">
             No celular: WhatsApp → Aparelhos conectados → Conectar aparelho
           </p>
-          {qr && (
+          {qr ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={
-                qr.startsWith("data:")
-                  ? qr
-                  : `data:image/png;base64,${qr}`
+                qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`
               }
               alt="QR Code WhatsApp"
               className="mx-auto mt-4 h-56 w-56 rounded-lg bg-white p-2"
             />
-          )}
-          {pairing && (
+          ) : null}
+          {pairing ? (
             <p className="mt-3 text-center text-sm text-ink-muted">
               Código de pareamento:{" "}
               <span className="font-mono font-semibold text-ink">{pairing}</span>
             </p>
-          )}
-          {pollError && (
-            <p className="mt-2 text-sm text-red-600">{pollError}</p>
-          )}
-          {status === "pending_qr" && (
+          ) : null}
+          {waitingQr ? (
             <p className="mt-2 text-center text-xs text-ink-muted">
-              Atualizando status a cada 4s…
+              Aguardando você escanear… status atualiza sozinho.
             </p>
-          )}
+          ) : null}
         </div>
       )}
+
+      {pollError && !qr ? (
+        <p className="text-sm text-red-600" role="alert">
+          {pollError}
+        </p>
+      ) : null}
     </div>
   );
 }

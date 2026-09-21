@@ -50,27 +50,38 @@ export async function platformCreateTenant(
     return { error: error.message };
   }
 
-  if (maxMembers !== 2) {
-    const admin = createServiceClient();
-    await admin.from("tenants").update({ max_members: maxMembers }).eq("slug", slug);
-  }
-
-  // Plano Básico por padrão
+  // Plano: do form ou Básico por padrão
   {
     const admin = createServiceClient();
-    const { data: basico } = await admin
-      .from("plans")
-      .select("id, max_members")
-      .eq("slug", "basico")
-      .maybeSingle();
-    if (basico) {
+    const planIdFromForm = String(formData.get("planId") ?? "").trim();
+    let plan =
+      planIdFromForm
+        ? (
+            await admin
+              .from("plans")
+              .select("id, max_members, is_custom")
+              .eq("id", planIdFromForm)
+              .maybeSingle()
+          ).data
+        : null;
+    if (!plan) {
+      const { data: basico } = await admin
+        .from("plans")
+        .select("id, max_members, is_custom")
+        .eq("slug", "basico")
+        .maybeSingle();
+      plan = basico;
+    }
+    if (plan) {
       await admin
         .from("tenants")
         .update({
-          plan_id: basico.id,
-          max_members: maxMembers !== 2 ? maxMembers : basico.max_members,
+          plan_id: plan.id,
+          max_members: maxMembers !== 2 ? maxMembers : plan.max_members,
         })
         .eq("slug", slug);
+    } else if (maxMembers !== 2) {
+      await admin.from("tenants").update({ max_members: maxMembers }).eq("slug", slug);
     }
   }
 
@@ -440,5 +451,102 @@ export async function platformAssignTenantPlan(
   revalidatePath("/app/settings/ai");
   return {
     success: `Plano “${plan.name}” aplicado. O teto mudou; o uso do mês continua contando.`,
+  };
+}
+
+export async function platformDeleteTenant(
+  _prev: PlatformState,
+  formData: FormData,
+): Promise<PlatformState> {
+  if (!(await isCurrentUserPlatformAdmin())) {
+    return { error: "Apenas super admin." };
+  }
+
+  const tenantId = String(formData.get("tenantId") ?? "").trim();
+  const confirmName = String(formData.get("confirmName") ?? "").trim();
+  if (!tenantId) return { error: "Cliente inválido." };
+
+  const admin = createServiceClient();
+  const { data: tenant } = await admin
+    .from("tenants")
+    .select("id, name, slug")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  if (!tenant) return { error: "Cliente não encontrado." };
+  if (confirmName.toLowerCase() !== tenant.name.toLowerCase()) {
+    return {
+      error: `Digite o nome exato “${tenant.name}” para confirmar a exclusão.`,
+    };
+  }
+
+  // Membros antes do cascade (pra limpar Auth órfão depois)
+  const { data: roles } = await admin
+    .from("user_tenant_roles")
+    .select("user_id")
+    .eq("tenant_id", tenantId);
+  const memberIds = [...new Set((roles ?? []).map((r) => r.user_id))];
+
+  // WhatsApp / Evolution (best effort)
+  const { data: accounts } = await admin
+    .from("whatsapp_accounts")
+    .select("phone_number_id, onboard_source")
+    .eq("tenant_id", tenantId);
+
+  for (const acc of accounts ?? []) {
+    if (acc.onboard_source === "baileys" && acc.phone_number_id) {
+      try {
+        const { deleteEvolutionInstance } = await import(
+          "@/lib/evolution/client"
+        );
+        await deleteEvolutionInstance(acc.phone_number_id);
+      } catch (err) {
+        console.error(
+          "[platform] evolution delete failed",
+          acc.phone_number_id,
+          err,
+        );
+      }
+    }
+  }
+
+  const { error: delError } = await admin
+    .from("tenants")
+    .delete()
+    .eq("id", tenantId);
+
+  if (delError) return { error: delError.message };
+
+  // Usuários que ficaram sem nenhum tenant → remove Auth + profile
+  for (const userId of memberIds) {
+    const { count } = await admin
+      .from("user_tenant_roles")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    if ((count ?? 0) > 0) continue;
+
+    const { data: isPlatform } = await admin
+      .from("platform_admins")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (isPlatform) continue;
+
+    try {
+      await admin.from("profiles").delete().eq("id", userId);
+      await admin.auth.admin.deleteUser(userId);
+    } catch (err) {
+      console.error("[platform] orphan user cleanup failed", userId, err);
+    }
+  }
+
+  revalidatePath("/platform");
+  revalidatePath("/platform/tenants");
+  revalidatePath("/platform/invites");
+  revalidatePath("/platform/finance");
+  revalidatePath("/platform/usage");
+  revalidatePath("/platform/plans");
+  return {
+    success: `Cliente “${tenant.name}” e todos os dados relacionados foram apagados.`,
   };
 }

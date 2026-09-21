@@ -7,6 +7,7 @@ import { requireTenantAdmin } from "@/lib/crm/auth";
 export type PlaybookState = {
   error?: string;
   success?: string;
+  id?: string;
 };
 
 export async function savePlaybook(
@@ -34,7 +35,7 @@ export async function savePlaybook(
   }
 
   const { AI_LIMITS, clampSavedText } = await import("@/lib/ai/limits");
-  const clamped = clampSavedText(contentRaw, AI_LIMITS.playbook);
+  const clamped = clampSavedText(contentRaw, AI_LIMITS.playbookSaved);
   const content = clamped.value;
 
   if (id) {
@@ -51,26 +52,39 @@ export async function savePlaybook(
       .eq("tenant_id", ctx.membership.tenant_id);
     if (error) return { error: error.message };
   } else {
-    const { error } = await ctx.supabase.from("playbooks").insert({
-      tenant_id: ctx.membership.tenant_id,
-      name,
-      trigger,
-      trigger_keyword: triggerKeyword,
-      content,
-      is_active: isActive,
-    });
+    const { data, error } = await ctx.supabase
+      .from("playbooks")
+      .insert({
+        tenant_id: ctx.membership.tenant_id,
+        name,
+        trigger,
+        trigger_keyword: triggerKeyword,
+        content,
+        is_active: isActive,
+      })
+      .select("id")
+      .single();
     if (error) return { error: error.message };
+    revalidatePath("/app/settings/playbook");
+    revalidatePath("/app/settings/ai");
+    return {
+      id: data.id,
+      success: clamped.truncated
+        ? "Playbook salvo (roteiro enxugado para o limite)."
+        : "Playbook salvo.",
+    };
   }
 
   revalidatePath("/app/settings/playbook");
   revalidatePath("/app/settings/ai");
   return {
     success: clamped.truncated
-      ? "Playbook salvo (roteiro enxugado para o limite da IA)."
+      ? "Playbook salvo (roteiro enxugado para o limite)."
       : "Playbook salvo.",
   };
 }
 
+/** Cria um playbook a partir do template padrão do sistema (ou outro content). */
 export async function createPlaybookFromTemplate(
   _prev: PlaybookState,
   formData: FormData,
@@ -79,23 +93,40 @@ export async function createPlaybookFromTemplate(
   if (ctx.error || !ctx.membership) return { error: ctx.error ?? "Erro" };
 
   const name =
-    String(formData.get("name") ?? "").trim() || "Novo roteiro comercial";
-  const content =
+    String(formData.get("name") ?? "").trim() || "Roteiro comercial";
+  const raw =
     String(formData.get("content") ?? "").trim() || DEFAULT_PLAYBOOK_CONTENT;
 
-  const { error } = await ctx.supabase.from("playbooks").insert({
-    tenant_id: ctx.membership.tenant_id,
-    name,
-    trigger: "manual",
-    is_active: false,
-    content,
-  });
+  const { AI_LIMITS, clampSavedText } = await import("@/lib/ai/limits");
+  const content = clampSavedText(raw, AI_LIMITS.playbookSaved).value;
+
+  const { count } = await ctx.supabase
+    .from("playbooks")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", ctx.membership.tenant_id);
+
+  const isFirst = (count ?? 0) === 0;
+
+  const { data, error } = await ctx.supabase
+    .from("playbooks")
+    .insert({
+      tenant_id: ctx.membership.tenant_id,
+      name,
+      trigger: isFirst ? "new_contact" : "manual",
+      is_active: isFirst,
+      content,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
 
   revalidatePath("/app/settings/playbook");
   revalidatePath("/app/settings/ai");
-  return { success: "Playbook criado a partir do template." };
+  return {
+    id: data.id,
+    success: "Playbook criado a partir do padrão do sistema.",
+  };
 }
 
 export async function deletePlaybook(

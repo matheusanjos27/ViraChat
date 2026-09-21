@@ -818,7 +818,7 @@ function AttachmentRow({ file }: { file: LeadAttachment }) {
     file.status === "rejected_too_large"
       ? "acima do limite"
       : file.status === "failed"
-        ? "falha ao salvar"
+        ? "falha ao gravar no disco"
         : file.status === "pending"
           ? "pendente"
           : null;

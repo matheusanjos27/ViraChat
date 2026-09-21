@@ -15,8 +15,28 @@ function pendingKeys(
   );
 }
 
+function normalizeEmailCandidates(text: string) {
+  return text
+    .replace(/\s*arroba\s*/gi, "@")
+    .replace(/\s*[@＠]\s*/g, "@")
+    .replace(/\s*\.\s*/g, ".");
+}
+
 function emailFrom(text: string) {
-  return text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? null;
+  const normalized = normalizeEmailCandidates(text);
+  const match = normalized.match(
+    /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
+  );
+  if (match?.[0]) return match[0].toLowerCase();
+
+  // Fallback: token with @ when AI just asked for email (tolerates missing TLD typos lightly)
+  const loose = normalized.match(
+    /(?:^|[\s,:;=])([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z0-9.-]+)/i,
+  );
+  if (loose?.[1] && loose[1].includes(".")) {
+    return loose[1].toLowerCase().replace(/[.,;:!?)]+$/, "");
+  }
+  return null;
 }
 
 function companyFrom(text: string) {
@@ -128,7 +148,15 @@ export function extractCollectedFromMessages(
     byKey.get("email") ?? pending.find((a) => a.type === "email");
   if (emailAttr) {
     const email = emailFrom(blob);
-    if (email) out[emailAttr.key] = email;
+    if (email) {
+      out[emailAttr.key] = email;
+    } else {
+      const asked = lastAiAskedFor(messages, [emailAttr.key, "email"]);
+      if (asked) {
+        const fromLatest = emailFrom(latestUserMessage);
+        if (fromLatest) out[emailAttr.key] = fromLatest;
+      }
+    }
   }
 
   const companyAttr =
@@ -176,6 +204,24 @@ export function extractCollectedFromMessages(
   }
 
   return out;
+}
+
+/** Required (or all collectable) fields filled → ready for human to close. */
+export function requiredAttributesFilled(
+  attributes: ContactAttribute[],
+  currentValues: Record<string, string | null>,
+) {
+  const collectable = attributes.filter((a) => a.collect_via_ai);
+  if (collectable.length === 0) return false;
+  const required = collectable.filter((a) => a.required);
+  const check = required.length > 0 ? required : collectable;
+  return check.every((a) => (currentValues[a.key] ?? "").trim().length > 0);
+}
+
+export function wantsToCloseSale(text: string) {
+  return /(quero\s+(contratar|comprar|fechar|fechar\s+a\s+compra)|pode\s+(fechar|contratar|seguir)|vamos\s+fechar|aceito(\s+a\s+proposta)?|pode\s+enviar\s+o\s+contrato|quero\s+esse|fechamos)/i.test(
+    text,
+  );
 }
 
 export function mergeCollected(

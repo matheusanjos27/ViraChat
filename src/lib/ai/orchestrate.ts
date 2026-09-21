@@ -6,11 +6,13 @@ import {
   wantsHuman,
 } from "@/lib/ai/limits";
 import { getDefaultAiProvider } from "@/lib/ai/providers/openai";
-import type { AiChatMessage } from "@/lib/ai/types";
-import { buildAttributePromptBlock } from "@/lib/crm/attributes";
+import type { AiChatMessage, AiReplyResult } from "@/lib/ai/types";
+import { buildAttributePromptBlock, hydrateAttributeValuesFromContact } from "@/lib/crm/attributes";
 import {
   extractCollectedFromMessages,
   mergeCollected,
+  requiredAttributesFilled,
+  wantsToCloseSale,
 } from "@/lib/crm/extract-attributes";
 import {
   buildPlaybookPromptBlock,
@@ -47,7 +49,7 @@ export async function runAiForConversation(conversationId: string) {
   const { data: conversation, error: convError } = await supabase
     .from("conversations")
     .select(
-      "id, tenant_id, status, channel_id, contact_id, contacts(phone_e164, external_id, display_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
+      "id, tenant_id, status, channel_id, contact_id, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
     )
     .eq("id", conversationId)
     .single();
@@ -119,7 +121,7 @@ export async function runAiForConversation(conversationId: string) {
       .select("body, direction, sender_type, created_at")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true })
-      .limit(30),
+      .limit(40),
     supabase
       .from("contact_attributes")
       .select(
@@ -196,7 +198,29 @@ export async function runAiForConversation(conversationId: string) {
   for (const a of attrList) {
     currentValues[a.key] = valueByAttrId.get(a.id) ?? null;
   }
-  const attributeBlock = buildAttributePromptBlock(attrList, currentValues);
+
+  const contactEarly = conversation.contacts as unknown as {
+    phone_e164: string | null;
+    external_id: string | null;
+    display_name: string | null;
+    email: string | null;
+    company_name: string | null;
+  } | null;
+
+  hydrateAttributeValuesFromContact(attrList, currentValues, {
+    display_name: contactEarly?.display_name,
+    email: contactEarly?.email,
+    company_name: contactEarly?.company_name,
+  });
+
+  const attributeBlock = buildAttributePromptBlock(attrList, currentValues, {
+    name: contactEarly?.display_name,
+    phone:
+      contactEarly?.phone_e164 ||
+      (contactEarly?.external_id ? `+${contactEarly.external_id}` : null),
+    email: contactEarly?.email,
+    company: contactEarly?.company_name,
+  });
 
   const tiersByService = new Map<string, NonNullable<typeof tiers>>();
   for (const t of tiers ?? []) {
@@ -266,7 +290,7 @@ export async function runAiForConversation(conversationId: string) {
 
   const light = isLightContextTurn(latestInbound.body, history.length);
 
-  const result = await provider.generateReply({
+  let result: AiReplyResult = await provider.generateReply({
     agentName: aiConfig.name,
     instructions: aiConfig.instructions,
     history,
@@ -274,7 +298,8 @@ export async function runAiForConversation(conversationId: string) {
     playbookBlock: light
       ? [companyBlock, playbookBlock].filter(Boolean).join("\n\n")
       : [companyBlock, playbookBlock, funnelBlock].filter(Boolean).join("\n\n"),
-    attributeBlock: light ? undefined : attributeBlock,
+    // Sempre injeta dados já conhecidos — senão a IA pergunta de novo no "oi".
+    attributeBlock,
     catalogBlock: light ? undefined : catalogBlock,
   });
 
@@ -344,6 +369,30 @@ export async function runAiForConversation(conversationId: string) {
   const aiSaidQuote =
     result.action === "reply" &&
     /r\$\s*\d|valor\s+total|or[cç]amento/i.test(result.text ?? "");
+
+  const dataReady = requiredAttributesFilled(attrList, currentValues);
+  const buyIntent = wantsToCloseSale(latestInbound.body);
+  const shouldHandoffToClose =
+    result.action === "reply" &&
+    ((dataReady && (quotedThisTurn || aiSaidQuote || buyIntent)) ||
+      buyIntent);
+
+  if (shouldHandoffToClose) {
+    const prior =
+      (result.text ?? "").trim() &&
+      !/transfer|atendente|humano/i.test(result.text ?? "")
+        ? `${result.text!.trim()}\n\n`
+        : "";
+    result = {
+      action: "handoff",
+      reason: buyIntent
+        ? "cliente_quer_fechar"
+        : "dados_coletados_fechamento",
+      text: `${prior}Perfeito — vou te transferir para um atendente finalizar o atendimento.`,
+      collected: result.collected,
+      usage: result.usage,
+    };
+  }
 
   const stageHint =
     (result.action === "reply" ? result.deal_stage : null) ||
@@ -481,7 +530,14 @@ export async function runAiForConversation(conversationId: string) {
     contactId: conversation.contact_id,
     conversationId,
     contactName: contact?.display_name ?? null,
-    stageHint: result.action === "handoff" ? "Qualificado" : stageHint,
+    stageHint:
+      result.action === "handoff"
+        ? buyIntent
+          ? "Negociação"
+          : quotedThisTurn || aiSaidQuote
+            ? "Orçamento"
+            : "Qualificado"
+        : stageHint,
     dealValue: quotedTotal,
   });
 

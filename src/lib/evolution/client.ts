@@ -199,42 +199,64 @@ export async function sendEvolutionText(params: {
   return data.key?.id ?? data.message?.key?.id ?? null;
 }
 
-/** Baixa mídia de uma mensagem (base64) via Evolution. */
 export async function getEvolutionMediaBase64(params: {
   instanceName: string;
   /** Payload `data` do webhook messages.upsert (com key + message) */
   webhookData: Record<string, unknown>;
 }) {
-  const res = await fetch(
-    `${baseUrl()}/chat/getBase64FromMediaMessage/${encodeURIComponent(params.instanceName)}`,
+  const key = params.webhookData.key;
+  const message = params.webhookData.message;
+  // Evolution aceita o bloco data inteiro ou { key, message } aninhado.
+  const payloads = [
+    { message: params.webhookData, convertToMp4: false },
     {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({
-        message: params.webhookData,
-        convertToMp4: false,
-      }),
+      message: { key, message },
+      convertToMp4: false,
     },
-  );
-  const data = (await res.json()) as {
-    base64?: string;
-    mimetype?: string;
-    fileName?: string;
-    mediaType?: string;
-    error?: string;
-    message?: string;
-  };
-  if (!res.ok || !data.base64) {
-    throw new Error(
-      data.error ||
-        data.message ||
-        `Falha ao baixar mídia (HTTP ${res.status})`,
+  ];
+
+  let lastError = "Falha ao baixar mídia";
+  for (const body of payloads) {
+    const res = await fetch(
+      `${baseUrl()}/chat/getBase64FromMediaMessage/${encodeURIComponent(params.instanceName)}`,
+      {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(body),
+      },
     );
+    const data = (await res.json().catch(() => ({}))) as {
+      base64?: string;
+      mimetype?: string;
+      fileName?: string;
+      mediaType?: string;
+      error?: string;
+      message?: string | { base64?: string };
+    };
+
+    const base64 =
+      typeof data.base64 === "string" && data.base64
+        ? data.base64
+        : typeof data.message === "object" &&
+            data.message &&
+            typeof data.message.base64 === "string"
+          ? data.message.base64
+          : null;
+
+    if (res.ok && base64) {
+      return {
+        base64,
+        mimeType: data.mimetype ?? null,
+        fileName: data.fileName ?? null,
+        mediaType: data.mediaType ?? null,
+      };
+    }
+
+    lastError =
+      data.error ||
+      (typeof data.message === "string" ? data.message : null) ||
+      `Falha ao baixar mídia (HTTP ${res.status})`;
   }
-  return {
-    base64: data.base64,
-    mimeType: data.mimetype ?? null,
-    fileName: data.fileName ?? null,
-    mediaType: data.mediaType ?? null,
-  };
+
+  throw new Error(lastError);
 }

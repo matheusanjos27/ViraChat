@@ -199,13 +199,25 @@ async function persistInboundAttachment(params: {
   const max = attachmentMaxBytes();
   const mime = params.attachment.mimeType ?? null;
   const fileName = params.attachment.fileName ?? null;
-  const kind =
+  const kindRaw =
     params.attachment.kind ??
     kindFromMime(mime, fileName ?? undefined);
-  const declaredSize = params.attachment.sizeBytes ?? 0;
+  const kind: AttachmentKind =
+    kindRaw === "image" ||
+    kindRaw === "document" ||
+    kindRaw === "audio" ||
+    kindRaw === "video" ||
+    kindRaw === "sticker" ||
+    kindRaw === "other"
+      ? kindRaw
+      : "other";
+  const declaredSize = Number(params.attachment.sizeBytes) || 0;
 
-  if (declaredSize > max) {
-    await supabase.from("message_attachments").insert({
+  const insertRow = async (
+    status: "stored" | "rejected_too_large" | "failed" | "pending",
+    extra: { storage_key?: string; size_bytes?: number } = {},
+  ) => {
+    const { error } = await supabase.from("message_attachments").insert({
       tenant_id: params.tenantId,
       contact_id: params.contactId,
       conversation_id: params.conversationId,
@@ -213,44 +225,35 @@ async function persistInboundAttachment(params: {
       kind,
       file_name: fileName,
       mime_type: mime,
-      size_bytes: declaredSize,
-      status: "rejected_too_large",
+      size_bytes: extra.size_bytes ?? declaredSize,
+      storage_key: extra.storage_key ?? null,
+      status,
       provider_message_id: params.providerMessageId,
     });
+    if (error) {
+      console.error("[attachments] db insert failed", status, error.message);
+    }
+  };
+
+  if (declaredSize > max) {
+    await insertRow("rejected_too_large", { size_bytes: declaredSize });
     return;
   }
 
   if (!params.attachment.base64) {
-    await supabase.from("message_attachments").insert({
-      tenant_id: params.tenantId,
-      contact_id: params.contactId,
-      conversation_id: params.conversationId,
-      message_id: params.messageId,
-      kind,
-      file_name: fileName,
-      mime_type: mime,
-      size_bytes: declaredSize,
-      status: "pending",
-      provider_message_id: params.providerMessageId,
-    });
+    await insertRow("pending");
     return;
   }
 
   try {
     const bytes = decodeBase64Payload(params.attachment.base64);
+    if (!bytes.length) {
+      await insertRow("failed", { size_bytes: declaredSize });
+      console.error("[attachments] empty base64 payload");
+      return;
+    }
     if (bytes.length > max) {
-      await supabase.from("message_attachments").insert({
-        tenant_id: params.tenantId,
-        contact_id: params.contactId,
-        conversation_id: params.conversationId,
-        message_id: params.messageId,
-        kind,
-        file_name: fileName,
-        mime_type: mime,
-        size_bytes: bytes.length,
-        status: "rejected_too_large",
-        provider_message_id: params.providerMessageId,
-      });
+      await insertRow("rejected_too_large", { size_bytes: bytes.length });
       return;
     }
 
@@ -261,33 +264,22 @@ async function persistInboundAttachment(params: {
       mimeType: mime,
     });
 
-    await supabase.from("message_attachments").insert({
-      tenant_id: params.tenantId,
-      contact_id: params.contactId,
-      conversation_id: params.conversationId,
-      message_id: params.messageId,
-      kind,
-      file_name: fileName,
-      mime_type: mime,
-      size_bytes: saved.sizeBytes,
+    await insertRow("stored", {
       storage_key: saved.storageKey,
-      status: "stored",
-      provider_message_id: params.providerMessageId,
+      size_bytes: saved.sizeBytes,
     });
   } catch (err) {
-    console.error("[attachments] save failed", err);
-    await supabase.from("message_attachments").insert({
-      tenant_id: params.tenantId,
-      contact_id: params.contactId,
-      conversation_id: params.conversationId,
-      message_id: params.messageId,
-      kind,
-      file_name: fileName,
-      mime_type: mime,
-      size_bytes: declaredSize,
-      status: "failed",
-      provider_message_id: params.providerMessageId,
+    const code = (err as Error & { code?: string }).code;
+    console.error("[attachments] save failed", {
+      code,
+      message: err instanceof Error ? err.message : err,
+      dir: process.env.ATTACHMENTS_DIR ?? "(default)",
     });
+    if (code === "TOO_LARGE") {
+      await insertRow("rejected_too_large");
+      return;
+    }
+    await insertRow("failed");
   }
 }
 

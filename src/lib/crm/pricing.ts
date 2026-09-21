@@ -158,7 +158,14 @@ export function quoteCatalog(
 /** Serializa o catálogo para o prompt da IA. */
 export function buildCatalogPromptBlock(services: ServiceForQuote[]) {
   const active = services.filter((s) => s.is_active);
-  if (active.length === 0) return "";
+  if (active.length === 0) {
+    return truncate(
+      `CATÁLOGO VAZIO: não há produtos/serviços ativos cadastrados.
+NÃO invente produtos, pacotes, preços nem descrições genéricas.
+Informe que não há oferta cadastrada e faça handoff para um atendente.`,
+      AI_LIMITS.catalogBlock,
+    );
+  }
 
   const blocks = active.map((s) => {
     const desc = s.description
@@ -190,7 +197,7 @@ export function buildCatalogPromptBlock(services: ServiceForQuote[]) {
   });
 
   return truncate(
-    `CATÁLOGO (não invente preços):\n${blocks.join("\n")}\nPeça a quantidade antes de orçar, se faltar.`,
+    `CATÁLOGO OFICIAL (use APENAS estes itens — nome, descrição e preço abaixo; nada genérico fora desta lista):\n${blocks.join("\n")}\nPeça a quantidade antes de orçar, se faltar. Se o cliente pedir algo que não está na lista, diga que não oferece e sugira o item mais próximo da lista OU handoff.`,
     AI_LIMITS.catalogBlock,
   );
 }

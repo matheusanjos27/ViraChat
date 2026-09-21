@@ -49,12 +49,25 @@ export async function saveAttachmentBytes(params: {
   const id = randomUUID();
   const safeName = (params.fileName ?? "arquivo")
     .replace(/[^\w.\-()+ ]+/g, "_")
-    .slice(0, 120);
-  const rel = path.posix.join(params.tenantId, `${id}-${safeName}`);
+    .replace(/^\.+/, "_")
+    .slice(0, 120) || "arquivo";
+  const rel = `${params.tenantId}/${id}-${safeName}`;
   const root = attachmentsRoot();
   const dir = resolveUnderRoot(root, params.tenantId);
-  await mkdir(dir, { recursive: true });
-  await writeFile(resolveUnderRoot(root, rel), params.bytes);
+  try {
+    await mkdir(dir, { recursive: true });
+    await writeFile(
+      resolveUnderRoot(root, params.tenantId, `${id}-${safeName}`),
+      params.bytes,
+    );
+  } catch (err) {
+    const e = err as Error & { code?: string };
+    const wrapped = new Error(
+      `Não foi possível gravar anexo em ${root}: ${e.message}`,
+    ) as Error & { code?: string };
+    wrapped.code = e.code;
+    throw wrapped;
+  }
   return { storageKey: rel, sizeBytes: params.bytes.length };
 }
 
@@ -63,6 +76,9 @@ export async function readAttachmentBytes(storageKey: string) {
 }
 
 export function decodeBase64Payload(raw: string) {
-  const cleaned = raw.replace(/^data:[^;]+;base64,/, "").trim();
+  const cleaned = raw
+    .replace(/^data:[^;]+;base64,/i, "")
+    .replace(/\s+/g, "")
+    .trim();
   return Buffer.from(cleaned, "base64");
 }

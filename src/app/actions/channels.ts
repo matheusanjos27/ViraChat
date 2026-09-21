@@ -244,14 +244,28 @@ export async function refreshBaileysQr(
       };
     }
 
-    const qr = await connectEvolutionInstance(account.phone_number_id);
-    return {
-      connectionStatus: "pending_qr",
-      channelId,
-      instanceName: account.phone_number_id,
-      qrcodeBase64: qr.qrcodeBase64,
-      pairingCode: qr.pairingCode,
-    };
+    // Ainda aguardando leitura: tenta QR novo, mas se a Evolution
+    // reclamar (QR já emitido / connecting), não trate como falha fatal.
+    try {
+      const qr = await connectEvolutionInstance(account.phone_number_id);
+      return {
+        connectionStatus: "pending_qr",
+        channelId,
+        instanceName: account.phone_number_id,
+        qrcodeBase64: qr.qrcodeBase64,
+        pairingCode: qr.pairingCode,
+      };
+    } catch (qrErr) {
+      console.warn("[baileys] refresh QR (não fatal)", qrErr);
+      return {
+        connectionStatus:
+          state === "connecting" || state === "close" || state === "pairing"
+            ? "pending_qr"
+            : (account.connection_status ?? "pending_qr"),
+        channelId,
+        instanceName: account.phone_number_id,
+      };
+    }
   } catch (err) {
     return {
       error:

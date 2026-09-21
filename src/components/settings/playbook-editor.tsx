@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   createPlaybookFromTemplate,
   deletePlaybook,
@@ -136,18 +136,88 @@ export function PlaybookEditor({ playbooks }: { playbooks: Playbook[] }) {
     empty,
   );
 
+  useEffect(() => {
+    if (createState.id) setSelectedId(createState.id);
+  }, [createState.id]);
+
+  useEffect(() => {
+    if (
+      selectedId &&
+      playbooks.length > 0 &&
+      !playbooks.some((p) => p.id === selectedId)
+    ) {
+      setSelectedId(playbooks[0]?.id ?? null);
+    }
+  }, [playbooks, selectedId]);
+
   return (
-    <div className="grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)]">
+    <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
       <aside className="space-y-4">
+        <form action={createAction}>
+          <input type="hidden" name="name" value="Roteiro comercial" />
+          <button
+            type="submit"
+            disabled={createPending}
+            className="w-full rounded-xl bg-brand px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+          >
+            {createPending ? "Criando…" : "Adicionar playbook"}
+          </button>
+          <p className="mt-2 px-1 text-[11px] leading-snug text-ink-muted">
+            Sempre começa com o roteiro padrão do sistema — aí você personaliza.
+          </p>
+        </form>
+
         <div className="rounded-2xl border border-line bg-surface p-3 shadow-[var(--shadow)]">
           <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-            Templates
+            Roteiros
+          </p>
+          <ul className="mt-2 space-y-1">
+            {playbooks.length === 0 ? (
+              <li className="px-2 py-2 text-xs text-ink-muted">
+                Nenhum ainda. Use o botão acima.
+              </li>
+            ) : (
+              playbooks.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(p.id)}
+                    className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                      selected?.id === p.id
+                        ? "bg-brand-soft font-semibold text-brand-deep"
+                        : "hover:bg-paper"
+                    }`}
+                  >
+                    <span className="truncate">{p.name}</span>
+                    {p.is_active ? (
+                      <span className="size-1.5 shrink-0 rounded-full bg-success" />
+                    ) : null}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+          {createState.error ? (
+            <p className="mt-2 px-2 text-xs text-danger">{createState.error}</p>
+          ) : null}
+          {createState.success ? (
+            <p className="mt-2 px-2 text-xs text-brand">{createState.success}</p>
+          ) : null}
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-3 shadow-[var(--shadow)]">
+          <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+            Outros templates
           </p>
           <ul className="mt-2 space-y-1">
             {TEMPLATES.map((t) => (
               <li key={t.id}>
                 <form action={createAction}>
-                  <input type="hidden" name="name" value={`Roteiro ${t.label}`} />
+                  <input
+                    type="hidden"
+                    name="name"
+                    value={`Roteiro ${t.label}`}
+                  />
                   <input type="hidden" name="content" value={t.content} />
                   <button
                     type="submit"
@@ -160,38 +230,6 @@ export function PlaybookEditor({ playbooks }: { playbooks: Playbook[] }) {
               </li>
             ))}
           </ul>
-          {createState.error ? (
-            <p className="mt-2 px-2 text-xs text-danger">{createState.error}</p>
-          ) : null}
-          {createState.success ? (
-            <p className="mt-2 px-2 text-xs text-brand">{createState.success}</p>
-          ) : null}
-        </div>
-
-        <div className="rounded-2xl border border-line bg-surface p-3 shadow-[var(--shadow)]">
-          <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-            Roteiros
-          </p>
-          <ul className="mt-2 space-y-1">
-            {playbooks.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(p.id)}
-                  className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                    selected?.id === p.id
-                      ? "bg-brand-soft font-semibold text-brand-deep"
-                      : "hover:bg-paper"
-                  }`}
-                >
-                  <span className="truncate">{p.name}</span>
-                  {p.is_active ? (
-                    <span className="size-1.5 shrink-0 rounded-full bg-success" />
-                  ) : null}
-                </button>
-              </li>
-            ))}
-          </ul>
         </div>
       </aside>
 
@@ -199,7 +237,8 @@ export function PlaybookEditor({ playbooks }: { playbooks: Playbook[] }) {
         <PlaybookAccordion key={selected.id} playbook={selected} />
       ) : (
         <div className="rounded-2xl border border-line bg-surface p-10 text-center text-sm text-ink-muted">
-          Nenhum playbook. Escolha um template à esquerda.
+          Nenhum playbook. Clique em &quot;Adicionar playbook&quot; para começar
+          com o padrão do sistema.
         </div>
       )}
     </div>
@@ -213,7 +252,10 @@ function PlaybookAccordion({ playbook }: { playbook: Playbook }) {
   const [open, setOpen] = useState<string>("Objetivo");
   const [trigger, setTrigger] = useState<PlaybookTrigger>(playbook.trigger);
   const [state, action, pending] = useActionState(savePlaybook, empty);
-  const [delState, delAction, delPending] = useActionState(deletePlaybook, empty);
+  const [delState, delAction, delPending] = useActionState(
+    deletePlaybook,
+    empty,
+  );
   const [actState, actAction] = useActionState(setPlaybookActive, empty);
 
   const content = useMemo(
@@ -223,14 +265,25 @@ function PlaybookAccordion({ playbook }: { playbook: Playbook }) {
 
   function updateBody(title: string, body: string) {
     setSections((prev) => {
+      const prevBody = prev.find((s) => s.title === title)?.body ?? "";
       const without = prev.map((s) =>
         s.title === title ? { ...s, body: "" } : s,
       );
       const usedByOthers = serializePlaybookSections(without).length;
-      const room = Math.max(0, AI_LIMITS.playbook - usedByOthers);
-      const clipped = body.slice(0, room);
+      const room = Math.max(0, AI_LIMITS.playbookSaved - usedByOthers);
+
+      let next = body;
+      if (body.length > room) {
+        // Never wipe existing text when already over budget — only block growth.
+        if (room === 0) {
+          next = body.length < prevBody.length ? body : prevBody;
+        } else {
+          next = body.slice(0, room);
+        }
+      }
+
       return prev.map((s) =>
-        s.title === title ? { ...s, body: clipped } : s,
+        s.title === title ? { ...s, body: next } : s,
       );
     });
   }
@@ -322,7 +375,11 @@ function PlaybookAccordion({ playbook }: { playbook: Playbook }) {
                         stroke="currentColor"
                         strokeWidth="1.8"
                       >
-                        <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                        <path
+                          d="M6 9l6 6 6-6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     ) : (
                       <svg
@@ -332,7 +389,11 @@ function PlaybookAccordion({ playbook }: { playbook: Playbook }) {
                         stroke="currentColor"
                         strokeWidth="1.8"
                       >
-                        <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                        <path
+                          d="M9 6l6 6-6 6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     )}
                   </span>
@@ -353,7 +414,7 @@ function PlaybookAccordion({ playbook }: { playbook: Playbook }) {
           })}
         </div>
 
-        <CharCount value={content} max={AI_LIMITS.playbook} />
+        <CharCount value={content} max={AI_LIMITS.playbookSaved} />
 
         {state.error ? (
           <p className="mt-3 text-sm text-danger">{state.error}</p>
