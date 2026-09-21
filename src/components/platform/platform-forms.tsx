@@ -136,6 +136,24 @@ export function InviteUserForm({
           <option value="agent">Atendente</option>
         </select>
       </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium" htmlFor="password">
+          Senha provisória (atalho sem e-mail)
+        </label>
+        <input
+          id="password"
+          name="password"
+          type="text"
+          minLength={6}
+          autoComplete="off"
+          className={field}
+          placeholder="mín. 6 caracteres"
+        />
+        <p className="text-xs text-ink-muted">
+          Preencha para criar o usuário já com senha (sem SMTP). Deixe vazio
+          para enviar convite por e-mail.
+        </p>
+      </div>
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state.success && <p className="text-sm text-brand">{state.success}</p>}
       <button
@@ -143,7 +161,7 @@ export function InviteUserForm({
         disabled={pending || tenants.length === 0}
         className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
       >
-        {pending ? "Convidando…" : "Convidar usuário"}
+        {pending ? "Criando…" : "Criar / convidar usuário"}
       </button>
     </form>
   );

@@ -161,6 +161,7 @@ export async function platformInviteTenantUser(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = String(formData.get("role") ?? "admin") as InviteRole;
   const fullName = String(formData.get("fullName") ?? "").trim();
+  const password = String(formData.get("password") ?? "").trim();
 
   const supabase = await createClient();
   const {
@@ -172,6 +173,7 @@ export async function platformInviteTenantUser(
     email,
     fullName,
     role,
+    password: password || undefined,
     invitedByUserId: actor?.id ?? null,
     enforceSeatLimit: true,
   });

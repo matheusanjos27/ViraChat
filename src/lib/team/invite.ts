@@ -35,18 +35,28 @@ export async function inviteUserToTenant(input: {
   invitedByUserId: string | null;
   /** When true, platform admin can still invite past soft checks after raising seats */
   enforceSeatLimit?: boolean;
+  /**
+   * Atalho sem SMTP: cria o usuário já com senha (email confirmado).
+   * Se vazio, usa invite por e-mail (precisa SMTP no Supabase).
+   */
+  password?: string;
 }): Promise<{ error?: string; success?: string }> {
   const email = input.email.trim().toLowerCase();
   const fullName = (input.fullName ?? "").trim();
   const role = input.role;
   const tenantId = input.tenantId;
   const enforce = input.enforceSeatLimit !== false;
+  const password = (input.password ?? "").trim();
+  const withPassword = password.length > 0;
 
   if (!tenantId || !email) {
     return { error: "Informe e-mail e empresa." };
   }
   if (!["admin", "supervisor", "agent"].includes(role)) {
     return { error: "Papel inválido." };
+  }
+  if (withPassword && password.length < 6) {
+    return { error: "Senha provisória: mínimo 6 caracteres." };
   }
 
   const admin = createServiceClient();
@@ -89,24 +99,61 @@ export async function inviteUserToTenant(input: {
     { onConflict: "tenant_id,email" },
   );
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const { data: invited, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(email, {
-      data: {
-        full_name: fullName || email,
-        invited_tenant_id: tenantId,
-        invited_role: role,
-      },
-      redirectTo: `${origin}/auth/set-password`,
-    });
+  let userId: string | undefined;
+  let createdWithPassword = false;
+  let linkedExistingWithoutInvite = false;
 
-  let userId = invited?.user?.id;
-
-  if (inviteError) {
-    if (!existingAuth) {
-      return { error: inviteError.message };
+  if (withPassword) {
+    if (existingAuth) {
+      const { error: pwError } = await admin.auth.admin.updateUserById(
+        existingAuth.id,
+        {
+          password,
+          email_confirm: true,
+          user_metadata: {
+            full_name: fullName || existingAuth.user_metadata?.full_name || email,
+          },
+        },
+      );
+      if (pwError) return { error: pwError.message };
+      userId = existingAuth.id;
+    } else {
+      const { data: created, error: createError } =
+        await admin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            full_name: fullName || email,
+            invited_tenant_id: tenantId,
+            invited_role: role,
+          },
+        });
+      if (createError) return { error: createError.message };
+      userId = created.user?.id;
+      createdWithPassword = true;
     }
-    userId = existingAuth.id;
+  } else {
+    const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const { data: invited, error: inviteError } =
+      await admin.auth.admin.inviteUserByEmail(email, {
+        data: {
+          full_name: fullName || email,
+          invited_tenant_id: tenantId,
+          invited_role: role,
+        },
+        redirectTo: `${origin}/auth/set-password`,
+      });
+
+    userId = invited?.user?.id;
+
+    if (inviteError) {
+      if (!existingAuth) {
+        return { error: inviteError.message };
+      }
+      userId = existingAuth.id;
+      linkedExistingWithoutInvite = true;
+    }
   }
 
   if (!userId) {
@@ -140,8 +187,16 @@ export async function inviteUserToTenant(input: {
     .eq("tenant_id", tenantId)
     .eq("email", email);
 
+  if (withPassword) {
+    return {
+      success: createdWithPassword
+        ? `Usuário criado: ${email}. Pode entrar em /login com a senha provisória.`
+        : `Usuário existente vinculado e senha atualizada: ${email}.`,
+    };
+  }
+
   return {
-    success: inviteError
+    success: linkedExistingWithoutInvite
       ? `Usuário existente vinculado: ${email}.`
       : `Convite enviado para ${email}. A pessoa define a senha pelo e-mail.`,
   };
