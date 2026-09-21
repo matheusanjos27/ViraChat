@@ -76,13 +76,15 @@ export function DealsBoard({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line bg-white px-6 py-4">
+    <div className="flex h-full min-h-0 flex-col bg-paper">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line bg-surface px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
         <div>
           <p className="text-sm font-medium uppercase tracking-[0.14em] text-brand">
             Comercial
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Funil</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
+            Funil
+          </h1>
           <p className="mt-1 text-sm text-ink-muted">
             Pipeline aberto:{" "}
             <span className="font-semibold text-ink">
@@ -92,24 +94,30 @@ export function DealsBoard({
         </div>
         <a
           href="/app/settings/pipeline"
-          className="rounded-lg border border-line px-3 py-2 text-xs font-medium hover:bg-[#f4f7f6]"
+          className="rounded-lg border border-line px-3 py-2 text-xs font-medium hover:bg-paper"
         >
           Configurar etapas
         </a>
       </div>
 
       {moveState.error && (
-        <p className="bg-red-50 px-6 py-2 text-sm text-red-700">{moveState.error}</p>
+        <p className="bg-red-50 px-4 py-2 text-sm text-red-700 sm:px-6">
+          {moveState.error}
+        </p>
       )}
 
-      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
+      <p className="px-4 pt-3 text-xs text-ink-muted md:hidden">
+        Deslize as colunas · no celular use o seletor do card para mudar etapa
+      </p>
+
+      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto scroll-smooth px-3 py-3 sm:p-4 snap-x snap-mandatory md:snap-none">
         {stages.map((stage) => {
           const cards = optimisticDeals.filter((d) => d.stage_id === stage.id);
           const colValue = cards.reduce((a, d) => a + (d.value ?? 0), 0);
           return (
             <section
               key={stage.id}
-              className="flex w-[280px] shrink-0 flex-col rounded-2xl bg-[#f4f7f6]"
+              className="flex w-[min(280px,85vw)] shrink-0 snap-center flex-col rounded-2xl bg-surface md:w-[280px]"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
@@ -124,7 +132,7 @@ export function DealsBoard({
                     style={{ background: stage.color }}
                   />
                   <h2 className="truncate text-sm font-semibold">{stage.name}</h2>
-                  <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted">
+                  <span className="rounded-full bg-paper px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted">
                     {cards.length}
                   </span>
                 </div>
@@ -143,11 +151,15 @@ export function DealsBoard({
                       e.dataTransfer.setData("dealId", d.id);
                       e.dataTransfer.effectAllowed = "move";
                     }}
-                    className="cursor-grab rounded-xl border border-line bg-white p-3 shadow-sm active:cursor-grabbing"
+                    className="cursor-grab rounded-xl border border-line bg-paper p-3 shadow-sm active:cursor-grabbing"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold leading-snug">{d.title}</p>
-                      <span className={`mt-1 size-2 shrink-0 rounded-full ${tempDot(d.temperature)}`} />
+                      <p className="text-sm font-semibold leading-snug">
+                        {d.title}
+                      </p>
+                      <span
+                        className={`mt-1 size-2 shrink-0 rounded-full ${tempDot(d.temperature)}`}
+                      />
                     </div>
                     <p className="mt-1 truncate text-xs text-ink-muted">
                       {d.contact_name || d.contact_phone || "Contato"}
@@ -157,6 +169,21 @@ export function DealsBoard({
                         {formatMoney(d.value)}
                       </p>
                     )}
+                    <label className="mt-2 block md:hidden">
+                      <span className="sr-only">Mover etapa</span>
+                      <select
+                        value={d.stage_id}
+                        onChange={(e) => onDrop(d.id, e.target.value)}
+                        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {stages.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     {d.conversation_id && (
                       <a
                         href={`/app/conversations?c=${d.conversation_id}`}
@@ -180,7 +207,9 @@ export function DealsBoard({
       </div>
 
       {createState.error && (
-        <p className="px-6 py-2 text-sm text-red-600">{createState.error}</p>
+        <p className="px-4 py-2 text-sm text-red-600 sm:px-6">
+          {createState.error}
+        </p>
       )}
       {/* createDeal available for future quick-add; kept for server action wiring */}
       <form action={createAction} className="hidden">

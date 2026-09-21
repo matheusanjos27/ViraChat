@@ -212,7 +212,11 @@ export function LeadsTable({
           selected ? "lg:grid-cols-[minmax(0,1fr)_340px]" : ""
         }`}
       >
-        <div className="inbox-scroll min-h-0 overflow-y-auto px-5 py-5">
+        <div
+          className={`inbox-scroll min-h-0 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 ${
+            selected ? "hidden lg:block" : ""
+          }`}
+        >
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-ink">
@@ -318,7 +322,59 @@ export function LeadsTable({
                 Nenhum lead encontrado.
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                <ul className="divide-y divide-line md:hidden">
+                  {filtered.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() => openLead(r.id)}
+                        className={`flex w-full gap-3 px-4 py-3.5 text-left transition ${
+                          selectedId === r.id
+                            ? "bg-brand-soft/50"
+                            : "active:bg-paper"
+                        }`}
+                      >
+                        <span
+                          className={`mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone(r.id)}`}
+                        >
+                          {initials(r.display_name, r.phone_e164)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-start justify-between gap-2">
+                            <span className="min-w-0 truncate text-sm font-semibold text-ink">
+                              {r.display_name || r.company_name || "Sem nome"}
+                            </span>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${temperatureClass(r.temperature)}`}
+                            >
+                              {temperatureLabel(r.temperature)}
+                            </span>
+                          </span>
+                          <span className="mt-0.5 block truncate text-xs text-ink-muted">
+                            {formatPhone(r.phone_e164)}
+                            {r.company_name ? ` · ${r.company_name}` : ""}
+                          </span>
+                          {r.deal ? (
+                            <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-ink-body">
+                              <span
+                                className="size-1.5 rounded-full"
+                                style={{ background: r.deal.stage_color }}
+                              />
+                              {r.deal.stage_name}
+                            </span>
+                          ) : r.conv?.preview ? (
+                            <span className="mt-1.5 block truncate text-[11px] text-ink-muted">
+                              {r.conv.preview}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-line bg-paper text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">
@@ -441,7 +497,8 @@ export function LeadsTable({
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -496,7 +553,7 @@ function LeadDetail({
   ];
 
   return (
-    <aside className="flex min-h-0 flex-col border-l border-line bg-surface">
+    <aside className="flex min-h-0 flex-1 flex-col border-line bg-surface lg:border-l">
       <div className="flex items-start justify-between gap-2 border-b border-line px-4 py-4">
         <div className="min-w-0">
           <p className="truncate font-semibold text-ink">

@@ -155,7 +155,7 @@ export function InboxWorkspace({
   const [filter, setFilter] = useState("");
   const [listFilter, setListFilter] = useState<ListFilter>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
-  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [liveState, setLiveState] = useState<"connecting" | "live" | "polling">(
     "polling",
@@ -307,7 +307,10 @@ export function InboxWorkspace({
 
   async function selectConversation(id: string) {
     setSelectedId(id);
-    setDetailsOpen(true);
+    // Painel de detalhes só no desktop (no mobile atrapalha o chat).
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches) {
+      setDetailsOpen(true);
+    }
     setLoadingThread(true);
     const supabase = createClient();
     const { data } = await supabase
@@ -325,8 +328,8 @@ export function InboxWorkspace({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
-      {/* Top bar (mock) */}
-      <div className="hidden shrink-0 items-center gap-4 border-b border-line bg-surface px-5 py-3 lg:flex">
+      {/* Top bar (desktop) */}
+      <div className="hidden shrink-0 items-center gap-4 border-b border-line bg-surface px-5 py-3 md:flex">
         <label className="relative min-w-0 flex-1">
           <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-placeholder">
             <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -356,14 +359,18 @@ export function InboxWorkspace({
       </div>
 
       <div
-        className={`grid min-h-0 flex-1 grid-cols-1 ${
+        className={`relative grid min-h-0 flex-1 grid-cols-1 ${
           detailsOpen
-            ? "lg:grid-cols-[320px_minmax(0,1fr)_300px]"
-            : "lg:grid-cols-[320px_minmax(0,1fr)]"
+            ? "md:grid-cols-[300px_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)_280px]"
+            : "md:grid-cols-[300px_minmax(0,1fr)]"
         }`}
       >
-      {/* Lista */}
-      <section className="flex min-h-0 flex-col border-r border-line bg-surface">
+      {/* Lista — some no mobile quando o chat está aberto */}
+      <section
+        className={`min-h-0 flex-col border-r border-line bg-surface ${
+          selectedId ? "hidden md:flex" : "flex"
+        }`}
+      >
         <div className="border-b border-line px-4 pb-3 pt-4">
           <div className="flex items-start justify-between gap-2">
             <div>
@@ -396,7 +403,7 @@ export function InboxWorkspace({
             ) : null}
           </div>
 
-          <label className="relative mt-3 block lg:hidden">
+          <label className="relative mt-3 block md:hidden">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-placeholder">
               <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <circle cx="11" cy="11" r="6.5" />
@@ -496,14 +503,30 @@ export function InboxWorkspace({
         </div>
       </section>
 
-      {/* Thread */}
-      <section className="relative flex min-h-0 flex-col bg-paper">
+      {/* Thread — no mobile cobre a tela inteira (por cima da lista) */}
+      <section
+        className={`min-h-0 flex-col bg-paper ${
+          selectedId
+            ? "flex max-md:absolute max-md:inset-0 max-md:z-30"
+            : "hidden md:flex"
+        }`}
+      >
         {selected ? (
           <>
-            <div className="flex items-center justify-between gap-3 border-b border-line bg-surface px-5 py-3">
-              <div className="flex min-w-0 items-center gap-3">
+            <div className="flex items-center justify-between gap-2 border-b border-line bg-surface px-3 py-2.5 sm:gap-3 sm:px-5 sm:py-3">
+              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(null)}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-paper md:hidden"
+                  aria-label="Voltar para lista"
+                >
+                  <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M15 6 9 12l6 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
                 <span
-                  className={`flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarTone(selected.id)}`}
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold sm:size-11 ${avatarTone(selected.id)}`}
                 >
                   {initials(
                     selected.contact.display_name,
@@ -533,7 +556,7 @@ export function InboxWorkspace({
                 <button
                   type="button"
                   onClick={() => setDetailsOpen((v) => !v)}
-                  className="hidden size-9 items-center justify-center rounded-full text-ink-muted transition hover:bg-paper lg:flex"
+                  className="hidden size-9 items-center justify-center rounded-full text-ink-muted transition hover:bg-paper md:flex"
                   title="Detalhes"
                 >
                   <svg viewBox="0 0 24 24" className="size-5" fill="currentColor">
@@ -545,7 +568,7 @@ export function InboxWorkspace({
               </div>
             </div>
 
-            <div className="inbox-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-5">
+            <div className="inbox-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4 sm:px-5 sm:py-5">
               <div className="flex justify-center">
                 <span className="rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-medium text-ink-muted">
                   Hoje
@@ -614,7 +637,7 @@ export function InboxWorkspace({
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
             <img src="/logo.png" alt="ViraChat" className="h-12 w-auto opacity-80" />
             <p className="mt-4 max-w-sm text-sm text-ink-muted">
-              Selecione uma conversa à esquerda para ler e responder.
+              Selecione uma conversa na lista para ler e responder.
             </p>
           </div>
         )}

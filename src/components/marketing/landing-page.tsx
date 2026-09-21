@@ -16,18 +16,18 @@ export function LandingPage() {
   const { open, openContact, closeContact } = useContactModal();
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden bg-[#eef7f5] text-ink">
+    <div className="relative min-h-dvh overflow-x-hidden bg-[#f4faf8] text-ink">
       <BgWaves />
 
-      <header className="rise-in relative z-20 mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5">
+      <header className="rise-in relative z-20 mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
         <a
           href="#inicio"
-          className="flex items-center rounded-2xl bg-sidebar px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.18)] transition hover:shadow-[0_10px_28px_rgba(15,23,42,0.22)]"
+          className="flex items-center rounded-xl bg-sidebar px-3 py-2 shadow-[0_8px_24px_rgba(15,23,42,0.18)] transition hover:shadow-[0_10px_28px_rgba(15,23,42,0.22)] sm:rounded-2xl sm:px-4 sm:py-3"
         >
           <img
             src="/logo.png"
             alt="ViraChat"
-            className="h-14 w-auto sm:h-16"
+            className="h-9 w-auto sm:h-14 md:h-16"
           />
         </a>
         <nav className="hidden items-center gap-7 text-sm text-ink-muted md:flex">
@@ -50,19 +50,19 @@ export function LandingPage() {
             Como funciona
           </a>
         </nav>
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           <Link
             href="/login"
-            className="rounded-full px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
+            className="rounded-full px-2.5 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink sm:px-3"
           >
             Entrar
           </Link>
           <button
             type="button"
             onClick={openContact}
-            className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep hover:shadow-md active:scale-[0.98]"
+            className="rounded-full bg-brand px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep hover:shadow-md active:scale-[0.98] sm:px-4"
           >
-            Começar agora
+            Começar
           </button>
         </div>
       </header>
@@ -70,18 +70,18 @@ export function LandingPage() {
       <main className="relative z-10">
         <section
           id="inicio"
-          className="mx-auto grid max-w-6xl gap-10 px-5 pb-16 pt-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:pb-24 lg:pt-12"
+          className="mx-auto grid max-w-6xl gap-8 px-4 pb-12 pt-4 sm:gap-10 sm:px-5 sm:pb-16 sm:pt-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:pb-24 lg:pt-12"
         >
           <div className="land-stagger">
             <h1
-              className="rise-in max-w-xl text-4xl font-semibold leading-[1.12] tracking-tight text-ink sm:text-5xl"
+              className="rise-in max-w-xl text-[1.75rem] font-semibold leading-[1.15] tracking-tight text-ink sm:text-4xl sm:leading-[1.12] md:text-5xl"
               style={{ animationDelay: "60ms" }}
             >
               Atenda no WhatsApp com IA.{" "}
               <span className="text-brand">Sem perder o controle.</span>
             </h1>
             <p
-              className="rise-in mt-5 max-w-lg text-base leading-relaxed text-ink-muted sm:text-lg"
+              className="rise-in mt-4 max-w-lg text-[15px] leading-relaxed text-ink-body sm:mt-5 sm:text-base sm:text-ink-muted md:text-lg"
               style={{ animationDelay: "160ms" }}
             >
               Sua IA responde automaticamente às mensagens, resolve o que for
@@ -108,13 +108,16 @@ export function LandingPage() {
             </div>
           </div>
 
-          <div className="rise-in" style={{ animationDelay: "320ms" }}>
+          <div
+            className="rise-in hidden sm:block"
+            style={{ animationDelay: "320ms" }}
+          >
             <HeroMock />
           </div>
         </section>
 
         <Reveal>
-          <section className="mx-auto grid max-w-6xl gap-6 border-t border-line px-5 py-12 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="mx-auto grid max-w-6xl gap-5 border-t border-line px-4 py-10 sm:grid-cols-2 sm:gap-6 sm:px-5 sm:py-12 lg:grid-cols-4">
             {[
               {
                 title: "IA 24h",
@@ -149,7 +152,7 @@ export function LandingPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
               Recursos
             </p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl md:text-4xl">
               Tudo em um <span className="text-brand">só lugar</span>
             </h2>
             <div className="mt-10 grid gap-4 sm:grid-cols-2">
@@ -195,7 +198,7 @@ export function LandingPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
               Em 3 passos
             </p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-ink">
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
               Como funciona
             </h2>
             <ol className="mt-10 grid gap-6 md:grid-cols-3">
@@ -232,17 +235,19 @@ export function LandingPage() {
         </Reveal>
 
         <Reveal>
-          <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 lg:grid-cols-2">
-            <ChannelsMock />
-            <div>
+          <section className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-12 sm:gap-10 sm:px-5 sm:py-16 lg:grid-cols-2">
+            <div className="order-2 lg:order-1">
+              <ChannelsMock />
+            </div>
+            <div className="order-1 lg:order-2">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
                 Múltiplos WhatsApps
               </p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-tight text-ink">
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
                 Todos os seus números, em{" "}
                 <span className="text-brand">um só lugar</span>
               </h2>
-              <p className="mt-4 text-sm leading-relaxed text-ink-muted sm:text-base">
+              <p className="mt-4 text-sm leading-relaxed text-ink-body sm:text-base sm:text-ink-muted">
                 Conecte departamentos diferentes sem misturar atendimento. Cada
                 número entra na mesma inbox — com IA e equipe alinhadas.
               </p>
@@ -346,10 +351,10 @@ function BgWaves() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
+      className="pointer-events-none absolute inset-0 overflow-hidden opacity-[0.28] sm:opacity-55 md:opacity-100"
     >
       <svg
-        className="land-drift absolute left-0 top-0 h-[48%] w-[70%] sm:h-[55%] sm:w-[52%]"
+        className="land-drift absolute left-0 top-0 h-[36%] w-[80%] sm:h-[55%] sm:w-[52%]"
         viewBox="0 0 800 700"
         preserveAspectRatio="none"
       >
@@ -376,7 +381,7 @@ function BgWaves() {
       </svg>
 
       <svg
-        className="land-drift-slow absolute bottom-0 right-0 h-[42%] w-[65%] sm:h-[50%] sm:w-[48%]"
+        className="land-drift-slow absolute bottom-0 right-0 h-[32%] w-[75%] sm:h-[50%] sm:w-[48%]"
         viewBox="0 0 800 700"
         preserveAspectRatio="none"
       >
@@ -403,7 +408,7 @@ function BgWaves() {
       </svg>
 
       <svg
-        className="absolute left-0 top-[28%] h-[360px] w-full opacity-40"
+        className="absolute left-0 top-[28%] hidden h-[360px] w-full opacity-40 sm:block"
         viewBox="0 0 1200 400"
         fill="none"
       >

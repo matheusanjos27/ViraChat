@@ -13,7 +13,7 @@ const NotificationBell = dynamic(
   { ssr: false },
 );
 
-const nav = [
+const desktopNav = [
   { href: "/app/conversations", label: "Conversas", icon: IconChat },
   { href: "/app/leads", label: "Leads", icon: IconUsers },
   { href: "/app/deals", label: "Funil", icon: IconFunnel },
@@ -22,10 +22,28 @@ const nav = [
   { href: "/app/settings", label: "Configurações", icon: IconSettings },
 ] as const;
 
+const mobilePrimary = [
+  { href: "/app/conversations", label: "Conversas", icon: IconChat },
+  { href: "/app/leads", label: "Leads", icon: IconUsers },
+  { href: "/app/deals", label: "Funil", icon: IconFunnel },
+  { href: "/app/channels", label: "Canais", icon: IconChannel },
+] as const;
+
 function initials(name?: string) {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/).slice(0, 2);
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
+function isNavActive(pathname: string, href: string) {
+  if (href === "/app/settings/ai") return pathname.startsWith("/app/settings/ai");
+  if (href === "/app/settings") {
+    return (
+      pathname.startsWith("/app/settings") &&
+      !pathname.startsWith("/app/settings/ai")
+    );
+  }
+  return pathname.startsWith(href);
 }
 
 export function AppShell({
@@ -51,9 +69,15 @@ export function AppShell({
 }) {
   const pathname = usePathname() ?? "";
   const [mounted, setMounted] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
   const roleLabel =
     userRole === "admin"
@@ -66,6 +90,13 @@ export function AppShell({
             ? "Super admin"
             : "Membro";
 
+  const conversasBadge =
+    waitingCount > 0 ? waitingCount : openCount > 0 ? openCount : 0;
+
+  const moreActive =
+    pathname.startsWith("/app/settings") ||
+    pathname.startsWith("/platform");
+
   if (!mounted) {
     return (
       <div className="flex h-dvh items-center justify-center bg-paper text-sm text-ink-muted">
@@ -76,7 +107,8 @@ export function AppShell({
 
   return (
     <div className="flex h-dvh overflow-hidden bg-paper text-ink">
-      <aside className="relative hidden w-[220px] shrink-0 flex-col bg-[#0F172A] text-white md:flex">
+      {/* Desktop sidebar */}
+      <aside className="relative hidden w-[220px] shrink-0 flex-col bg-sidebar text-white md:flex">
         <div className="relative z-10 flex h-full flex-col px-3 py-4">
           <Link href="/app/conversations" className="flex justify-center px-1">
             <img
@@ -113,21 +145,10 @@ export function AppShell({
           ) : null}
 
           <nav className="mt-5 flex flex-1 flex-col gap-1">
-            {nav.map((item) => {
-              const active =
-                item.href === "/app/settings/ai"
-                  ? pathname.startsWith("/app/settings/ai")
-                  : item.href === "/app/settings"
-                    ? pathname.startsWith("/app/settings") &&
-                      !pathname.startsWith("/app/settings/ai")
-                    : pathname.startsWith(item.href);
+            {desktopNav.map((item) => {
+              const active = isNavActive(pathname, item.href);
               const isConversas = item.label === "Conversas";
               const Icon = item.icon;
-              const badge = isConversas
-                ? waitingCount > 0
-                  ? waitingCount
-                  : openCount
-                : 0;
               const showDividerBefore =
                 item.href === "/app/settings/ai" ||
                 item.href === "/app/settings";
@@ -148,7 +169,7 @@ export function AppShell({
                     <span className="flex-1 leading-snug tracking-tight">
                       {item.label === "Atendimento com IA" ? "IA" : item.label}
                     </span>
-                    {isConversas && badge > 0 ? (
+                    {isConversas && conversasBadge > 0 ? (
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${
                           waitingCount > 0
@@ -156,7 +177,7 @@ export function AppShell({
                             : "bg-white/15 text-white"
                         }`}
                       >
-                        {badge > 99 ? "99+" : badge}
+                        {conversasBadge > 99 ? "99+" : conversasBadge}
                       </span>
                     ) : null}
                   </Link>
@@ -202,29 +223,141 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-line bg-surface px-4 py-3 md:hidden">
-          <Link href="/app/conversations">
-            <img src="/logo.png" alt="ViraChat" className="h-10 w-auto" />
-          </Link>
-          <div className="flex items-center gap-2">
-            {tenantId ? (
-              <div className="rounded-full bg-sidebar p-0.5">
-                <NotificationBell
-                  tenantId={tenantId}
-                  initialItems={initialNotifications}
-                />
-              </div>
-            ) : null}
-            <form action={signOut}>
-              <button type="submit" className="text-sm text-ink-muted">
-                Sair
-              </button>
-            </form>
+        {/* Mobile top bar */}
+        <header className="flex items-center justify-between gap-3 border-b border-line bg-surface px-3 py-2.5 md:hidden">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ink">
+              {tenantName ?? "ViraChat"}
+            </p>
+            <p className="truncate text-[11px] text-ink-muted">{roleLabel}</p>
           </div>
+          {tenantId ? (
+            <div className="rounded-full bg-sidebar p-0.5">
+              <NotificationBell
+                tenantId={tenantId}
+                initialItems={initialNotifications}
+              />
+            </div>
+          ) : null}
         </header>
-        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+
+        <div className="min-h-0 flex-1 overflow-hidden pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:pb-0">
+          {children}
+        </div>
+
+        {/* Mobile bottom nav */}
+        <nav
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur-md md:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <div className="grid grid-cols-5">
+            {mobilePrimary.map((item) => {
+              const active = isNavActive(pathname, item.href);
+              const Icon = item.icon;
+              const isConversas = item.href === "/app/conversations";
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`relative flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${
+                    active ? "text-brand" : "text-ink-muted"
+                  }`}
+                >
+                  <Icon className="size-5" />
+                  <span>{item.label}</span>
+                  {isConversas && conversasBadge > 0 ? (
+                    <span className="absolute right-[18%] top-1 flex size-4 items-center justify-center rounded-full bg-warn text-[9px] font-bold text-[#1a1205]">
+                      {conversasBadge > 9 ? "9+" : conversasBadge}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              className={`flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${
+                moreActive || moreOpen ? "text-brand" : "text-ink-muted"
+              }`}
+            >
+              <IconMore className="size-5" />
+              <span>Mais</span>
+            </button>
+          </div>
+        </nav>
+
+        {/* Mobile "Mais" sheet */}
+        {moreOpen ? (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <button
+              type="button"
+              aria-label="Fechar"
+              className="absolute inset-0 bg-ink/40"
+              onClick={() => setMoreOpen(false)}
+            />
+            <div className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-3xl border border-line bg-surface shadow-[0_-12px_40px_rgba(15,23,42,0.18)]">
+              <div className="flex justify-center pt-3">
+                <span className="h-1 w-10 rounded-full bg-line" />
+              </div>
+              <div className="flex items-center gap-3 px-5 pb-2 pt-4">
+                <span className="flex size-11 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                  {initials(userName)}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-ink">
+                    {userName ?? "Usuário"}
+                  </p>
+                  <p className="truncate text-xs text-ink-muted">{roleLabel}</p>
+                </div>
+              </div>
+              <div className="space-y-1 px-3 pb-6 pt-2">
+                <Link
+                  href="/app/settings/ai"
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-ink hover:bg-paper"
+                >
+                  <IconSpark className="size-5 text-brand" />
+                  Atendimento com IA
+                </Link>
+                <Link
+                  href="/app/settings"
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-ink hover:bg-paper"
+                >
+                  <IconSettings className="size-5 text-brand" />
+                  Configurações
+                </Link>
+                {isPlatformAdmin ? (
+                  <Link
+                    href="/platform"
+                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-ink hover:bg-paper"
+                  >
+                    <IconSettings className="size-5 text-brand" />
+                    Super admin
+                  </Link>
+                ) : null}
+                <form action={signOut} className="pt-2">
+                  <button
+                    type="submit"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-danger hover:bg-paper"
+                  >
+                    Sair
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
+  );
+}
+
+function IconMore({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <circle cx="5" cy="12" r="1.7" />
+      <circle cx="12" cy="12" r="1.7" />
+      <circle cx="19" cy="12" r="1.7" />
+    </svg>
   );
 }
 

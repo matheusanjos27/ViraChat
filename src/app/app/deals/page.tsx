@@ -73,7 +73,7 @@ export default async function DealsPage() {
   }));
 
   return (
-    <div className="h-full min-h-0 bg-[#eef1f0]">
+    <div className="h-full min-h-0 bg-paper">
       <DealsBoard stages={stageCols} deals={cards} />
     </div>
   );
