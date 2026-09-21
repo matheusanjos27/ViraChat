@@ -5,6 +5,7 @@ import {
   platformCancelInvite,
   platformCreateTenant,
   platformInviteTenantUser,
+  platformUpdateTenantAiBudget,
   platformUpdateTenantBilling,
   platformUpdateTenantSeats,
   type PlatformState,
@@ -210,6 +211,74 @@ export function TenantSeatsForm({
                 max={500}
                 defaultValue={t.max_members}
                 className="w-24 rounded-lg border border-line bg-white px-2 py-1.5 text-sm"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+            >
+              Salvar
+            </button>
+          </form>
+        ))
+      )}
+      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state.success && <p className="text-sm text-brand">{state.success}</p>}
+    </div>
+  );
+}
+
+export function TenantAiBudgetForm({
+  tenants,
+}: {
+  tenants: {
+    id: string;
+    name: string;
+    monthly_ai_token_limit: number;
+  }[];
+}) {
+  const [state, action, pending] = useActionState(
+    platformUpdateTenantAiBudget,
+    initial,
+  );
+
+  return (
+    <div className="space-y-4">
+      {tenants.length === 0 ? (
+        <p className="text-sm text-ink-muted">Nenhum tenant.</p>
+      ) : (
+        tenants.map((t) => (
+          <form
+            key={t.id}
+            action={action}
+            className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-paper px-3 py-3"
+          >
+            <input type="hidden" name="tenantId" value={t.id} />
+            <div className="min-w-[140px] flex-1">
+              <p className="text-sm font-medium">{t.name}</p>
+              <p className="text-xs text-ink-muted">
+                {t.monthly_ai_token_limit === 0
+                  ? "Ilimitado"
+                  : `${(t.monthly_ai_token_limit / 1_000_000).toFixed(1)}M tokens/mês`}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-ink-muted">
+                Cota (milhões/mês)
+              </label>
+              <input
+                name="tokenLimitMillions"
+                type="number"
+                min={0}
+                step={0.5}
+                defaultValue={
+                  t.monthly_ai_token_limit === 0
+                    ? 0
+                    : t.monthly_ai_token_limit / 1_000_000
+                }
+                className="w-28 rounded-lg border border-line bg-white px-2 py-1.5 text-sm"
+                title="0 = ilimitado"
               />
             </div>
             <button

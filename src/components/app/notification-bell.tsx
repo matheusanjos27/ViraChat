@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export type NotificationItem = {
@@ -41,17 +41,50 @@ export function NotificationBell({
 }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(initialItems);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+    null,
+  );
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const unread = items.filter((n) => !n.read_at).length;
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!open || !rootRef.current) {
+      setCoords(null);
+      return;
+    }
+    function place() {
+      const rect = rootRef.current!.getBoundingClientRect();
+      const width = 320;
+      const gap = 8;
+      let left = rect.right + gap;
+      if (left + width > window.innerWidth - gap) {
+        left = Math.max(gap, rect.left - width - gap);
+      }
+      let top = rect.top;
+      const maxTop = window.innerHeight - 420;
+      if (top > maxTop) top = Math.max(gap, maxTop);
+      setCoords({ top, left });
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
 
   // Realtime desligado (estabilidade); polling leve a cada 60s.
   useEffect(() => {
@@ -131,10 +164,14 @@ export function NotificationBell({
         ) : null}
       </button>
 
-      {open ? (
-        <div className="absolute bottom-[calc(100%+8px)] left-0 z-50 w-[320px] overflow-hidden rounded-2xl border border-line bg-white text-ink shadow-[0_16px_40px_rgba(0,0,0,0.18)] md:bottom-auto md:left-auto md:right-0 md:top-[calc(100%+8px)]">
+      {open && coords ? (
+        <div
+          ref={panelRef}
+          style={{ top: coords.top, left: coords.left }}
+          className="fixed z-[100] w-[min(320px,calc(100vw-16px))] overflow-hidden rounded-2xl border border-line bg-white text-ink shadow-[0_16px_40px_rgba(0,0,0,0.18)]"
+        >
           <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
-            <p className="text-sm font-semibold">Notificações</p>
+            <p className="text-sm font-semibold text-ink">Notificações</p>
             {unread > 0 ? (
               <button
                 type="button"

@@ -24,14 +24,18 @@ export async function savePlaybook(
     | "manual";
   const triggerKeyword =
     String(formData.get("triggerKeyword") ?? "").trim() || null;
-  const content = String(formData.get("content") ?? "").trim();
+  const contentRaw = String(formData.get("content") ?? "").trim();
   const isActive = formData.get("isActive") === "on";
 
   if (!name) return { error: "Informe o nome do playbook." };
-  if (!content) return { error: "O roteiro não pode ficar vazio." };
+  if (!contentRaw) return { error: "O roteiro não pode ficar vazio." };
   if (trigger === "keyword" && !triggerKeyword) {
     return { error: "Informe a palavra-chave do gatilho." };
   }
+
+  const { AI_LIMITS, clampSavedText } = await import("@/lib/ai/limits");
+  const clamped = clampSavedText(contentRaw, AI_LIMITS.playbook);
+  const content = clamped.value;
 
   if (id) {
     const { error } = await ctx.supabase
@@ -60,7 +64,11 @@ export async function savePlaybook(
 
   revalidatePath("/app/settings/playbook");
   revalidatePath("/app/settings/ai");
-  return { success: "Playbook salvo." };
+  return {
+    success: clamped.truncated
+      ? "Playbook salvo (roteiro enxugado para o limite da IA)."
+      : "Playbook salvo.",
+  };
 }
 
 export async function createPlaybookFromTemplate(
@@ -72,13 +80,15 @@ export async function createPlaybookFromTemplate(
 
   const name =
     String(formData.get("name") ?? "").trim() || "Novo roteiro comercial";
+  const content =
+    String(formData.get("content") ?? "").trim() || DEFAULT_PLAYBOOK_CONTENT;
 
   const { error } = await ctx.supabase.from("playbooks").insert({
     tenant_id: ctx.membership.tenant_id,
     name,
     trigger: "manual",
     is_active: false,
-    content: DEFAULT_PLAYBOOK_CONTENT,
+    content,
   });
 
   if (error) return { error: error.message };

@@ -1,5 +1,13 @@
 import OpenAI from "openai";
+import {
+  AI_LIMITS,
+  instructionsForModel,
+  truncate,
+  wantsHuman,
+} from "@/lib/ai/limits";
 import type { AiProvider, AiReplyResult } from "@/lib/ai/types";
+
+export { wantsHuman };
 
 const SYSTEM_RULES = `Você é um atendente de WhatsApp de uma empresa.
 Responda em português do Brasil, de forma curta e clara (no máximo ~3 parágrafos curtos).
@@ -14,13 +22,6 @@ Responda APENAS com JSON válido no formato:
 {"action":"reply","text":"...","collected":{"empresa":"...","email":"..."},"deal_stage":"Orçamento"}
 ou
 {"action":"handoff","reason":"...","text":"mensagem opcional ao cliente antes da transferência"}`;
-
-
-function wantsHuman(text: string) {
-  return /(atendente|humano|pessoa\s+real|falar\s+com\s+(algu[eé]m|voc[eê]s)|operador|suporte\s+humano)/i.test(
-    text,
-  );
-}
 
 function parseAiJson(raw: string): AiReplyResult | null {
   const match = raw.match(/\{[\s\S]*\}/);
@@ -94,30 +95,41 @@ export class OpenAiProvider implements AiProvider {
     const client = new OpenAI({ apiKey });
     const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
-    const history = input.history.slice(-12).map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
+    const history = input.history
+      .slice(-AI_LIMITS.historyTurns)
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: truncate(m.content, AI_LIMITS.messageBody),
+      }));
 
     const extras = [
-      input.playbookBlock,
-      input.attributeBlock,
-      input.catalogBlock,
+      input.playbookBlock
+        ? truncate(input.playbookBlock, AI_LIMITS.playbook + 400)
+        : "",
+      input.attributeBlock
+        ? truncate(input.attributeBlock, AI_LIMITS.attributeBlock)
+        : "",
+      input.catalogBlock
+        ? truncate(input.catalogBlock, AI_LIMITS.catalogBlock)
+        : "",
     ]
       .filter(Boolean)
       .join("\n\n");
 
+    const instructions = instructionsForModel(input.instructions);
+    const latest = truncate(input.latestUserMessage, AI_LIMITS.messageBody);
+
     const response = await client.chat.completions.create({
       model,
-      max_tokens: 900,
+      max_tokens: AI_LIMITS.maxCompletionTokens,
       response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
-          content: `${SYSTEM_RULES}\n\nNome do assistente: ${input.agentName}\nInstruções da empresa:\n${input.instructions}${extras ? `\n\n${extras}` : ""}`,
+          content: `${SYSTEM_RULES}\n\nNome do assistente: ${input.agentName}\nInstruções da empresa:\n${instructions}${extras ? `\n\n${extras}` : ""}`,
         },
         ...history,
-        { role: "user", content: input.latestUserMessage },
+        { role: "user", content: latest },
       ],
     });
 
@@ -135,7 +147,7 @@ export class OpenAiProvider implements AiProvider {
     const parsed = parseAiJson(raw);
     if (parsed) return { ...parsed, usage };
 
-    if (wantsHuman(input.latestUserMessage)) {
+    if (wantsHuman(latest)) {
       return {
         action: "handoff",
         reason: "Pedido explícito de humano",

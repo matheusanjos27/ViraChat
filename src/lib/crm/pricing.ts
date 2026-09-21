@@ -1,3 +1,5 @@
+import { AI_LIMITS, truncate } from "@/lib/ai/limits";
+
 export type BillingType = "fixed" | "per_unit" | "tiered";
 export type TierPriceMode = "flat" | "per_unit";
 
@@ -159,13 +161,16 @@ export function buildCatalogPromptBlock(services: ServiceForQuote[]) {
   if (active.length === 0) return "";
 
   const blocks = active.map((s) => {
+    const desc = s.description
+      ? ` — ${truncate(s.description, AI_LIMITS.serviceDescription)}`
+      : "";
     if (s.billing_type === "fixed") {
-      return `- ${s.name}: valor fixo ${money(Number(s.base_price))}${s.description ? ` — ${s.description}` : ""}`;
+      return `- ${s.name}: valor fixo ${money(Number(s.base_price))}${desc}`;
     }
     if (s.billing_type === "per_unit") {
       const min =
         s.min_price != null ? `, mínimo ${money(Number(s.min_price))}` : "";
-      return `- ${s.name}: ${money(Number(s.base_price))} por ${s.unit_label}${min}${s.description ? ` — ${s.description}` : ""}`;
+      return `- ${s.name}: ${money(Number(s.base_price))} por ${s.unit_label}${min}${desc}`;
     }
     const tiers = [...s.tiers]
       .sort((a, b) => a.min_units - b.min_units)
@@ -181,16 +186,19 @@ export function buildCatalogPromptBlock(services: ServiceForQuote[]) {
         return `  · ${range}: ${price}`;
       })
       .join("\n");
-    return `- ${s.name} (por faixas de ${s.unit_label})${s.description ? ` — ${s.description}` : ""}:\n${tiers}`;
+    return `- ${s.name} (por faixas de ${s.unit_label})${desc}:\n${tiers}`;
   });
 
-  return `
+  return truncate(
+    `
 CATÁLOGO DE SERVIÇOS E PREÇOS (use estes valores — nunca invente preços):
 ${blocks.join("\n")}
 
 Quando o cliente pedir orçamento e você souber a quantidade (${active[0]?.unit_label ?? "unidades"}), calcule com as regras acima e apresente a proposta de forma clara, separando mensalidade de serviços avulsos se fizer sentido.
 Se faltar a quantidade, pergunte antes de precificar.
-`.trim();
+`.trim(),
+    AI_LIMITS.catalogBlock,
+  );
 }
 
 /** Formata um QuoteResult para exibir no WhatsApp / UI. */

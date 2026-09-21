@@ -1,29 +1,28 @@
+import { getTenantPlanLimits } from "@/lib/plans/limits";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 export type InviteRole = "admin" | "supervisor" | "agent";
 
 export async function getTenantSeatUsage(tenantId: string) {
   const admin = createServiceClient();
-  const [{ data: tenant }, { count }] = await Promise.all([
-    admin
-      .from("tenants")
-      .select("id, name, max_members")
-      .eq("id", tenantId)
-      .maybeSingle(),
+  const [limits, { count }, { data: tenant }] = await Promise.all([
+    getTenantPlanLimits(tenantId),
     admin
       .from("user_tenant_roles")
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenantId),
+    admin.from("tenants").select("name").eq("id", tenantId).maybeSingle(),
   ]);
 
-  const maxMembers = tenant?.max_members ?? 2;
+  const maxMembers = limits?.maxMembers ?? 2;
   const used = count ?? 0;
   return {
-    tenantName: tenant?.name ?? null,
+    tenantName: tenant?.name ?? limits?.planName ?? null,
     maxMembers,
     used,
     remaining: Math.max(0, maxMembers - used),
     atLimit: used >= maxMembers,
+    planName: limits?.planName ?? null,
   };
 }
 
@@ -63,7 +62,7 @@ export async function inviteUserToTenant(input: {
   const seats = await getTenantSeatUsage(tenantId);
   if (enforce && seats.atLimit) {
     return {
-      error: `Limite de colaboradores atingido (${seats.used}/${seats.maxMembers}). Peça ao super admin para aumentar o limite.`,
+      error: `Limite de colaboradores do plano${seats.planName ? ` ${seats.planName}` : ""} atingido (${seats.used}/${seats.maxMembers}). Entre em contato conosco para aumentar.`,
     };
   }
 

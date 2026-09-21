@@ -112,6 +112,12 @@ export async function startBaileysChannel(
   }
   const { supabase } = gate;
 
+  const { assertChannelSlotAvailable } = await import("@/lib/plans/limits");
+  const slot = await assertChannelSlotAvailable(tenantId);
+  if (!slot.ok) {
+    return { error: slot.error };
+  }
+
   const instanceName = makeInstanceName(tenantId);
   let created: Awaited<ReturnType<typeof createEvolutionInstance>>;
   try {

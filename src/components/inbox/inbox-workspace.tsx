@@ -117,10 +117,10 @@ function initials(name: string | null | undefined, phone?: string | null) {
 
 function avatarTone(id: string) {
   const tones = [
-    "bg-[#d8efe8] text-[#0c6b5c]",
-    "bg-[#e8eef8] text-[#3b5bdb]",
-    "bg-[#f3e8d8] text-[#9a5b12]",
-    "bg-[#ebe6f5] text-[#5b3d9a]",
+    "bg-brand-soft text-brand-deep",
+    "bg-[#e0f2fe] text-info",
+    "bg-[#fef3c7] text-[#b45309]",
+    "bg-[#f3e8ff] text-[#7c3aed]",
   ];
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h + id.charCodeAt(i) * 17) % tones.length;
@@ -324,53 +324,67 @@ export function InboxWorkspace({
   ).length;
 
   return (
-    <div
-      className={`grid h-full min-h-0 grid-cols-1 bg-[#eef1f0] ${
-        detailsOpen
-          ? "lg:grid-cols-[340px_minmax(0,1fr)_300px]"
-          : "lg:grid-cols-[340px_minmax(0,1fr)]"
-      }`}
-    >
+    <div className="flex h-full min-h-0 flex-col bg-paper">
+      {/* Top bar (mock) */}
+      <div className="hidden shrink-0 items-center gap-4 border-b border-line bg-surface px-5 py-3 lg:flex">
+        <label className="relative min-w-0 flex-1">
+          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-placeholder">
+            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="M16.5 16.5 20 20" strokeLinecap="round" />
+            </svg>
+          </span>
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Buscar por número, nome ou empresa..."
+            className="w-full rounded-xl border border-line bg-paper py-2.5 pl-10 pr-3 text-sm text-ink outline-none transition placeholder:text-ink-placeholder focus:border-brand focus:bg-surface focus:ring-2 focus:ring-brand/15"
+          />
+        </label>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-medium text-ink-body">
+            <span className="live-dot size-1.5 rounded-full bg-success" />
+            WhatsApp conectado
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white">
+            <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 3.5 13.4 8.6 18.5 10 13.4 11.4 12 16.5 10.6 11.4 5.5 10l5.1-1.4L12 3.5Z" strokeLinejoin="round" />
+            </svg>
+            IA ativa
+          </span>
+        </div>
+      </div>
+
+      <div
+        className={`grid min-h-0 flex-1 grid-cols-1 ${
+          detailsOpen
+            ? "lg:grid-cols-[320px_minmax(0,1fr)_300px]"
+            : "lg:grid-cols-[320px_minmax(0,1fr)]"
+        }`}
+      >
       {/* Lista */}
-      <section className="flex min-h-0 flex-col border-r border-[#d9e2de] bg-white">
-        <div className="border-b border-[#d9e2de] px-4 pb-3 pt-4">
-          <div className="flex items-center justify-between gap-2">
+      <section className="flex min-h-0 flex-col border-r border-line bg-surface">
+        <div className="border-b border-line px-4 pb-3 pt-4">
+          <div className="flex items-start justify-between gap-2">
             <div>
-              <h1 className="text-xl font-semibold tracking-tight">Conversas</h1>
+              <h1 className="text-xl font-semibold tracking-tight text-ink">
+                Conversas
+              </h1>
               <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-muted">
-                <span className="live-dot size-1.5 rounded-full bg-[#1f9d55]" />
+                <span className="live-dot size-1.5 rounded-full bg-success" />
                 {counts.active} ativas
                 {liveState === "live"
                   ? " · ao vivo"
                   : liveState === "polling"
-                    ? " · atualizando"
+                    ? " · atualizando…"
                     : " · conectando…"}
               </p>
             </div>
-          </div>
-
-          <label className="relative mt-3 block">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted">
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="11" cy="11" r="6.5" />
-                <path d="M16.5 16.5 20 20" strokeLinecap="round" />
-              </svg>
-            </span>
-            <input
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Buscar por número, nome ou empresa..."
-              className="w-full rounded-full border border-[#d9e2de] bg-[#f4f7f6] py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
-            />
-          </label>
-
-          {channelOptions.length > 0 ? (
-            <label className="mt-2 block">
-              <span className="sr-only">Canal</span>
+            {channelOptions.length > 0 ? (
               <select
                 value={channelFilter}
                 onChange={(e) => setChannelFilter(e.target.value)}
-                className="w-full rounded-full border border-[#d9e2de] bg-[#f4f7f6] px-3 py-2 text-sm outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
+                className="max-w-[140px] rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs text-ink-body outline-none focus:border-brand"
               >
                 <option value="all">Todos os canais</option>
                 {channelOptions.map((ch) => (
@@ -379,8 +393,23 @@ export function InboxWorkspace({
                   </option>
                 ))}
               </select>
-            </label>
-          ) : null}
+            ) : null}
+          </div>
+
+          <label className="relative mt-3 block lg:hidden">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-placeholder">
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="11" cy="11" r="6.5" />
+                <path d="M16.5 16.5 20 20" strokeLinecap="round" />
+              </svg>
+            </span>
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Buscar..."
+              className="w-full rounded-xl border border-line bg-paper py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand focus:bg-surface focus:ring-2 focus:ring-brand/15"
+            />
+          </label>
 
           <div className="mt-3 flex gap-1.5 overflow-x-auto pb-0.5">
             {(
@@ -397,8 +426,8 @@ export function InboxWorkspace({
                 onClick={() => setListFilter(key)}
                 className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                   listFilter === key
-                    ? "bg-[#0c6b5c] text-white"
-                    : "bg-[#eef3f1] text-ink-muted hover:bg-[#e2ebe8]"
+                    ? "bg-brand text-white"
+                    : "bg-paper text-ink-muted hover:bg-line/60"
                 }`}
               >
                 {label}
@@ -410,50 +439,51 @@ export function InboxWorkspace({
         <div className="inbox-scroll min-h-0 flex-1 overflow-y-auto">
           {filtered.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-ink-muted">
-              Nenhuma conversa nesta lista. Use o SQL de demo ou aguarde um
-              WhatsApp.
+              Nenhuma conversa nesta lista.
             </div>
           ) : (
             filtered.map((c) => {
               const active = c.id === selectedId;
               const waiting = c.status === "waiting_human";
-              const phone = formatPhone(c.contact.phone_e164);
               const name =
-                c.contact.display_name || c.contact.external_id || "Contato";
+                c.contact.display_name ||
+                formatPhone(c.contact.phone_e164) ||
+                c.contact.external_id ||
+                "Contato";
               return (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => void selectConversation(c.id)}
-                  className={`flex w-full gap-3 border-b border-[#eef2f0] px-4 py-3.5 text-left transition ${
-                    active ? "bg-[#e7f4ef]" : "hover:bg-[#f7faf9]"
+                  className={`flex w-full gap-3 border-b border-line/70 px-4 py-3.5 text-left transition ${
+                    active ? "bg-brand-soft/60" : "hover:bg-paper"
                   }`}
                 >
-                  <span
-                    className={`mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarTone(c.id)}`}
-                  >
-                    {initials(c.contact.display_name, c.contact.phone_e164)}
+                  <span className="relative mt-0.5 shrink-0">
+                    <span
+                      className={`flex size-11 items-center justify-center rounded-full text-sm font-semibold ${avatarTone(c.id)}`}
+                    >
+                      {initials(c.contact.display_name, c.contact.phone_e164)}
+                    </span>
+                    {!waiting ? (
+                      <span className="absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-surface bg-success" />
+                    ) : null}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-start justify-between gap-2">
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-semibold text-ink">
-                          {phone}
-                        </span>
-                        <span className="mt-0.5 block truncate text-xs text-ink-muted">
-                          {name}
-                        </span>
+                      <span className="min-w-0 truncate text-[14px] font-semibold text-ink">
+                        {name}
                       </span>
                       <span className="shrink-0 text-[11px] text-ink-muted">
                         <ClientDate iso={c.last_message_at} mode="list" />
                       </span>
                     </span>
-                    <span className="mt-1.5 flex items-center gap-2">
+                    <span className="mt-1 flex items-center gap-2">
                       <span className="min-w-0 flex-1 truncate text-[12px] text-ink-muted">
                         {c.preview || "Sem mensagens"}
                       </span>
                       {waiting ? (
-                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#1f9d55] text-[10px] font-bold text-white">
+                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-warn text-[10px] font-bold text-white">
                           !
                         </span>
                       ) : null}
@@ -467,10 +497,10 @@ export function InboxWorkspace({
       </section>
 
       {/* Thread */}
-      <section className="relative flex min-h-0 flex-col bg-[#f3f6f5]">
+      <section className="relative flex min-h-0 flex-col bg-paper">
         {selected ? (
           <>
-            <div className="flex items-center justify-between gap-3 border-b border-[#d9e2de] bg-white px-5 py-3">
+            <div className="flex items-center justify-between gap-3 border-b border-line bg-surface px-5 py-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span
                   className={`flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarTone(selected.id)}`}
@@ -481,14 +511,16 @@ export function InboxWorkspace({
                   )}
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">
-                    {formatPhone(selected.contact.phone_e164)}
+                  <p className="truncate text-sm font-semibold text-ink">
+                    {selected.contact.display_name ||
+                      formatPhone(selected.contact.phone_e164) ||
+                      "Contato"}
                   </p>
                   <p className="truncate text-xs text-ink-muted">
-                    {selected.contact.display_name || "Contato"}
+                    {formatPhone(selected.contact.phone_e164)}
                   </p>
-                  <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#1f9d55]">
-                    <span className="size-1.5 rounded-full bg-[#1f9d55]" />
+                  <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-success">
+                    <span className="size-1.5 rounded-full bg-success" />
                     {statusLabel(selected.status)}
                   </p>
                 </div>
@@ -501,7 +533,7 @@ export function InboxWorkspace({
                 <button
                   type="button"
                   onClick={() => setDetailsOpen((v) => !v)}
-                  className="hidden size-9 items-center justify-center rounded-full text-ink-muted transition hover:bg-[#eef3f1] lg:flex"
+                  className="hidden size-9 items-center justify-center rounded-full text-ink-muted transition hover:bg-paper lg:flex"
                   title="Detalhes"
                 >
                   <svg viewBox="0 0 24 24" className="size-5" fill="currentColor">
@@ -515,7 +547,7 @@ export function InboxWorkspace({
 
             <div className="inbox-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-5">
               <div className="flex justify-center">
-                <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-medium text-ink-muted shadow-sm">
+                <span className="rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-medium text-ink-muted">
                   Hoje
                 </span>
               </div>
@@ -536,20 +568,21 @@ export function InboxWorkspace({
                       <div
                         className={`max-w-[min(520px,82%)] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
                           mine
-                            ? "rounded-br-md bg-[#d8efe4] text-ink"
-                            : "rounded-bl-md border border-[#e4ebe8] bg-white text-ink"
+                            ? "rounded-br-md bg-[#ccfbf1] text-ink"
+                            : "rounded-bl-md border border-line bg-surface text-ink-body"
                         }`}
                       >
+                        {m.sender_type === "ai" ? (
+                          <span className="mb-1 inline-flex rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand-deep">
+                            IA
+                          </span>
+                        ) : null}
                         <p className="whitespace-pre-wrap">{m.body}</p>
                         <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-ink-muted">
-                          {m.sender_type === "ai"
-                            ? "IA · "
-                            : m.sender_type === "agent"
-                              ? "Você · "
-                              : ""}
+                          {m.sender_type === "agent" ? "Você · " : ""}
                           <ClientDate iso={m.created_at} mode="msg" />
                           {mine ? (
-                            <svg viewBox="0 0 16 12" className="size-3 text-[#3b82f6]">
+                            <svg viewBox="0 0 16 12" className="size-3 text-info">
                               <path
                                 fill="currentColor"
                                 d="M5.5 9.2 1.8 5.5l1-1 2.7 2.7L12.2 1l1 1z"
@@ -589,13 +622,13 @@ export function InboxWorkspace({
 
       {/* Detalhes */}
       {detailsOpen ? (
-        <aside className="hidden min-h-0 border-l border-[#d9e2de] bg-white lg:flex lg:flex-col">
-          <div className="flex items-center justify-between border-b border-[#d9e2de] px-4 py-3.5">
-            <h3 className="text-sm font-semibold">Detalhes do contato</h3>
+        <aside className="hidden min-h-0 border-l border-line bg-surface lg:flex lg:flex-col">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
+            <h3 className="text-sm font-semibold text-ink">Detalhes do contato</h3>
             <button
               type="button"
               onClick={() => setDetailsOpen(false)}
-              className="flex size-8 items-center justify-center rounded-full text-ink-muted hover:bg-[#eef3f1]"
+              className="flex size-8 items-center justify-center rounded-full text-ink-muted hover:bg-paper"
             >
               ×
             </button>
@@ -611,27 +644,26 @@ export function InboxWorkspace({
                     selected.contact.phone_e164,
                   )}
                 </span>
-                <p className="mt-3 text-base font-semibold">
+                <p className="mt-3 text-base font-semibold text-ink">
                   {selected.contact.display_name || "Contato"}
                 </p>
                 <p className="mt-0.5 text-sm text-ink-muted">
                   {formatPhone(selected.contact.phone_e164)}
                 </p>
-                <p className="mt-1 flex items-center gap-1.5 text-xs text-[#1f9d55]">
-                  <span className="size-1.5 rounded-full bg-[#1f9d55]" />
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-success">
+                  <span className="size-1.5 rounded-full bg-success" />
                   Online
                 </p>
               </div>
 
-
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-semibold">Resumo da conversa</p>
-                  <span className="rounded-full bg-[#e7f0ff] px-2 py-0.5 text-[10px] font-semibold text-[#3b5bdb]">
+                  <p className="text-sm font-semibold text-ink">Resumo da conversa</p>
+                  <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-brand-deep">
                     IA
                   </span>
                 </div>
-                <div className="rounded-xl border border-[#e4ebe8] bg-[#f7faf9] p-3 text-xs leading-relaxed text-ink-muted">
+                <div className="rounded-xl border border-line bg-paper p-3 text-xs leading-relaxed text-ink-muted">
                   {selected.status === "ai_active"
                     ? `A conversa está sendo atendida pela IA. Ela já respondeu ${aiOutboundCount} mensagen${aiOutboundCount === 1 ? "" : "s"} e está aguardando o próximo contato.`
                     : selected.status === "waiting_human"
@@ -664,8 +696,8 @@ export function InboxWorkspace({
                 <DetailRow
                   label="Status"
                   value={
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="size-1.5 rounded-full bg-[#1f9d55]" />
+                    <span className="inline-flex items-center gap-1.5 text-ink">
+                      <span className="size-1.5 rounded-full bg-success" />
                       {statusLabel(selected.status)}
                     </span>
                   }
@@ -674,7 +706,7 @@ export function InboxWorkspace({
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-semibold">Tags</p>
+                  <p className="text-sm font-semibold text-ink">Tags</p>
                   <button
                     type="button"
                     disabled
@@ -687,7 +719,7 @@ export function InboxWorkspace({
                   {demoTags(selected.status).map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full bg-[#eef3f1] px-2.5 py-1 text-xs text-ink"
+                      className="rounded-full bg-paper px-2.5 py-1 text-xs text-ink-body"
                     >
                       {tag} <span className="text-ink-muted">×</span>
                     </span>
@@ -697,13 +729,13 @@ export function InboxWorkspace({
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-semibold">Observações</p>
+                  <p className="text-sm font-semibold text-ink">Observações</p>
                   <span className="text-ink-muted">✎</span>
                 </div>
                 <textarea
                   rows={3}
                   placeholder="Adicionar uma observação..."
-                  className="w-full resize-none rounded-xl border border-[#d9e2de] bg-[#f7faf9] px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/10"
+                  className="w-full resize-none rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-placeholder focus:border-brand focus:ring-2 focus:ring-brand/15"
                 />
               </div>
             </div>
@@ -714,6 +746,7 @@ export function InboxWorkspace({
           )}
         </aside>
       ) : null}
+      </div>
     </div>
   );
 }
@@ -726,9 +759,9 @@ function DetailRow({
   value: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-[#eef2f0] pb-2.5">
+    <div className="flex items-start justify-between gap-3 border-b border-line pb-2.5">
       <span className="text-xs text-ink-muted">{label}</span>
-      <span className="text-right text-sm font-medium">{value}</span>
+      <span className="text-right text-sm font-medium text-ink">{value}</span>
     </div>
   );
 }
@@ -761,7 +794,7 @@ function ConversationControls({
           <button
             type="submit"
             disabled={assumePending}
-            className="rounded-lg bg-[#0c6b5c] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#084c42] disabled:opacity-60"
+            className="rounded-lg bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
           >
             {assumePending ? "…" : "Assumir"}
           </button>
@@ -773,7 +806,7 @@ function ConversationControls({
           <button
             type="submit"
             disabled={releasePending}
-            className="rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-semibold hover:bg-[#f4f7f6] disabled:opacity-60"
+            className="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-body hover:bg-paper disabled:opacity-60"
           >
             {releasePending ? "…" : "Devolver à IA"}
           </button>
@@ -785,14 +818,17 @@ function ConversationControls({
           <button
             type="submit"
             disabled={resolvePending}
-            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink-muted hover:text-ink disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-body hover:bg-paper disabled:opacity-60"
           >
-            Resolver
+            <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {resolvePending ? "…" : "Resolver"}
           </button>
         </form>
       )}
       {(assumeState.error || releaseState.error || resolveState.error) && (
-        <p className="w-full text-right text-xs text-red-600">
+        <p className="w-full text-right text-xs text-danger">
           {assumeState.error || releaseState.error || resolveState.error}
         </p>
       )}
@@ -819,7 +855,7 @@ function Composer({
   }, [state.success]);
 
   return (
-    <div className="border-t border-[#d9e2de] bg-white px-4 py-3">
+    <div className="border-t border-line bg-surface px-4 py-3">
       <form ref={formRef} action={action} className="flex items-center gap-2">
         <input type="hidden" name="conversationId" value={conversationId} />
         <input
@@ -829,31 +865,36 @@ function Composer({
           placeholder={
             canSend ? "Digite sua mensagem..." : "Assuma a conversa para digitar…"
           }
-          className="min-h-11 flex-1 rounded-full border border-[#d9e2de] bg-[#f4f7f6] px-4 text-sm outline-none focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10 disabled:opacity-60"
+          className="min-h-11 flex-1 rounded-full border border-line bg-paper px-4 text-sm text-ink outline-none placeholder:text-ink-placeholder focus:border-brand focus:bg-surface focus:ring-2 focus:ring-brand/15 disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={!canSend || pending}
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#0c6b5c] text-white shadow-sm transition hover:bg-[#084c42] disabled:opacity-40"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white shadow-sm transition hover:bg-brand-deep disabled:opacity-40"
+          aria-label="Enviar"
         >
-          {pending ? "…" : "➤"}
+          {pending ? (
+            "…"
+          ) : (
+            <svg viewBox="0 0 24 24" className="size-4" fill="currentColor">
+              <path d="M3.4 20.6 21 12 3.4 3.4l.1 6.8L15 12 3.5 13.8z" />
+            </svg>
+          )}
         </button>
       </form>
       {state.error && (
-        <p className="mt-2 text-xs text-red-600" role="alert">
+        <p className="mt-2 text-xs text-danger" role="alert">
           {state.error}
         </p>
       )}
       {aiActive ? (
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#0c6b5c] px-3.5 py-2.5 text-white">
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-brand px-3.5 py-2.5 text-white">
           <p className="text-xs leading-snug">
             <span className="font-semibold">IA ativa</span> — A IA está
             respondendo automaticamente
-            {aiCount > 0 ? ` (${aiCount} enviadas)` : ""}.
+            {aiCount > 0 ? ` (${aiCount} enviada${aiCount === 1 ? "" : "s"})` : ""}
+            . Assumir para intervir →
           </p>
-          <span className="shrink-0 text-[11px] font-medium text-accent/90">
-            Assuma para intervir →
-          </span>
         </div>
       ) : null}
     </div>

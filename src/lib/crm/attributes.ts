@@ -1,17 +1,20 @@
+import { AI_LIMITS, truncate } from "@/lib/ai/limits";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type ContactAttribute =
   Database["public"]["Tables"]["contact_attributes"]["Row"];
 
 export function slugifyAttributeKey(label: string) {
-  return label
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "")
-    .replace(/^(\d)/, "f_$1")
-    .slice(0, 48) || "campo";
+  return (
+    label
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "")
+      .replace(/^(\d)/, "f_$1")
+      .slice(0, 48) || "campo"
+  );
 }
 
 /** Serializa campos para injetar no prompt da IA. */
@@ -29,7 +32,8 @@ export function buildAttributePromptBlock(
     return `- ${a.key} (${a.label}${req}, tipo ${a.type}): ${status}`;
   });
 
-  return `
+  return truncate(
+    `
 CAMPOS A COLETAR DO CONTATO (preencha naturalmente na conversa, sem parecer formulário):
 ${lines.join("\n")}
 
@@ -37,5 +41,7 @@ Quando o cliente informar um valor, inclua no JSON de resposta a chave "collecte
 Exemplo: {"action":"reply","text":"...","collected":{"empresa":"Acme Ltda","tamanho":"25","email":"a@b.com"}}
 Só inclua campos que realmente foram confirmados nesta conversa. Não invente dados.
 Se o cliente já informou vários campos numa mensagem, devolva todos eles em "collected" de uma vez.
-`.trim();
+`.trim(),
+    AI_LIMITS.attributeBlock,
+  );
 }

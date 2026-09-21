@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { AiSettingsWorkspace } from "@/components/settings/ai-settings-workspace";
 import type { Playbook } from "@/lib/crm/playbook";
 import type { ServiceForQuote } from "@/lib/crm/pricing";
+import {
+  getAiReplyUsageThisMonth,
+  getTenantPlanLimits,
+} from "@/lib/plans/limits";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AiSettingsPage() {
@@ -25,6 +29,13 @@ export default async function AiSettingsPage() {
   }
 
   await supabase.rpc("seed_tenant_crm", { p_tenant_id: membership.tenant_id });
+
+  const planLimits = await getTenantPlanLimits(membership.tenant_id);
+  const aiLimit = planLimits?.maxAiRepliesMonth ?? 500;
+  const usage = await getAiReplyUsageThisMonth(
+    membership.tenant_id,
+    aiLimit,
+  );
 
   const [
     { data: config },
@@ -91,21 +102,17 @@ export default async function AiSettingsPage() {
     })),
   }));
 
+  const enabled = config?.is_enabled ?? false;
+
   return (
-    <div className="app-noise h-full overflow-y-auto">
-      <div className="px-6 py-8">
-        <div className="mb-2 flex items-center gap-2 text-sm text-ink-muted">
-          <a href="/app/settings" className="hover:text-ink">
-            Configurações
-          </a>
-          <span>/</span>
-          <span>IA</span>
-        </div>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Atendimento com IA
+    <div className="h-full overflow-y-auto bg-paper">
+      <div className="px-5 py-6 lg:px-8">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          Central de treinamento da IA
         </h1>
-        <p className="mt-2 max-w-2xl text-ink-muted">
-          Tudo que a IA precisa: ligar, roteiro, dados do lead e preços.
+        <p className="mt-1 max-w-2xl text-sm text-ink-muted">
+          Ensine a IA a atender: identidade, roteiro, campos e produtos — com
+          preview e teste em tempo real.
         </p>
 
         <div className="mt-6">
@@ -118,7 +125,7 @@ export default async function AiSettingsPage() {
               tenantId={membership.tenant_id}
               assistantName={config?.name ?? "Assistente"}
               assistantNotes={config?.instructions ?? ""}
-              isEnabled={config?.is_enabled ?? false}
+              isEnabled={enabled}
               hasOpenAiKey={Boolean(process.env.OPENAI_API_KEY)}
               playbooks={(playbookRows ?? []) as Playbook[]}
               attributes={attributes ?? []}
@@ -127,6 +134,10 @@ export default async function AiSettingsPage() {
                 key: a.key,
                 label: a.label,
               }))}
+              planName={planLimits?.planName ?? "Básico"}
+              aiRepliesUsed={usage.used}
+              aiRepliesLimit={usage.limit}
+              aiQuotaLocked={usage.atLimit}
             />
           </Suspense>
         </div>

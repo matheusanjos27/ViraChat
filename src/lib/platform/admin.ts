@@ -8,6 +8,9 @@ export function platformAdminEmails(): string[] {
 }
 
 export async function isCurrentUserPlatformAdmin() {
+  const { isUiPreview } = await import("@/lib/dev/ui-preview");
+  if (isUiPreview()) return false;
+
   const supabase = await createClient();
   const {
     data: { user },

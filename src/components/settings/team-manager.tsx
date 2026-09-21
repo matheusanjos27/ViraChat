@@ -46,40 +46,46 @@ export function TeamManager({
   const atLimit = remaining <= 0;
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-brand/15 bg-brand-soft/60 px-4 py-3 text-sm text-brand-deep">
-        <p className="font-semibold">
-          Assentos: {used} de {maxMembers} em uso
-        </p>
-        <p className="mt-1 text-brand-deep/80">
-          Padrão da plataforma: empresa + 1 colaborador. O super admin pode
-          aumentar o limite.
-          {atLimit
-            ? " Limite atingido — não é possível convidar agora."
-            : ` Ainda cabem ${remaining}.`}
-        </p>
-      </div>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <section className="rounded-2xl border border-line bg-surface shadow-[var(--shadow)]">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Membros</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Assentos: {used} de {maxMembers}
+              {atLimit
+                ? " · limite atingido"
+                : ` · cabem mais ${remaining}`}
+            </p>
+          </div>
+          <span className="rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-semibold text-brand-deep">
+            {used}/{maxMembers}
+          </span>
+        </div>
 
-      <section className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
-        <h2 className="text-lg font-semibold">Equipe</h2>
-        <ul className="mt-4 divide-y divide-line">
+        <ul className="divide-y divide-line">
           {members.map((m) => (
             <li
               key={m.userId}
-              className="flex flex-wrap items-center justify-between gap-3 py-3"
+              className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
             >
-              <div className="min-w-0">
-                <p className="truncate font-medium">
-                  {m.fullName || m.email || "Usuário"}
-                  {m.isSelf ? (
-                    <span className="ml-2 text-xs font-normal text-ink-muted">
-                      (você)
-                    </span>
-                  ) : null}
-                </p>
-                <p className="truncate text-sm text-ink-muted">
-                  {m.email} · {roleLabel(m.role)}
-                </p>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-deep">
+                  {initials(m.fullName || m.email)}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-ink">
+                    {m.fullName || m.email || "Usuário"}
+                    {m.isSelf ? (
+                      <span className="ml-2 text-xs font-normal text-ink-muted">
+                        (você)
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="truncate text-sm text-ink-muted">
+                    {m.email} · {roleLabel(m.role)}
+                  </p>
+                </div>
               </div>
               {canManage && !m.isSelf && m.role !== "admin" ? (
                 <form action={removeAction}>
@@ -88,7 +94,7 @@ export function TeamManager({
                   <button
                     type="submit"
                     disabled={removePending}
-                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-danger hover:bg-red-50 disabled:opacity-60"
                   >
                     Remover
                   </button>
@@ -98,51 +104,66 @@ export function TeamManager({
           ))}
         </ul>
         {removeState.error ? (
-          <p className="mt-2 text-sm text-red-600">{removeState.error}</p>
+          <p className="px-5 py-3 text-sm text-danger">{removeState.error}</p>
         ) : null}
         {removeState.success ? (
-          <p className="mt-2 text-sm text-brand">{removeState.success}</p>
+          <p className="px-5 py-3 text-sm text-brand">{removeState.success}</p>
         ) : null}
       </section>
 
       {canManage ? (
-        <section className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
-          <h2 className="text-lg font-semibold">Convidar colaborador</h2>
+        <section className="h-fit rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)] xl:sticky xl:top-4">
+          <h2 className="text-lg font-semibold text-ink">Novo colaborador</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            A pessoa recebe um e-mail, define a senha e acessa só esta empresa.
+            Crie com e-mail e senha provisória. No 1º login a pessoa é obrigada
+            a trocar a senha.
           </p>
           <form action={inviteAction} className="mt-4 flex flex-col gap-3">
             <input type="hidden" name="tenantId" value={tenantId} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" htmlFor="fullName">
-                  Nome
-                </label>
-                <input
-                  id="fullName"
-                  name="fullName"
-                  required
-                  className={field}
-                  placeholder="Maria Silva"
-                  disabled={atLimit}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" htmlFor="email">
-                  E-mail
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  className={field}
-                  placeholder="maria@empresa.com"
-                  disabled={atLimit}
-                />
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="fullName">
+                Nome
+              </label>
+              <input
+                id="fullName"
+                name="fullName"
+                required
+                className={field}
+                placeholder="Maria Silva"
+                disabled={atLimit}
+              />
             </div>
-            <div className="flex flex-col gap-1.5 sm:max-w-xs">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="email">
+                E-mail
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                className={field}
+                placeholder="maria@empresa.com"
+                disabled={atLimit}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="password">
+                Senha provisória
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="text"
+                required
+                minLength={6}
+                autoComplete="off"
+                className={field}
+                placeholder="mín. 6 caracteres"
+                disabled={atLimit}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium" htmlFor="role">
                 Papel
               </label>
@@ -158,7 +179,7 @@ export function TeamManager({
               </select>
             </div>
             {inviteState.error ? (
-              <p className="text-sm text-red-600">{inviteState.error}</p>
+              <p className="text-sm text-danger">{inviteState.error}</p>
             ) : null}
             {inviteState.success ? (
               <p className="text-sm text-brand">{inviteState.success}</p>
@@ -166,13 +187,22 @@ export function TeamManager({
             <button
               type="submit"
               disabled={invitePending || atLimit}
-              className="w-fit rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+              className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
             >
-              {invitePending ? "Enviando…" : "Enviar convite"}
+              {invitePending ? "Criando…" : "Criar usuário"}
             </button>
+            {atLimit ? (
+              <p className="text-xs text-ink-muted">
+                Limite de assentos atingido. Entre em contato conosco para aumentar o plano.
+              </p>
+            ) : null}
           </form>
         </section>
-      ) : null}
+      ) : (
+        <aside className="rounded-2xl border border-line bg-surface p-5 text-sm text-ink-muted">
+          Você não tem permissão para convidar colaboradores.
+        </aside>
+      )}
     </div>
   );
 }
@@ -182,4 +212,14 @@ function roleLabel(role: string) {
   if (role === "supervisor") return "Supervisor";
   if (role === "agent") return "Atendente";
   return role;
+}
+
+function initials(name?: string | null) {
+  if (!name?.trim()) return "?";
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
 }

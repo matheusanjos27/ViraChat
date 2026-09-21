@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   createService,
   deleteService,
@@ -50,6 +50,7 @@ export function ServicesManager({
     services.filter((s) => s.is_active).map((s) => s.id),
   );
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const quote = useMemo(
     () => quoteCatalog(services, units, selected),
@@ -63,26 +64,37 @@ export function ServicesManager({
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <div className="space-y-6">
-        <ServiceForm
-          mode="create"
-          attributeKeys={attributeKeys}
-          action={createService}
-        />
-
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="space-y-4">
         <div className="rounded-2xl border border-line bg-surface shadow-[var(--shadow)]">
-          <div className="border-b border-line px-5 py-4">
-            <h2 className="font-semibold">Catálogo</h2>
-            <p className="mt-0.5 text-sm text-ink-muted">
-              {services.length} serviço{services.length !== 1 ? "s" : ""}
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+            <div>
+              <h2 className="font-semibold text-ink">Serviços</h2>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                {services.length} no catálogo — clique para editar
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
+            >
+              Criar Serviço
+            </button>
           </div>
           {services.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-ink-muted">
-              Nenhum serviço ainda. Cadastre o primeiro acima — funciona para
-              qualquer tipo de negócio.
-            </p>
+            <div className="px-5 py-10 text-center">
+              <p className="text-sm text-ink-muted">
+                Nenhum serviço ainda. Crie o primeiro no catálogo.
+              </p>
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="mt-4 inline-flex rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-paper"
+              >
+                Criar Serviço
+              </button>
+            </div>
           ) : (
             <ul className="divide-y divide-line">
               {services.map((s) => (
@@ -90,48 +102,36 @@ export function ServicesManager({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold">{s.name}</p>
+                        <p className="font-semibold text-ink">{s.name}</p>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             s.is_active
-                              ? "bg-[#e7f4ef] text-[#0c6b5c]"
-                              : "bg-[#f4f7f6] text-ink-muted"
+                              ? "bg-brand-soft text-brand-deep"
+                              : "bg-paper text-ink-muted"
                           }`}
                         >
                           {s.is_active ? "Ativo" : "Inativo"}
                         </span>
-                        <span className="rounded-full bg-[#eef3f1] px-2 py-0.5 text-[10px] font-medium text-ink-muted">
-                          {billingLabel(s.billing_type)}
-                        </span>
                       </div>
-                      {s.description && (
-                        <p className="mt-1 text-sm text-ink-muted">{s.description}</p>
-                      )}
-                      <p className="mt-1 text-xs text-ink-muted">
+                      <p className="mt-1 text-sm text-ink-muted">
                         {s.billing_type === "fixed" && money(s.base_price)}
                         {s.billing_type === "per_unit" &&
-                          `${money(s.base_price)}/${s.unit_label}${s.min_price != null ? ` · mín. ${money(s.min_price)}` : ""}`}
+                          `${money(s.base_price)}/${s.unit_label}`}
                         {s.billing_type === "tiered" &&
-                          `${s.tiers.length} faixa${s.tiers.length !== 1 ? "s" : ""} · ${s.unit_label}`}
-                        {s.unit_attribute_key
-                          ? ` · campo: ${s.unit_attribute_key}`
-                          : ""}
+                          `${s.tiers.length} faixa(s)`}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditingId(editingId === s.id ? null : s.id)
-                        }
-                        className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium hover:bg-[#f4f7f6]"
-                      >
-                        {editingId === s.id ? "Fechar" : "Editar"}
-                      </button>
-                      <DeleteButton id={s.id} />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingId(editingId === s.id ? null : s.id)
+                      }
+                      className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium hover:bg-paper"
+                    >
+                      {editingId === s.id ? "Fechar" : "Editar"}
+                    </button>
                   </div>
-                  {editingId === s.id && (
+                  {editingId === s.id ? (
                     <div className="mt-4 border-t border-line pt-4">
                       <ServiceForm
                         mode="edit"
@@ -139,86 +139,100 @@ export function ServicesManager({
                         attributeKeys={attributeKeys}
                         action={updateService}
                       />
+                      <DeleteButton id={s.id} />
                     </div>
-                  )}
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
         </div>
+
+        {createOpen ? (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="novo-servico-title"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setCreateOpen(false);
+            }}
+          >
+            <div className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface shadow-xl">
+              <div className="flex items-center justify-between border-b border-line px-5 py-4">
+                <div>
+                  <h2
+                    id="novo-servico-title"
+                    className="text-lg font-semibold text-ink"
+                  >
+                    Novo serviço
+                  </h2>
+                  <p className="mt-0.5 text-sm text-ink-muted">
+                    Fixo, por unidade ou por faixas.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(false)}
+                  className="size-8 rounded-full text-ink-muted hover:bg-paper"
+                  aria-label="Fechar"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="overflow-y-auto p-5">
+                <ServiceForm
+                  mode="create"
+                  attributeKeys={attributeKeys}
+                  action={createService}
+                  onSuccess={() => setCreateOpen(false)}
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {/* Simulator */}
-      <aside className="h-fit rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)] xl:sticky xl:top-6">
-        <h2 className="text-lg font-semibold">Simulador</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          Teste o cálculo antes da IA usar no WhatsApp.
+      <aside className="h-fit rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow)] xl:sticky xl:top-4">
+        <p className="text-sm font-semibold text-ink">Simulador</p>
+        <p className="mt-1 text-xs text-ink-muted">
+          Prévia rápida do orçamento que a IA pode usar.
         </p>
-
-        <label className="mt-4 block text-sm font-medium">
-          Quantidade
-          <input
-            type="number"
-            min={0}
-            value={units}
-            onChange={(e) => setUnits(Number(e.target.value) || 0)}
-            className={`${field} mt-1.5`}
-          />
+        <label className="mt-3 block text-xs font-medium text-ink-muted">
+          Unidades
         </label>
-
-        <div className="mt-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            Incluir na proposta
-          </p>
-          {services.filter((s) => s.is_active).length === 0 ? (
-            <p className="text-xs text-ink-muted">Nenhum serviço ativo.</p>
-          ) : (
-            services
-              .filter((s) => s.is_active)
-              .map((s) => (
-                <label key={s.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(s.id)}
-                    onChange={() => toggleSelected(s.id)}
-                    className="accent-[var(--brand)]"
-                  />
-                  {s.name}
-                </label>
-              ))
-          )}
+        <input
+          type="number"
+          min={1}
+          value={units}
+          onChange={(e) => setUnits(Number(e.target.value) || 1)}
+          className={`${field} mt-1`}
+        />
+        <div className="mt-3 max-h-48 space-y-1 overflow-y-auto">
+          {services
+            .filter((s) => s.is_active)
+            .map((s) => (
+              <label
+                key={s.id}
+                className="flex items-center gap-2 text-xs text-ink-body"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(s.id)}
+                  onChange={() => toggleSelected(s.id)}
+                  className="size-3.5 accent-[var(--brand)]"
+                />
+                {s.name}
+              </label>
+            ))}
         </div>
-
-        <div className="mt-5 space-y-3 border-t border-line pt-4">
-          {quote.lines.map((l) => (
-            <div key={l.serviceId} className="text-sm">
-              <p className="font-medium">{l.serviceName}</p>
-              <p className="text-xs text-ink-muted">{l.explanation}</p>
-              <p className="mt-0.5 font-semibold text-brand">{money(l.amount)}</p>
-            </div>
-          ))}
-          {quote.lines.length === 0 ? (
-            <p className="text-sm text-ink-muted">Selecione serviços ativos.</p>
-          ) : (
-            <div className="rounded-xl bg-[#e7f4ef] px-3 py-3">
-              <p className="text-xs text-ink-muted">Total</p>
-              <p className="text-xl font-semibold text-brand">
-                {money(quote.total)}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {quote.lines.length > 0 && (
-          <pre className="mt-4 max-h-48 overflow-auto rounded-xl bg-[#0b2f2a] p-3 text-[11px] leading-relaxed whitespace-pre-wrap text-white/85">
-            {formatQuoteMessage(quote, units)}
-          </pre>
-        )}
+        <pre className="mt-3 max-h-40 overflow-auto rounded-xl bg-paper p-3 text-[11px] leading-relaxed text-ink-muted whitespace-pre-wrap">
+          {formatQuoteMessage(quote, units)}
+        </pre>
       </aside>
     </div>
   );
 }
-
 function DeleteButton({ id }: { id: string }) {
   const [state, action, pending] = useActionState(deleteService, empty);
   return (
@@ -241,6 +255,7 @@ function ServiceForm({
   service,
   attributeKeys,
   action,
+  onSuccess,
 }: {
   mode: "create" | "edit";
   service?: ServiceForQuote;
@@ -249,6 +264,7 @@ function ServiceForm({
     prev: ServiceState,
     formData: FormData,
   ) => Promise<ServiceState>;
+  onSuccess?: () => void;
 }) {
   const [state, formAction, pending] = useActionState(action, empty);
   const [billingType, setBillingType] = useState<BillingType>(
@@ -268,32 +284,19 @@ function ServiceForm({
         ],
   );
 
+  useEffect(() => {
+    if (state.success) onSuccess?.();
+  }, [state.success, onSuccess]);
+
   function updateTier(i: number, patch: Partial<TierDraft>) {
     setTiers((prev) => prev.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
   }
 
   return (
-    <form
-      action={formAction}
-      className={`flex flex-col gap-3 ${
-        mode === "create"
-          ? "rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]"
-          : ""
-      }`}
-    >
+    <form action={formAction} className="flex flex-col gap-3">
       {service && <input type="hidden" name="id" value={service.id} />}
       <input type="hidden" name="tiersJson" value={JSON.stringify(tiers)} />
       <input type="hidden" name="billingType" value={billingType} />
-
-      {mode === "create" && (
-        <div>
-          <h2 className="text-lg font-semibold">Novo serviço</h2>
-          <p className="mt-1 text-sm text-ink-muted">
-            Fixo, por unidade ou por faixas (ex.: até 15 = pacote, acima = por
-            pessoa).
-          </p>
-        </div>
-      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">

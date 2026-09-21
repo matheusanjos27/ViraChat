@@ -55,6 +55,25 @@ export async function platformCreateTenant(
     await admin.from("tenants").update({ max_members: maxMembers }).eq("slug", slug);
   }
 
+  // Plano Básico por padrão
+  {
+    const admin = createServiceClient();
+    const { data: basico } = await admin
+      .from("plans")
+      .select("id, max_members")
+      .eq("slug", "basico")
+      .maybeSingle();
+    if (basico) {
+      await admin
+        .from("tenants")
+        .update({
+          plan_id: basico.id,
+          max_members: maxMembers !== 2 ? maxMembers : basico.max_members,
+        })
+        .eq("slug", slug);
+    }
+  }
+
   const feeReais = Number.parseFloat(
     String(formData.get("monthlyFee") ?? "0").replace(",", "."),
   );
@@ -147,6 +166,45 @@ export async function platformUpdateTenantSeats(
   revalidatePath("/platform");
   revalidatePath("/platform/tenants");
   return { success: `Limite atualizado para ${maxMembers} colaboradores.` };
+}
+
+export async function platformUpdateTenantAiBudget(
+  _prev: PlatformState,
+  formData: FormData,
+): Promise<PlatformState> {
+  if (!(await isCurrentUserPlatformAdmin())) {
+    return { error: "Apenas super admin." };
+  }
+
+  const tenantId = String(formData.get("tenantId") ?? "");
+  const millions = Number.parseFloat(
+    String(formData.get("tokenLimitMillions") ?? "2").replace(",", "."),
+  );
+  // 0 = ilimitado; senão N milhões de tokens
+  const monthly_ai_token_limit = !Number.isFinite(millions)
+    ? 2_000_000
+    : millions <= 0
+      ? 0
+      : Math.round(millions * 1_000_000);
+
+  if (!tenantId) return { error: "Tenant inválido." };
+
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("tenants")
+    .update({ monthly_ai_token_limit })
+    .eq("id", tenantId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/platform");
+  revalidatePath("/platform/tenants");
+  revalidatePath("/platform/usage");
+  return {
+    success:
+      monthly_ai_token_limit === 0
+        ? "Cota de IA: ilimitada."
+        : `Cota de IA: ${(monthly_ai_token_limit / 1_000_000).toFixed(1)}M tokens/mês.`,
+  };
 }
 
 export async function platformInviteTenantUser(
@@ -249,5 +307,138 @@ export async function platformCancelInvite(
     success: invite.accepted_at
       ? `Acesso de ${email} removido.`
       : `Convite pendente de ${email} cancelado.`,
+  };
+}
+
+export async function platformUpdatePlan(
+  _prev: PlatformState,
+  formData: FormData,
+): Promise<PlatformState> {
+  if (!(await isCurrentUserPlatformAdmin())) {
+    return { error: "Apenas super admin." };
+  }
+
+  const planId = String(formData.get("planId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  const maxMembers = Math.min(
+    500,
+    Math.max(1, Number.parseInt(String(formData.get("maxMembers") ?? "2"), 10) || 2),
+  );
+  const maxChannels = Math.min(
+    100,
+    Math.max(1, Number.parseInt(String(formData.get("maxChannels") ?? "1"), 10) || 1),
+  );
+  const maxAiReplies = Math.max(
+    0,
+    Number.parseInt(String(formData.get("maxAiReplies") ?? "500"), 10) || 0,
+  );
+
+  if (!planId || !name) return { error: "Dados incompletos." };
+
+  const admin = createServiceClient();
+  const { data: plan, error } = await admin
+    .from("plans")
+    .update({
+      name,
+      description,
+      max_members: maxMembers,
+      max_channels: maxChannels,
+      max_ai_replies_month: maxAiReplies,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", planId)
+    .select("id, is_custom, slug")
+    .maybeSingle();
+
+  if (error) return { error: error.message };
+  if (!plan) return { error: "Plano não encontrado." };
+
+  // Sincroniza max_members nos tenants deste plano (exceto personalizado com override)
+  if (!plan.is_custom) {
+    await admin
+      .from("tenants")
+      .update({ max_members: maxMembers })
+      .eq("plan_id", planId)
+      .is("custom_max_members", null);
+  }
+
+  revalidatePath("/platform");
+  revalidatePath("/platform/plans");
+  revalidatePath("/platform/tenants");
+  return { success: `Plano “${name}” atualizado. Novos limites valem na hora.` };
+}
+
+export async function platformAssignTenantPlan(
+  _prev: PlatformState,
+  formData: FormData,
+): Promise<PlatformState> {
+  if (!(await isCurrentUserPlatformAdmin())) {
+    return { error: "Apenas super admin." };
+  }
+
+  const tenantId = String(formData.get("tenantId") ?? "");
+  const planId = String(formData.get("planId") ?? "");
+  if (!tenantId || !planId) return { error: "Selecione empresa e plano." };
+
+  const admin = createServiceClient();
+  const { data: plan } = await admin
+    .from("plans")
+    .select(
+      "id, name, is_custom, max_members, max_channels, max_ai_replies_month",
+    )
+    .eq("id", planId)
+    .maybeSingle();
+  if (!plan) return { error: "Plano inválido." };
+
+  const customMembers = Number.parseInt(
+    String(formData.get("customMaxMembers") ?? ""),
+    10,
+  );
+  const customChannels = Number.parseInt(
+    String(formData.get("customMaxChannels") ?? ""),
+    10,
+  );
+  const customReplies = Number.parseInt(
+    String(formData.get("customMaxAiReplies") ?? ""),
+    10,
+  );
+
+  const patch: {
+    plan_id: string;
+    max_members: number;
+    custom_max_members: number | null;
+    custom_max_channels: number | null;
+    custom_max_ai_replies_month: number | null;
+  } = {
+    plan_id: planId,
+    max_members: plan.max_members,
+    custom_max_members: null,
+    custom_max_channels: null,
+    custom_max_ai_replies_month: null,
+  };
+
+  if (plan.is_custom) {
+    patch.custom_max_members = Number.isFinite(customMembers)
+      ? Math.min(500, Math.max(1, customMembers))
+      : plan.max_members;
+    patch.custom_max_channels = Number.isFinite(customChannels)
+      ? Math.min(100, Math.max(1, customChannels))
+      : plan.max_channels;
+    patch.custom_max_ai_replies_month = Number.isFinite(customReplies)
+      ? Math.max(0, customReplies)
+      : plan.max_ai_replies_month;
+    patch.max_members = patch.custom_max_members;
+  }
+
+  const { error } = await admin.from("tenants").update(patch).eq("id", tenantId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/platform/tenants");
+  revalidatePath("/platform/plans");
+  revalidatePath("/app/settings");
+  revalidatePath("/app/settings/ai");
+  return {
+    success: `Plano “${plan.name}” aplicado. O teto mudou; o uso do mês continua contando.`,
   };
 }

@@ -1,3 +1,9 @@
+import { isMonthlyTokenBudgetExceeded } from "@/lib/ai/budget";
+import {
+  AI_LIMITS,
+  truncate,
+  wantsHuman,
+} from "@/lib/ai/limits";
 import { getDefaultAiProvider } from "@/lib/ai/providers/openai";
 import type { AiChatMessage } from "@/lib/ai/types";
 import { buildAttributePromptBlock } from "@/lib/crm/attributes";
@@ -24,6 +30,12 @@ import {
 import { decryptToken } from "@/lib/crypto/tokens";
 import { canAiReply } from "@/lib/conversations/status";
 import { createAppNotification } from "@/lib/notifications";
+import {
+  disableTenantAi,
+  getAiReplyUsageThisMonth,
+  getTenantPlanLimits,
+  recordAiReplyEvent,
+} from "@/lib/plans/limits";
 import { recordAiUsage } from "@/lib/platform/usage";
 import { sendOutboundText } from "@/lib/whatsapp/send";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -60,9 +72,37 @@ export async function runAiForConversation(conversationId: string) {
 
   const { data: tenantProfile } = await supabase
     .from("tenants")
-    .select("name, about, phone, website")
+    .select(
+      "name, about, phone, website, billing_status, monthly_ai_token_limit",
+    )
     .eq("id", conversation.tenant_id)
     .maybeSingle();
+
+  const billing = tenantProfile?.billing_status ?? "active";
+  if (billing === "past_due" || billing === "canceled") {
+    return { skipped: "billing_blocked" as const, billing };
+  }
+
+  const planLimits = await getTenantPlanLimits(conversation.tenant_id);
+  if (planLimits && planLimits.maxAiRepliesMonth > 0) {
+    const replyUsage = await getAiReplyUsageThisMonth(
+      conversation.tenant_id,
+      planLimits.maxAiRepliesMonth,
+    );
+    if (replyUsage.atLimit) {
+      await disableTenantAi(conversation.tenant_id);
+      return { skipped: "ai_reply_quota" as const, usage: replyUsage };
+    }
+  }
+
+  const budget = await isMonthlyTokenBudgetExceeded(
+    conversation.tenant_id,
+    tenantProfile?.monthly_ai_token_limit,
+  );
+  if (budget.exceeded) {
+    await disableTenantAi(conversation.tenant_id);
+    return { skipped: "monthly_token_budget" as const };
+  }
 
   const [
     { data: messages },
@@ -97,7 +137,8 @@ export async function runAiForConversation(conversationId: string) {
       )
       .eq("tenant_id", conversation.tenant_id)
       .eq("is_active", true)
-      .order("sort_order", { ascending: true }),
+      .order("sort_order", { ascending: true })
+      .limit(40),
     supabase
       .from("service_pricing_tiers")
       .select(
@@ -123,15 +164,27 @@ export async function runAiForConversation(conversationId: string) {
     return { skipped: "no_inbound" as const };
   }
 
+  if (wantsHuman(latestInbound.body)) {
+    return forceHandoffWithoutLlm({
+      supabase,
+      conversation,
+      text: "Claro — vou te transferir para um atendente humano. Aguarde um momento.",
+      reason: "explicit_human_request",
+      notifyTitle: "Atendimento humano solicitado",
+      notifyBody: "O contato pediu um atendente. Assuma em até 5 minutos.",
+    });
+  }
+
   const history: AiChatMessage[] = (messages ?? [])
     .filter((m) => m.body)
     .slice(0, -1)
+    .slice(-AI_LIMITS.historyTurns)
     .map((m) => ({
       role:
         m.direction === "inbound"
           ? ("user" as const)
           : ("assistant" as const),
-      content: m.body as string,
+      content: truncate(m.body as string, AI_LIMITS.messageBody),
     }));
 
   const attrList = attributes ?? [];
@@ -179,7 +232,10 @@ export async function runAiForConversation(conversationId: string) {
     const quote = quoteCatalog(catalog, units);
     quotedThisTurn = quote.total > 0;
     quotedTotal = quote.total > 0 ? quote.total : null;
-    catalogBlock = `${catalogBlock}\n\nORÇAMENTO PRÉ-CALCULADO PELO SISTEMA (${units} unidades) — use estes números, não recalcule:\n${formatQuoteMessage(quote, units)}`;
+    catalogBlock = truncate(
+      `${catalogBlock}\n\nORÇAMENTO PRÉ-CALCULADO PELO SISTEMA (${units} unidades) — use estes números, não recalcule:\n${formatQuoteMessage(quote, units)}`,
+      AI_LIMITS.catalogBlock,
+    );
   }
 
   const funnelBlock = buildFunnelPromptBlock(dealStages ?? []);
@@ -196,7 +252,9 @@ export async function runAiForConversation(conversationId: string) {
   const companyBlock = tenant
     ? [
         `EMPRESA QUE VOCÊ REPRESENTA: ${tenant.name}`,
-        tenant.about ? `Sobre: ${tenant.about}` : null,
+        tenant.about
+          ? `Sobre: ${truncate(tenant.about, AI_LIMITS.about)}`
+          : null,
         tenant.phone ? `Telefone: ${tenant.phone}` : null,
         tenant.website ? `Site: ${tenant.website}` : null,
         "Use esses dados na apresentação e quando o cliente perguntar sobre a empresa.",
@@ -216,6 +274,21 @@ export async function runAiForConversation(conversationId: string) {
     attributeBlock,
     catalogBlock,
   });
+
+  await recordAiReplyEvent({
+    tenantId: conversation.tenant_id,
+    conversationId,
+  });
+
+  if (planLimits && planLimits.maxAiRepliesMonth > 0) {
+    const after = await getAiReplyUsageThisMonth(
+      conversation.tenant_id,
+      planLimits.maxAiRepliesMonth,
+    );
+    if (after.atLimit) {
+      await disableTenantAi(conversation.tenant_id);
+    }
+  }
 
   await recordAiUsage({
     tenantId: conversation.tenant_id,
@@ -437,6 +510,117 @@ function resolveUnits(
     if (Number.isFinite(n) && n > 0) return n;
   }
   return null;
+}
+
+type ConvRow = {
+  id: string;
+  tenant_id: string;
+  contact_id: string;
+  contacts: unknown;
+  channels: unknown;
+};
+
+async function forceHandoffWithoutLlm({
+  supabase,
+  conversation,
+  text,
+  reason,
+  notifyTitle,
+  notifyBody,
+}: {
+  supabase: ReturnType<typeof createServiceClient>;
+  conversation: ConvRow;
+  text: string;
+  reason: string;
+  notifyTitle: string;
+  notifyBody: string;
+}) {
+  const contact = conversation.contacts as {
+    phone_e164: string | null;
+    external_id: string | null;
+    display_name: string | null;
+  } | null;
+
+  const channel = conversation.channels as {
+    whatsapp_accounts:
+      | {
+          phone_number_id: string;
+          access_token_encrypted: string;
+          onboard_source?: string;
+        }
+      | {
+          phone_number_id: string;
+          access_token_encrypted: string;
+          onboard_source?: string;
+        }[]
+      | null;
+  } | null;
+
+  const wa = Array.isArray(channel?.whatsapp_accounts)
+    ? channel?.whatsapp_accounts[0]
+    : channel?.whatsapp_accounts;
+
+  const to =
+    contact?.phone_e164 ||
+    (contact?.external_id ? `+${contact.external_id}` : null);
+
+  const now = new Date().toISOString();
+
+  if (wa && to) {
+    try {
+      const token = decryptToken(wa.access_token_encrypted);
+      const providerMessageId = await sendOutboundText({
+        channel: wa,
+        accessToken: token,
+        toE164: to,
+        body: text,
+      });
+      await supabase.from("messages").insert({
+        tenant_id: conversation.tenant_id,
+        conversation_id: conversation.id,
+        direction: "outbound",
+        sender_type: "ai",
+        body: text,
+        provider_message_id: providerMessageId,
+        created_at: now,
+      });
+    } catch (err) {
+      console.error("[ai] handoff send failed", reason, err);
+    }
+  }
+
+  await supabase
+    .from("conversations")
+    .update({
+      status: "waiting_human",
+      last_message_at: now,
+      waiting_human_at: now,
+      handoff_busy_sent_at: null,
+    })
+    .eq("id", conversation.id)
+    .eq("status", "ai_active");
+
+  const contactLabel =
+    contact?.display_name ||
+    contact?.phone_e164 ||
+    contact?.external_id ||
+    "Contato";
+
+  await createAppNotification({
+    tenantId: conversation.tenant_id,
+    type: "handoff",
+    title: notifyTitle,
+    body: `${contactLabel}: ${notifyBody}`,
+    conversationId: conversation.id,
+  });
+
+  return {
+    ok: true as const,
+    action: "handoff" as const,
+    conversationId: conversation.id,
+    skippedLlm: true as const,
+    reason,
+  };
 }
 
 async function persistCollectedAttributes({

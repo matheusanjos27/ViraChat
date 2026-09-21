@@ -7,6 +7,8 @@ const nav = [
   { href: "/platform", label: "Visão geral", exact: true },
   { href: "/platform/health", label: "Saúde" },
   { href: "/platform/tenants", label: "Clientes" },
+  { href: "/platform/contacts", label: "Contatos site" },
+  { href: "/platform/plans", label: "Planos" },
   { href: "/platform/usage", label: "Uso de IA" },
   { href: "/platform/finance", label: "Finanças" },
   { href: "/platform/invites", label: "Convites" },

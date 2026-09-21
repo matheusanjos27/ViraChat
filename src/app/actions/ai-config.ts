@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { AI_LIMITS, clampSavedText } from "@/lib/ai/limits";
+import { canEnableTenantAi } from "@/lib/plans/limits";
 import { createClient } from "@/lib/supabase/server";
 
 export type AiConfigState = {
@@ -14,9 +16,11 @@ export async function updateAiConfig(
 ): Promise<AiConfigState> {
   const tenantId = String(formData.get("tenantId") ?? "");
   const name = String(formData.get("name") ?? "").trim() || "Assistente";
-  const instructions =
+  const rawInstructions =
     String(formData.get("instructions") ?? "").trim() ||
     "Siga o roteiro de conversa e os dados da empresa.";
+  const clamped = clampSavedText(rawInstructions, AI_LIMITS.instructions * 2);
+  const instructions = clamped.value;
   const isEnabled = formData.get("isEnabled") === "on";
 
   if (!tenantId) return { error: "Tenant inválido." };
@@ -38,6 +42,13 @@ export async function updateAiConfig(
     return { error: "Sem permissão." };
   }
 
+  if (isEnabled) {
+    const gate = await canEnableTenantAi(tenantId);
+    if (!gate.ok) {
+      return { error: gate.reason };
+    }
+  }
+
   const { error } = await supabase
     .from("ai_configs")
     .update({
@@ -54,5 +65,9 @@ export async function updateAiConfig(
   revalidatePath("/app/settings/playbook");
   revalidatePath("/app/ai");
   revalidatePath("/app/settings");
-  return { success: "Assistente atualizado." };
+  return {
+    success: clamped.truncated
+      ? "Assistente atualizado (texto enxugado para caber no limite)."
+      : "Assistente atualizado.",
+  };
 }

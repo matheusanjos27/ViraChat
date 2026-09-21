@@ -55,7 +55,7 @@ export async function createEvolutionInstance(params: {
       enabled: true,
       url: evolutionWebhookUrl(),
       byEvents: false,
-      base64: false,
+      base64: true,
       events: [
         "QRCODE_UPDATED",
         "CONNECTION_UPDATE",
@@ -197,4 +197,44 @@ export async function sendEvolutionText(params: {
     throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
   }
   return data.key?.id ?? data.message?.key?.id ?? null;
+}
+
+/** Baixa mídia de uma mensagem (base64) via Evolution. */
+export async function getEvolutionMediaBase64(params: {
+  instanceName: string;
+  /** Payload `data` do webhook messages.upsert (com key + message) */
+  webhookData: Record<string, unknown>;
+}) {
+  const res = await fetch(
+    `${baseUrl()}/chat/getBase64FromMediaMessage/${encodeURIComponent(params.instanceName)}`,
+    {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        message: params.webhookData,
+        convertToMp4: false,
+      }),
+    },
+  );
+  const data = (await res.json()) as {
+    base64?: string;
+    mimetype?: string;
+    fileName?: string;
+    mediaType?: string;
+    error?: string;
+    message?: string;
+  };
+  if (!res.ok || !data.base64) {
+    throw new Error(
+      data.error ||
+        data.message ||
+        `Falha ao baixar mídia (HTTP ${res.status})`,
+    );
+  }
+  return {
+    base64: data.base64,
+    mimeType: data.mimetype ?? null,
+    fileName: data.fileName ?? null,
+    mediaType: data.mediaType ?? null,
+  };
 }

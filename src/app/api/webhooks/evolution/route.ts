@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runAiForConversation } from "@/lib/ai/orchestrate";
+import { scheduleAiForConversation } from "@/lib/ai/schedule";
 import { processEvolutionWebhook } from "@/lib/whatsapp/evolution-webhook";
 
 export const runtime = "nodejs";
@@ -39,11 +39,8 @@ export async function POST(req: Request) {
       },
     );
 
-    // Dispara IA para cada conversa nova (mesmo padrão do webhook Meta)
     for (const conversationId of result.conversationIds) {
-      void runAiForConversation(conversationId).catch((err) =>
-        console.error("[evolution] ai error", conversationId, err),
-      );
+      scheduleAiForConversation(conversationId);
     }
 
     return NextResponse.json({ ok: true, handled: result.handled });

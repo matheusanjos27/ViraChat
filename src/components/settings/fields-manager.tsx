@@ -22,6 +22,15 @@ type Attr = {
   sort_order: number;
 };
 
+const TYPE_ICON: Record<string, string> = {
+  text: "Aa",
+  number: "#",
+  email: "@",
+  phone: "☎",
+  date: "📅",
+  select: "▾",
+};
+
 export function FieldsManager({ attributes }: { attributes: Attr[] }) {
   const [createState, createAction, createPending] = useActionState(
     createContactAttribute,
@@ -33,33 +42,24 @@ export function FieldsManager({ attributes }: { attributes: Attr[] }) {
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_1fr]">
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,340px)_1fr]">
       <form
         action={createAction}
-        className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]"
+        className="flex h-fit flex-col gap-3 rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)] lg:sticky lg:top-4"
       >
         <div>
-          <h2 className="text-lg font-semibold">Novo campo</h2>
+          <h2 className="text-lg font-semibold text-ink">Novo campo</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            A IA coleta esses dados durante a conversa — sem parecer formulário.
+            O que a IA deve coletar na conversa.
           </p>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div>
           <label className="text-sm font-medium">Nome</label>
-          <input name="label" required placeholder="Ex: CNPJ" className={field} />
+          <input name="label" required placeholder="Ex: Empresa" className={`${field} mt-1`} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium">Chave (opcional)</label>
-          <input
-            name="key"
-            placeholder="cnpj"
-            pattern="[a-z][a-z0-9_]{0,47}"
-            className={field}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
+        <div>
           <label className="text-sm font-medium">Tipo</label>
-          <select name="type" className={field} defaultValue="text">
+          <select name="type" className={`${field} mt-1`} defaultValue="text">
             <option value="text">Texto</option>
             <option value="number">Número</option>
             <option value="email">E-mail</option>
@@ -68,11 +68,15 @@ export function FieldsManager({ attributes }: { attributes: Attr[] }) {
             <option value="select">Seleção</option>
           </select>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div>
           <label className="text-sm font-medium">
-            Opções (só para seleção, separadas por vírgula)
+            Opções <span className="font-normal text-ink-muted">(seleção)</span>
           </label>
-          <input name="options" placeholder="Comércio, Indústria, Serviços" className={field} />
+          <input
+            name="options"
+            placeholder="A, B, C"
+            className={`${field} mt-1`}
+          />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="required" className="size-4 accent-[var(--brand)]" />
@@ -85,68 +89,76 @@ export function FieldsManager({ attributes }: { attributes: Attr[] }) {
             defaultChecked
             className="size-4 accent-[var(--brand)]"
           />
-          Coletar via IA
+          IA coleta
         </label>
-        {createState.error && (
-          <p className="text-sm text-red-600">{createState.error}</p>
-        )}
-        {createState.success && (
+        {createState.error ? (
+          <p className="text-sm text-danger">{createState.error}</p>
+        ) : null}
+        {createState.success ? (
           <p className="text-sm text-brand">{createState.success}</p>
-        )}
+        ) : null}
         <button
           type="submit"
           disabled={createPending}
           className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
         >
-          {createPending ? "Criando…" : "Adicionar campo"}
+          {createPending ? "…" : "Adicionar"}
         </button>
       </form>
 
-      <div className="rounded-2xl border border-line bg-surface shadow-[var(--shadow)]">
-        <div className="border-b border-line px-5 py-4">
-          <h2 className="font-semibold">Campos do tenant</h2>
-          <p className="mt-0.5 text-sm text-ink-muted">
-            {attributes.length} campo{attributes.length !== 1 ? "s" : ""}
-          </p>
+      <div>
+        <div className="mb-3 flex items-end justify-between gap-2">
+          <div>
+            <h2 className="font-semibold text-ink">Campos cadastrados</h2>
+            <p className="text-sm text-ink-muted">
+              {attributes.length} campo{attributes.length !== 1 ? "s" : ""}
+            </p>
+          </div>
         </div>
         {attributes.length === 0 ? (
-          <p className="px-5 py-10 text-center text-sm text-ink-muted">
+          <div className="rounded-2xl border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-ink-muted">
             Nenhum campo ainda. Crie o primeiro à esquerda.
-          </p>
+          </div>
         ) : (
-          <ul className="divide-y divide-line">
+          <ul className="grid gap-3 sm:grid-cols-2">
             {attributes.map((a) => (
               <li
                 key={a.id}
-                className="flex items-start justify-between gap-4 px-5 py-4"
+                className="rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow)]"
               >
-                <div>
-                  <p className="font-medium">{a.label}</p>
-                  <p className="mt-0.5 text-xs text-ink-muted">
-                    <code className="rounded bg-[#eef3f1] px-1.5 py-0.5">{a.key}</code>
-                    {" · "}
-                    {a.type}
-                    {a.required ? " · obrigatório" : ""}
-                    {a.collect_via_ai ? " · IA" : ""}
-                  </p>
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xs font-bold text-brand-deep">
+                    {TYPE_ICON[a.type] ?? "·"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink">{a.label}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      {a.type}
+                      {a.required ? " · Obrigatório" : ""}
+                      {a.collect_via_ai ? " · IA" : ""}
+                    </p>
+                    <code className="mt-2 inline-block rounded bg-paper px-1.5 py-0.5 text-[10px] text-ink-muted">
+                      {a.key}
+                    </code>
+                  </div>
+                  <form action={deleteAction}>
+                    <input type="hidden" name="id" value={a.id} />
+                    <button
+                      type="submit"
+                      disabled={deletePending}
+                      className="text-xs text-ink-muted hover:text-danger"
+                    >
+                      Excluir
+                    </button>
+                  </form>
                 </div>
-                <form action={deleteAction}>
-                  <input type="hidden" name="id" value={a.id} />
-                  <button
-                    type="submit"
-                    disabled={deletePending}
-                    className="rounded-lg px-2.5 py-1.5 text-xs text-ink-muted hover:bg-red-50 hover:text-red-700"
-                  >
-                    Remover
-                  </button>
-                </form>
               </li>
             ))}
           </ul>
         )}
-        {deleteState.error && (
-          <p className="px-5 py-3 text-sm text-red-600">{deleteState.error}</p>
-        )}
+        {deleteState.error ? (
+          <p className="mt-3 text-sm text-danger">{deleteState.error}</p>
+        ) : null}
       </div>
     </div>
   );

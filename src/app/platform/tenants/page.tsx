@@ -1,5 +1,6 @@
 import {
   CreateTenantPlatformForm,
+  TenantAiBudgetForm,
   TenantSeatsForm,
 } from "@/components/platform/platform-forms";
 import { formatBrlFromCents } from "@/lib/platform/usage";
@@ -10,7 +11,7 @@ export default async function PlatformTenantsPage() {
   const { data: tenants } = await supabase
     .from("tenants")
     .select(
-      "id, name, slug, created_at, max_members, monthly_fee_cents, billing_status",
+      "id, name, slug, created_at, max_members, monthly_fee_cents, billing_status, monthly_ai_token_limit",
     )
     .order("created_at", { ascending: false });
 
@@ -33,6 +34,12 @@ export default async function PlatformTenantsPage() {
     member_count: counts.get(t.id) ?? 0,
   }));
 
+  const aiBudgetRows = (tenants ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    monthly_ai_token_limit: t.monthly_ai_token_limit ?? 2_000_000,
+  }));
+
   const statusLabel: Record<string, string> = {
     trial: "Trial",
     active: "Ativo",
@@ -48,7 +55,7 @@ export default async function PlatformTenantsPage() {
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tenants</h1>
         <p className="mt-2 text-ink-muted">
-          Crie empresas, limite assentos e acompanhe status.
+          Crie empresas, limite assentos, cota de IA e acompanhe status.
         </p>
       </header>
 
@@ -66,11 +73,12 @@ export default async function PlatformTenantsPage() {
             <p className="mt-3 text-sm text-ink-muted">Nenhum tenant ainda.</p>
           ) : (
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-line text-xs uppercase tracking-[0.08em] text-ink-muted">
                     <th className="pb-2 font-medium">Empresa</th>
                     <th className="pb-2 font-medium">Assentos</th>
+                    <th className="pb-2 font-medium">Cota IA</th>
                     <th className="pb-2 font-medium">Mensalidade</th>
                     <th className="pb-2 font-medium">Status</th>
                     <th className="pb-2 font-medium">Criado</th>
@@ -85,6 +93,11 @@ export default async function PlatformTenantsPage() {
                       </td>
                       <td className="py-3 tabular-nums">
                         {counts.get(t.id) ?? 0}/{t.max_members ?? 2}
+                      </td>
+                      <td className="py-3 tabular-nums">
+                        {(t.monthly_ai_token_limit ?? 2_000_000) === 0
+                          ? "∞"
+                          : `${((t.monthly_ai_token_limit ?? 2_000_000) / 1_000_000).toFixed(1)}M`}
                       </td>
                       <td className="py-3 tabular-nums">
                         {formatBrlFromCents(t.monthly_fee_cents ?? 0)}
@@ -111,6 +124,17 @@ export default async function PlatformTenantsPage() {
         </p>
         <div className="mt-4">
           <TenantSeatsForm tenants={tenantRows} />
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
+        <h2 className="text-lg font-semibold">Cota mensal de IA (tokens)</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Padrão: 2M tokens/mês (~1 WhatsApp com volume médio). 0 = ilimitado.
+          Ao estourar, a conversa vai para atendente humano sem chamar a OpenAI.
+        </p>
+        <div className="mt-4">
+          <TenantAiBudgetForm tenants={aiBudgetRows} />
         </div>
       </section>
     </div>

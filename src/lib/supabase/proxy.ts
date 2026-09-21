@@ -1,7 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isUiPreview } from "@/lib/dev/ui-preview";
 
 export async function updateSession(request: NextRequest) {
+  if (isUiPreview()) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });

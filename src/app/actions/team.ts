@@ -43,7 +43,8 @@ export async function inviteCollaboratorAction(
   const tenantId = String(formData.get("tenantId") ?? "");
   const email = String(formData.get("email") ?? "");
   const fullName = String(formData.get("fullName") ?? "");
-  const role = (String(formData.get("role") ?? "agent") as InviteRole);
+  const role = String(formData.get("role") ?? "agent") as InviteRole;
+  const password = String(formData.get("password") ?? "").trim();
 
   const gate = await requireTenantAdmin(tenantId);
   if (gate.error || !gate.user) {
@@ -55,11 +56,16 @@ export async function inviteCollaboratorAction(
     return { error: "Convide como Atendente ou Supervisor." };
   }
 
+  if (!password || password.length < 6) {
+    return { error: "Informe uma senha provisória (mín. 6 caracteres)." };
+  }
+
   const result = await inviteUserToTenant({
     tenantId,
     email,
     fullName,
     role,
+    password,
     invitedByUserId: gate.user.id,
     enforceSeatLimit: true,
   });

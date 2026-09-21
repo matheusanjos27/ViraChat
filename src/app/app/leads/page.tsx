@@ -35,6 +35,7 @@ export default async function LeadsPage() {
     { data: attrValues },
     { data: deals },
     { data: stages },
+    { data: attachments },
   ] = await Promise.all([
     supabase
       .from("contacts")
@@ -73,6 +74,14 @@ export default async function LeadsPage() {
       .select("id, name, color, is_closed_won, is_closed_lost, sort_order")
       .eq("tenant_id", tenantId)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("message_attachments")
+      .select(
+        "id, contact_id, file_name, mime_type, size_bytes, kind, status, created_at",
+      )
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
+      .limit(500),
   ]);
 
   const attrDefs = (attributes ?? []) as LeadAttributeDef[];
@@ -140,6 +149,32 @@ export default async function LeadsPage() {
     });
   }
 
+  const attachmentsByContact = new Map<
+    string,
+    {
+      id: string;
+      file_name: string | null;
+      mime_type: string | null;
+      size_bytes: number;
+      kind: string;
+      status: string;
+      created_at: string;
+    }[]
+  >();
+  for (const a of attachments ?? []) {
+    const list = attachmentsByContact.get(a.contact_id) ?? [];
+    list.push({
+      id: a.id,
+      file_name: a.file_name,
+      mime_type: a.mime_type,
+      size_bytes: a.size_bytes,
+      kind: a.kind,
+      status: a.status,
+      created_at: a.created_at,
+    });
+    attachmentsByContact.set(a.contact_id, list);
+  }
+
   const rows: LeadRow[] = [];
   const tempUpdates: { id: string; temperature: LeadTemperature }[] = [];
 
@@ -194,6 +229,7 @@ export default async function LeadsPage() {
             preview: previewMap.get(latest.id) ?? null,
           }
         : null,
+      attachments: attachmentsByContact.get(c.id) ?? [],
     });
   }
 
@@ -214,41 +250,18 @@ export default async function LeadsPage() {
   }
 
   const firstStageId = stages?.[0]?.id ?? null;
+  const attachmentMaxMb = Number.parseFloat(
+    process.env.ATTACHMENT_MAX_MB ?? "10",
+  );
 
   return (
-    <div className="app-noise h-full overflow-y-auto">
-      <div className="px-6 py-8">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.14em] text-brand">
-              Contatos
-            </p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">Leads</h1>
-            <p className="mt-1 text-ink-muted">
-              Temperatura, dados coletados e deals — tudo em um lugar.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <a
-              href="/app/settings/ai?tab=campos"
-              className="rounded-lg border border-line bg-surface px-3 py-2 text-xs font-medium hover:bg-[#f4f7f6]"
-            >
-              Campos
-            </a>
-            <a
-              href="/app/deals"
-              className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep"
-            >
-              Abrir funil
-            </a>
-          </div>
-        </div>
-        <LeadsTable
-          rows={rows}
-          attributes={attrDefs}
-          firstStageId={firstStageId}
-        />
-      </div>
-    </div>
+    <LeadsTable
+      rows={rows}
+      attributes={attrDefs}
+      firstStageId={firstStageId}
+      attachmentMaxMb={
+        Number.isFinite(attachmentMaxMb) ? attachmentMaxMb : 10
+      }
+    />
   );
 }

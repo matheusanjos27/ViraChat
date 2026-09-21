@@ -17,6 +17,7 @@ const nav = [
   { href: "/app/conversations", label: "Conversas", icon: IconChat },
   { href: "/app/leads", label: "Leads", icon: IconUsers },
   { href: "/app/deals", label: "Funil", icon: IconFunnel },
+  { href: "/app/channels", label: "Canais", icon: IconChannel },
   { href: "/app/settings/ai", label: "Atendimento com IA", icon: IconSpark },
   { href: "/app/settings", label: "Configurações", icon: IconSettings },
 ] as const;
@@ -67,37 +68,51 @@ export function AppShell({
 
   if (!mounted) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-[#eef1f0] text-sm text-ink-muted">
+      <div className="flex h-dvh items-center justify-center bg-paper text-sm text-ink-muted">
         Carregando painel…
       </div>
     );
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-[#eef1f0] text-ink">
-      <aside className="relative hidden w-[280px] shrink-0 flex-col bg-[#0b2f2a] text-white md:flex">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(circle at 20% 0%, rgba(201,242,166,0.18), transparent 42%), linear-gradient(180deg, #0d3a33 0%, #0b2f2a 55%, #082421 100%)",
-          }}
-        />
-        <div className="relative z-10 flex h-full flex-col px-4 py-5">
-          <div className="flex items-start justify-between gap-2 px-1">
-            <Link href="/app/conversations" className="block">
-              <img src="/logo.png" alt="ViraChat" className="h-20 w-auto" />
-            </Link>
-            {tenantId ? (
-              <NotificationBell
-                tenantId={tenantId}
-                initialItems={initialNotifications}
-              />
-            ) : null}
-          </div>
+    <div className="flex h-dvh overflow-hidden bg-paper text-ink">
+      <aside className="relative hidden w-[220px] shrink-0 flex-col bg-[#0F172A] text-white md:flex">
+        <div className="relative z-10 flex h-full flex-col px-3 py-4">
+          <Link href="/app/conversations" className="flex justify-center px-1">
+            <img
+              src="/logo.png"
+              alt="ViraChat"
+              className="h-14 w-auto max-w-full object-contain"
+            />
+          </Link>
 
-          <nav className="mt-8 flex flex-1 flex-col gap-1.5">
+          {tenantName || tenantId ? (
+            <div className="mx-1 mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                {tenantName ? (
+                  <>
+                    <p className="truncate text-sm font-semibold text-white">
+                      {tenantName}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/55">
+                      <span className="live-dot size-1.5 rounded-full bg-success" />
+                      Online
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-white/55">Notificações</p>
+                )}
+              </div>
+              {tenantId ? (
+                <NotificationBell
+                  tenantId={tenantId}
+                  initialItems={initialNotifications}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          <nav className="mt-5 flex flex-1 flex-col gap-1">
             {nav.map((item) => {
               const active =
                 item.href === "/app/settings/ai"
@@ -113,66 +128,71 @@ export function AppShell({
                   ? waitingCount
                   : openCount
                 : 0;
+              const showDividerBefore =
+                item.href === "/app/settings/ai" ||
+                item.href === "/app/settings";
               return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`flex items-center gap-3.5 rounded-xl px-3.5 py-3 text-[15px] transition ${
-                    active
-                      ? "bg-[#0f6b5c] font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
-                      : "font-medium text-white/80 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <Icon className="size-5 shrink-0 opacity-90" />
-                  <span className="flex-1 leading-snug tracking-tight">
-                    {item.label}
-                  </span>
-                  {isConversas && badge > 0 ? (
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${
-                        waitingCount > 0
-                          ? "bg-[#f59e0b] text-[#1a1205]"
-                          : "bg-white/20 text-white"
-                      }`}
-                    >
-                      {badge > 99 ? "99+" : badge}
-                    </span>
+                <div key={item.label}>
+                  {showDividerBefore ? (
+                    <div className="my-2 border-t border-white/10" />
                   ) : null}
-                </Link>
+                  <Link
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] transition ${
+                      active
+                        ? "bg-[#134E4A] font-semibold text-white"
+                        : "font-medium text-white/70 hover:bg-[#1E293B] hover:text-white"
+                    }`}
+                  >
+                    <Icon className="size-[18px] shrink-0 opacity-90" />
+                    <span className="flex-1 leading-snug tracking-tight">
+                      {item.label === "Atendimento com IA" ? "IA" : item.label}
+                    </span>
+                    {isConversas && badge > 0 ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+                          waitingCount > 0
+                            ? "bg-warn text-[#1a1205]"
+                            : "bg-white/15 text-white"
+                        }`}
+                      >
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    ) : null}
+                  </Link>
+                </div>
               );
             })}
             {isPlatformAdmin ? (
-              <Link
-                href="/platform"
-                className="mt-3 flex items-center gap-3.5 rounded-xl px-3.5 py-3 text-[15px] font-medium text-accent transition hover:bg-white/10"
-              >
-                <IconSettings className="size-5" />
-                Plataforma
-              </Link>
+              <>
+                <div className="my-2 border-t border-white/10" />
+                <Link
+                  href="/platform"
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium text-accent transition hover:bg-[#1E293B]"
+                >
+                  <IconSettings className="size-[18px]" />
+                  Workspace
+                </Link>
+              </>
             ) : null}
           </nav>
 
-          <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
-            {tenantName ? (
-              <p className="truncate px-1 text-xs font-medium text-white/55">
-                {tenantName}
-              </p>
-            ) : null}
-            <div className="flex items-center gap-3 rounded-xl px-1 py-1">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1a6b5c] text-sm font-semibold">
+          <div className="mt-auto space-y-2 border-t border-white/10 pt-3">
+            <div className="flex items-center gap-3 rounded-xl px-2 py-1.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-semibold">
                 {initials(userName)}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold text-white">
+                <p className="truncate text-sm font-semibold text-white">
                   {userName ?? "Usuário"}
                 </p>
-                <p className="truncate text-xs text-white/50">{roleLabel}</p>
+                <p className="truncate text-[11px] text-white/50">{roleLabel}</p>
               </div>
             </div>
             <form action={signOut}>
               <button
                 type="submit"
-                className="w-full rounded-lg px-2 py-2 text-left text-sm text-white/50 transition hover:text-white"
+                className="w-full rounded-lg px-2 py-2 text-left text-sm text-white/45 transition hover:text-white"
               >
                 Sair
               </button>
@@ -184,11 +204,11 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-line bg-surface px-4 py-3 md:hidden">
           <Link href="/app/conversations">
-            <img src="/logo.png" alt="ViraChat" className="h-8 w-auto" />
+            <img src="/logo.png" alt="ViraChat" className="h-10 w-auto" />
           </Link>
           <div className="flex items-center gap-2">
             {tenantId ? (
-              <div className="rounded-full bg-[#0b2f2a] p-0.5">
+              <div className="rounded-full bg-sidebar p-0.5">
                 <NotificationBell
                   tenantId={tenantId}
                   initialItems={initialNotifications}
@@ -248,6 +268,16 @@ function IconFunnel({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
       <path d="M4 5h16l-5.5 7.2V18l-5 2v-7.8L4 5Z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconChannel({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      <path d="M8 10.5c0-2.5 2-4.5 4.5-4.5h.5A4 4 0 0 1 17 10v1.5A3.5 3.5 0 0 1 13.5 15H12" strokeLinecap="round" />
+      <path d="M8 14.5v3.2A1.3 1.3 0 0 0 9.3 19h1.4" strokeLinecap="round" />
+      <circle cx="8" cy="12" r="2" />
     </svg>
   );
 }

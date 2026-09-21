@@ -43,9 +43,12 @@ services:
       EVOLUTION_API_URL: http://evolution-api:8080
       HOSTNAME: 0.0.0.0
       PORT: "3000"
+      ATTACHMENTS_DIR: /data/attachments
+      ATTACHMENT_MAX_MB: ${ATTACHMENT_MAX_MB:-10}
     volumes:
       # Disco do host (VPS) p/ painel de saúde — só leitura
       - /:/host:ro
+      - virachat_attachments:/data/attachments
     depends_on:
       evolution-api:
         condition: service_started
@@ -115,3 +118,4 @@ volumes:
   evolution_pg:
   evolution_redis:
   evolution_instances:
+  virachat_attachments:

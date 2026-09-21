@@ -1,3 +1,10 @@
+import { kindFromMime } from "@/lib/attachments/format";
+import {
+  attachmentMaxBytes,
+  decodeBase64Payload,
+  saveAttachmentBytes,
+  type AttachmentKind,
+} from "@/lib/attachments/store";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 type InboundText = {
@@ -7,6 +14,13 @@ type InboundText = {
   messageId: string;
   text: string;
   timestamp?: string;
+  attachment?: {
+    kind?: AttachmentKind;
+    fileName?: string | null;
+    mimeType?: string | null;
+    sizeBytes?: number | null;
+    base64?: string | null;
+  };
 };
 
 export async function ingestInboundTextMessage(msg: InboundText) {
@@ -134,21 +148,36 @@ export async function ingestInboundTextMessage(msg: InboundText) {
     ? new Date(Number(msg.timestamp) * 1000).toISOString()
     : new Date().toISOString();
 
-  const { error: messageError } = await supabase.from("messages").insert({
-    tenant_id: account.tenant_id,
-    conversation_id: conversationId,
-    direction: "inbound",
-    sender_type: "contact",
-    body: msg.text,
-    provider_message_id: msg.messageId,
-    created_at: createdAt,
-  });
+  const { data: insertedMsg, error: messageError } = await supabase
+    .from("messages")
+    .insert({
+      tenant_id: account.tenant_id,
+      conversation_id: conversationId,
+      direction: "inbound",
+      sender_type: "contact",
+      body: msg.text,
+      provider_message_id: msg.messageId,
+      created_at: createdAt,
+    })
+    .select("id")
+    .single();
   if (messageError) throw messageError;
 
   await supabase
     .from("conversations")
     .update({ last_message_at: createdAt })
     .eq("id", conversationId);
+
+  if (msg.attachment) {
+    await persistInboundAttachment({
+      tenantId: account.tenant_id,
+      contactId,
+      conversationId,
+      messageId: insertedMsg.id,
+      providerMessageId: msg.messageId,
+      attachment: msg.attachment,
+    });
+  }
 
   return {
     ok: true as const,
@@ -157,3 +186,109 @@ export async function ingestInboundTextMessage(msg: InboundText) {
     contactId,
   };
 }
+
+async function persistInboundAttachment(params: {
+  tenantId: string;
+  contactId: string;
+  conversationId: string;
+  messageId: string;
+  providerMessageId: string;
+  attachment: NonNullable<InboundText["attachment"]>;
+}) {
+  const supabase = createServiceClient();
+  const max = attachmentMaxBytes();
+  const mime = params.attachment.mimeType ?? null;
+  const fileName = params.attachment.fileName ?? null;
+  const kind =
+    params.attachment.kind ??
+    kindFromMime(mime, fileName ?? undefined);
+  const declaredSize = params.attachment.sizeBytes ?? 0;
+
+  if (declaredSize > max) {
+    await supabase.from("message_attachments").insert({
+      tenant_id: params.tenantId,
+      contact_id: params.contactId,
+      conversation_id: params.conversationId,
+      message_id: params.messageId,
+      kind,
+      file_name: fileName,
+      mime_type: mime,
+      size_bytes: declaredSize,
+      status: "rejected_too_large",
+      provider_message_id: params.providerMessageId,
+    });
+    return;
+  }
+
+  if (!params.attachment.base64) {
+    await supabase.from("message_attachments").insert({
+      tenant_id: params.tenantId,
+      contact_id: params.contactId,
+      conversation_id: params.conversationId,
+      message_id: params.messageId,
+      kind,
+      file_name: fileName,
+      mime_type: mime,
+      size_bytes: declaredSize,
+      status: "pending",
+      provider_message_id: params.providerMessageId,
+    });
+    return;
+  }
+
+  try {
+    const bytes = decodeBase64Payload(params.attachment.base64);
+    if (bytes.length > max) {
+      await supabase.from("message_attachments").insert({
+        tenant_id: params.tenantId,
+        contact_id: params.contactId,
+        conversation_id: params.conversationId,
+        message_id: params.messageId,
+        kind,
+        file_name: fileName,
+        mime_type: mime,
+        size_bytes: bytes.length,
+        status: "rejected_too_large",
+        provider_message_id: params.providerMessageId,
+      });
+      return;
+    }
+
+    const saved = await saveAttachmentBytes({
+      tenantId: params.tenantId,
+      bytes,
+      fileName,
+      mimeType: mime,
+    });
+
+    await supabase.from("message_attachments").insert({
+      tenant_id: params.tenantId,
+      contact_id: params.contactId,
+      conversation_id: params.conversationId,
+      message_id: params.messageId,
+      kind,
+      file_name: fileName,
+      mime_type: mime,
+      size_bytes: saved.sizeBytes,
+      storage_key: saved.storageKey,
+      status: "stored",
+      provider_message_id: params.providerMessageId,
+    });
+  } catch (err) {
+    console.error("[attachments] save failed", err);
+    await supabase.from("message_attachments").insert({
+      tenant_id: params.tenantId,
+      contact_id: params.contactId,
+      conversation_id: params.conversationId,
+      message_id: params.messageId,
+      kind,
+      file_name: fileName,
+      mime_type: mime,
+      size_bytes: declaredSize,
+      status: "failed",
+      provider_message_id: params.providerMessageId,
+    });
+  }
+}
+
+export { formatBytes, attachmentMaxBytes } from "@/lib/attachments/format";

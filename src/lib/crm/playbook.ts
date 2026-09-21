@@ -1,3 +1,5 @@
+import { AI_LIMITS, truncate } from "@/lib/ai/limits";
+
 /** Template padrão — genérico para qualquer B2B. */
 export const DEFAULT_PLAYBOOK_CONTENT = `# Objetivo
 Qualificar o lead, entender a necessidade, coletar dados e apresentar um orçamento claro — como um consultor comercial humano, sem parecer formulário robótico.
@@ -72,13 +74,67 @@ export function parsePlaybookSections(content: string) {
   return sections;
 }
 
+export function serializePlaybookSections(
+  sections: { title: string; body: string }[],
+) {
+  return sections
+    .map((s) => `# ${s.title}\n${s.body.trim()}`.trim())
+    .join("\n\n");
+}
+
+/** Seções canônicas da UI (ordem do editor). */
+export const PLAYBOOK_SECTION_ORDER = [
+  "Objetivo",
+  "Tom de voz",
+  "Abertura",
+  "Diagnóstico",
+  "Orçamento",
+  "Objeções",
+  "Fechamento",
+  "Transferência",
+  "Limites",
+] as const;
+
+const SECTION_ALIASES: Record<string, string> = {
+  "Transferir para humano quando": "Transferência",
+  "O que NÃO fazer": "Limites",
+  "Dados a coletar": "Diagnóstico",
+};
+
+export function normalizePlaybookSections(content: string) {
+  const parsed = parsePlaybookSections(content).map((s) => ({
+    title: SECTION_ALIASES[s.title] ?? s.title,
+    body: s.body,
+  }));
+  const byTitle = new Map<string, string>();
+  for (const s of parsed) {
+    const prev = byTitle.get(s.title);
+    byTitle.set(s.title, prev ? `${prev}\n${s.body}`.trim() : s.body);
+  }
+  const ordered = PLAYBOOK_SECTION_ORDER.map((title) => ({
+    title,
+    body: byTitle.get(title) ?? "",
+  }));
+  for (const [title, body] of byTitle) {
+    if (
+      !PLAYBOOK_SECTION_ORDER.includes(
+        title as (typeof PLAYBOOK_SECTION_ORDER)[number],
+      )
+    ) {
+      ordered.push({ title, body });
+    }
+  }
+  return ordered;
+}
+
 export function buildPlaybookPromptBlock(playbook: Playbook | null) {
   if (!playbook?.is_active || !playbook.content.trim()) return "";
+  const content = truncate(playbook.content.trim(), AI_LIMITS.playbook);
   return `
 ROTEIRO DE CONVERSA ATIVO ("${playbook.name}"):
 Siga este roteiro com prioridade, adaptando à conversa real. Não leia as seções em voz alta para o cliente — execute-as.
 
-${playbook.content.trim()}
+${content}
 `.trim();
 }
 

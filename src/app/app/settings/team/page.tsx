@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TeamManager } from "@/components/settings/team-manager";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -41,7 +42,13 @@ export default async function TeamSettingsPage() {
           .from("profiles")
           .select("id, full_name, email")
           .in("id", userIds)
-      : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
+      : {
+          data: [] as {
+            id: string;
+            full_name: string | null;
+            email: string | null;
+          }[],
+        };
 
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
 
@@ -57,16 +64,25 @@ export default async function TeamSettingsPage() {
   });
 
   return (
-    <div className="app-noise h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl px-6 py-8">
-        <p className="text-sm font-medium uppercase tracking-[0.14em] text-brand">
-          Configurações
+    <div className="h-full overflow-y-auto bg-paper">
+      <div className="px-5 py-6 lg:px-8">
+        <nav className="mb-4 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+          <Link href="/app/settings" className="hover:text-ink">
+            Configurações
+          </Link>
+          <span className="text-line">/</span>
+          <span className="font-medium text-ink">Equipe</span>
+        </nav>
+
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          Equipe
+        </h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Colaboradores de {tenant.name}. Criam login com e-mail e senha
+          provisória (troca obrigatória no 1º acesso).
         </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Equipe</h1>
-        <p className="mt-2 text-ink-muted">
-          Convide colaboradores de {tenant.name}. Eles só acessam esta empresa.
-        </p>
-        <div className="mt-8">
+
+        <div className="mt-6">
           <TeamManager
             tenantId={tenantId}
             members={members}

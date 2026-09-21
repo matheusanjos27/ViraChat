@@ -1,8 +1,19 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import {
+  createPreviewSupabase,
+  isUiPreview,
+} from "@/lib/dev/ui-preview";
 import type { Database } from "@/lib/supabase/database.types";
 
-export async function createClient() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyClient = any;
+
+export async function createClient(): Promise<AnyClient> {
+  if (isUiPreview()) {
+    return createPreviewSupabase();
+  }
+
   const cookieStore = await cookies();
 
   return createServerClient<Database>(

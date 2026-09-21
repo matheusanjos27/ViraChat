@@ -16,11 +16,16 @@ export async function updateCompanyProfile(
   if (ctx.error || !ctx.membership) return { error: ctx.error ?? "Erro" };
 
   const name = String(formData.get("name") ?? "").trim();
-  const about = String(formData.get("about") ?? "").trim() || null;
+  const aboutRaw = String(formData.get("about") ?? "").trim() || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const website = String(formData.get("website") ?? "").trim() || null;
 
   if (!name) return { error: "Informe o nome da empresa." };
+
+  const { AI_LIMITS, clampSavedText } = await import("@/lib/ai/limits");
+  const about = aboutRaw
+    ? clampSavedText(aboutRaw, AI_LIMITS.about).value
+    : null;
 
   const { error } = await ctx.supabase
     .from("tenants")

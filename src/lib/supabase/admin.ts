@@ -1,8 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
+import {
+  createPreviewSupabase,
+  isUiPreview,
+} from "@/lib/dev/ui-preview";
 import type { Database } from "@/lib/supabase/database.types";
 
 /** Server-only client that bypasses RLS — for webhooks and system jobs. */
 export function createServiceClient() {
+  if (isUiPreview()) {
+    return createPreviewSupabase() as unknown as ReturnType<
+      typeof createClient<Database>
+    >;
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {

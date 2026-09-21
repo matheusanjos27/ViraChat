@@ -10,7 +10,8 @@ import {
 } from "@/app/actions/playbooks";
 import {
   DEFAULT_PLAYBOOK_CONTENT,
-  parsePlaybookSections,
+  normalizePlaybookSections,
+  serializePlaybookSections,
   type Playbook,
   type PlaybookTrigger,
 } from "@/lib/crm/playbook";
@@ -19,34 +20,154 @@ const empty: PlaybookState = {};
 const field =
   "w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15";
 
-const SECTION_HINTS = [
-  "Objetivo",
-  "Tom de voz",
-  "Abertura",
-  "Dados a coletar",
-  "Diagnóstico",
-  "Orçamento",
-  "Objeções",
-  "Fechamento",
-  "Transferir para humano quando",
-  "O que NÃO fazer",
-];
+const TEMPLATES = [
+  { id: "comercial", label: "Comercial", content: DEFAULT_PLAYBOOK_CONTENT },
+  {
+    id: "suporte",
+    label: "Suporte",
+    content: `# Objetivo
+Resolver dúvidas e problemas com clareza, sem enrolação.
+
+# Tom de voz
+Calmo, empático, objetivo. Mensagens curtas.
+
+# Abertura
+Cumprimente e peça o resumo do problema em uma frase.
+
+# Diagnóstico
+Pergunte o que já tentou e desde quando ocorre.
+
+# Orçamento
+Não oferte planos novos — foque em resolver. Se pedir upgrade, faça handoff.
+
+# Objeções
+Se estiver frustrado: reconheça, peça desculpas se couber e ofereça humano.
+
+# Fechamento
+Confirme se ficou resolvido e se precisa de mais alguma coisa.
+
+# Transferência
+- Pediu humano
+- Problema técnico fora do seu conhecimento
+- Cobrança / financeiro
+
+# Limites
+- Não inventar soluções
+- Não prometer prazos sem base
+`,
+  },
+  {
+    id: "cobranca",
+    label: "Cobrança",
+    content: `# Objetivo
+Negociar pendências com respeito e clareza, sem pressão agressiva.
+
+# Tom de voz
+Educado, firme, transparente.
+
+# Abertura
+Identifique-se e confirme se pode falar sobre a pendência.
+
+# Diagnóstico
+Entenda o motivo do atraso e a capacidade de pagamento.
+
+# Orçamento
+Só use valores oficiais do sistema. Nunca invente descontos.
+
+# Objeções
+Ofereça opções dentro da política; fora disso, handoff.
+
+# Fechamento
+Confirme o acordo e próximos passos por escrito.
+
+# Transferência
+- Pediu gestor
+- Contestação complexa
+- Desconto especial
+
+# Limites
+- Não ameaçar
+- Não inventar juros/multas
+`,
+  },
+  {
+    id: "pos-venda",
+    label: "Pós-venda",
+    content: `# Objetivo
+Garantir onboarding e satisfação após a venda.
+
+# Tom de voz
+Acolhedor e pró-ativo.
+
+# Abertura
+Agradeça a compra e pergunte como está a experiência.
+
+# Diagnóstico
+Identifique se precisa de ajuda para começar a usar.
+
+# Orçamento
+Não foque em upsell no primeiro contato pós-venda.
+
+# Objeções
+Se houver reclamação: acolha e ofereça humano quando necessário.
+
+# Fechamento
+Deixe canal aberto e confirme se está tudo certo.
+
+# Transferência
+- Reclamação grave
+- Pediu humano
+- Cancelamento
+
+# Limites
+- Não pressionar nova venda cedo demais
+`,
+  },
+] as const;
 
 export function PlaybookEditor({ playbooks }: { playbooks: Playbook[] }) {
   const [selectedId, setSelectedId] = useState(playbooks[0]?.id ?? null);
   const selected =
     playbooks.find((p) => p.id === selectedId) ?? playbooks[0] ?? null;
-
   const [createState, createAction, createPending] = useActionState(
     createPlaybookFromTemplate,
     empty,
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-      <aside className="space-y-3">
+    <div className="grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)]">
+      <aside className="space-y-4">
         <div className="rounded-2xl border border-line bg-surface p-3 shadow-[var(--shadow)]">
-          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+          <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+            Templates
+          </p>
+          <ul className="mt-2 space-y-1">
+            {TEMPLATES.map((t) => (
+              <li key={t.id}>
+                <form action={createAction}>
+                  <input type="hidden" name="name" value={`Roteiro ${t.label}`} />
+                  <input type="hidden" name="content" value={t.content} />
+                  <button
+                    type="submit"
+                    disabled={createPending}
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-ink-body transition hover:bg-paper disabled:opacity-60"
+                  >
+                    {t.label}
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+          {createState.error ? (
+            <p className="mt-2 px-2 text-xs text-danger">{createState.error}</p>
+          ) : null}
+          {createState.success ? (
+            <p className="mt-2 px-2 text-xs text-brand">{createState.success}</p>
+          ) : null}
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-3 shadow-[var(--shadow)]">
+          <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
             Roteiros
           </p>
           <ul className="mt-2 space-y-1">
@@ -57,73 +178,58 @@ export function PlaybookEditor({ playbooks }: { playbooks: Playbook[] }) {
                   onClick={() => setSelectedId(p.id)}
                   className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition ${
                     selected?.id === p.id
-                      ? "bg-[#e7f4ef] font-semibold text-brand-deep"
-                      : "hover:bg-[#f4f7f6]"
+                      ? "bg-brand-soft font-semibold text-brand-deep"
+                      : "hover:bg-paper"
                   }`}
                 >
                   <span className="truncate">{p.name}</span>
-                  {p.is_active && (
-                    <span className="size-1.5 shrink-0 rounded-full bg-[#1f9d55]" />
-                  )}
+                  {p.is_active ? (
+                    <span className="size-1.5 shrink-0 rounded-full bg-success" />
+                  ) : null}
                 </button>
               </li>
             ))}
           </ul>
-          <form action={createAction} className="mt-3 px-1">
-            <button
-              type="submit"
-              disabled={createPending}
-              className="w-full rounded-lg border border-dashed border-line px-3 py-2 text-xs font-medium text-ink-muted hover:border-brand hover:text-brand disabled:opacity-60"
-            >
-              {createPending ? "…" : "+ Novo do template"}
-            </button>
-          </form>
-          {createState.error && (
-            <p className="mt-2 px-2 text-xs text-red-600">{createState.error}</p>
-          )}
         </div>
       </aside>
 
       {selected ? (
-        <PlaybookForm key={selected.id} playbook={selected} />
+        <PlaybookAccordion key={selected.id} playbook={selected} />
       ) : (
         <div className="rounded-2xl border border-line bg-surface p-10 text-center text-sm text-ink-muted">
-          Nenhum playbook. Crie um a partir do template.
+          Nenhum playbook. Escolha um template à esquerda.
         </div>
       )}
     </div>
   );
 }
 
-function PlaybookForm({ playbook }: { playbook: Playbook }) {
-  const [content, setContent] = useState(playbook.content);
+function PlaybookAccordion({ playbook }: { playbook: Playbook }) {
+  const [sections, setSections] = useState(() =>
+    normalizePlaybookSections(playbook.content),
+  );
+  const [open, setOpen] = useState<string>("Objetivo");
   const [trigger, setTrigger] = useState<PlaybookTrigger>(playbook.trigger);
   const [state, action, pending] = useActionState(savePlaybook, empty);
   const [delState, delAction, delPending] = useActionState(deletePlaybook, empty);
   const [actState, actAction] = useActionState(setPlaybookActive, empty);
 
-  const sections = useMemo(() => parsePlaybookSections(content), [content]);
+  const content = useMemo(
+    () => serializePlaybookSections(sections),
+    [sections],
+  );
 
-  function insertSection(title: string) {
-    if (content.includes(`# ${title}`)) return;
-    setContent((prev) => `${prev.trim()}\n\n# ${title}\n\n`);
-  }
-
-  function resetTemplate() {
-    if (
-      confirm(
-        "Substituir o conteúdo atual pelo template padrão? Alterações não salvas serão perdidas.",
-      )
-    ) {
-      setContent(DEFAULT_PLAYBOOK_CONTENT);
-    }
+  function updateBody(title: string, body: string) {
+    setSections((prev) =>
+      prev.map((s) => (s.title === title ? { ...s, body } : s)),
+    );
   }
 
   return (
     <div className="space-y-4">
       <form
         action={action}
-        className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]"
+        className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]"
       >
         <input type="hidden" name="id" value={playbook.id} />
         <input type="hidden" name="content" value={content} />
@@ -131,24 +237,23 @@ function PlaybookForm({ playbook }: { playbook: Playbook }) {
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Editar roteiro</h2>
+            <h2 className="text-lg font-semibold text-ink">Ensine a IA</h2>
             <p className="mt-1 text-sm text-ink-muted">
-              A IA segue este playbook em toda conversa — genérico para qualquer
-              setor.
+              Cada bloco é uma etapa do atendimento — expanda e edite.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={resetTemplate}
-              className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium hover:bg-[#f4f7f6]"
-            >
-              Restaurar template
-            </button>
-          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="isActive"
+              defaultChecked={playbook.is_active}
+              className="size-4 accent-[var(--brand)]"
+            />
+            Ativo
+          </label>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="text-sm font-medium">Nome</label>
             <input
@@ -166,143 +271,107 @@ function PlaybookForm({ playbook }: { playbook: Playbook }) {
               className={`${field} mt-1`}
             >
               <option value="new_contact">Todo novo contato</option>
-              <option value="keyword">Palavra-chave na mensagem</option>
-              <option value="manual">Manual (só se ativado explicitamente)</option>
+              <option value="keyword">Palavra-chave</option>
+              <option value="manual">Manual</option>
             </select>
           </div>
-          {trigger === "keyword" && (
+          {trigger === "keyword" ? (
             <div className="sm:col-span-2">
               <label className="text-sm font-medium">Palavra-chave</label>
               <input
                 name="triggerKeyword"
                 defaultValue={playbook.trigger_keyword ?? ""}
-                placeholder="Ex: orçamento"
                 className={`${field} mt-1`}
               />
             </div>
-          )}
+          ) : null}
         </div>
 
-        <label className="mt-4 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="isActive"
-            defaultChecked={playbook.is_active}
-            className="size-4 accent-[var(--brand)]"
-          />
-          Playbook ativo
-        </label>
-
-        <div className="mt-4">
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {SECTION_HINTS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => insertSection(s)}
-                className="rounded-full bg-[#eef3f1] px-2.5 py-1 text-[11px] font-medium text-ink-muted hover:bg-[#e2ebe8] hover:text-ink"
+        <div className="mt-5 space-y-2">
+          {sections.map((s) => {
+            const isOpen = open === s.title;
+            return (
+              <div
+                key={s.title}
+                className="overflow-hidden rounded-xl border border-line bg-paper"
               >
-                + {s}
-              </button>
-            ))}
-          </div>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={22}
-            className={`${field} font-mono text-[13px] leading-relaxed`}
-            spellCheck
-          />
+                <button
+                  type="button"
+                  onClick={() => setOpen(isOpen ? "" : s.title)}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold text-ink">
+                    {s.title}
+                  </span>
+                  <span className="text-ink-muted">{isOpen ? "▼" : "▶"}</span>
+                </button>
+                {isOpen ? (
+                  <div className="border-t border-line px-4 py-3">
+                    <textarea
+                      value={s.body}
+                      onChange={(e) => updateBody(s.title, e.target.value)}
+                      rows={5}
+                      className={`${field} bg-surface`}
+                      placeholder={`Orientações de ${s.title.toLowerCase()}…`}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
 
-        {state.error && <p className="mt-2 text-sm text-red-600">{state.error}</p>}
-        {state.success && (
-          <p className="mt-2 text-sm text-brand">{state.success}</p>
-        )}
+        {state.error ? (
+          <p className="mt-3 text-sm text-danger">{state.error}</p>
+        ) : null}
+        {state.success ? (
+          <p className="mt-3 text-sm text-brand">{state.success}</p>
+        ) : null}
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className="mt-4 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+        >
+          {pending ? "Salvando…" : "Salvar playbook"}
+        </button>
+      </form>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <form action={actAction}>
+          <input type="hidden" name="id" value={playbook.id} />
+          <input
+            type="hidden"
+            name="isActive"
+            value={playbook.is_active ? "false" : "true"}
+          />
           <button
             type="submit"
-            disabled={pending}
-            className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-xs font-medium hover:bg-paper"
           >
-            {pending ? "Salvando…" : "Salvar playbook"}
+            {playbook.is_active ? "Desativar" : "Ativar"}
           </button>
-        </div>
-      </form>
-
-      <form action={actAction} className="flex items-center gap-3">
-        <input type="hidden" name="id" value={playbook.id} />
-        <input
-          type="hidden"
-          name="isActive"
-          value={playbook.is_active ? "false" : "true"}
-        />
-        <button
-          type="submit"
-          className="rounded-lg border border-line bg-surface px-3 py-2 text-xs font-medium hover:bg-[#f4f7f6]"
-        >
-          {playbook.is_active ? "Desativar roteiro" : "Ativar roteiro"}
-        </button>
-        {actState.success && (
-          <p className="text-xs text-brand">{actState.success}</p>
-        )}
-      </form>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
-          <p className="text-sm font-semibold">Seções detectadas</p>
-          <p className="mt-1 text-xs text-ink-muted">
-            Como o sistema lê o roteiro (títulos com #).
-          </p>
-          {sections.length === 0 ? (
-            <p className="mt-4 text-sm text-ink-muted">
-              Use linhas começando com # Título
-            </p>
-          ) : (
-            <ul className="mt-4 space-y-2">
-              {sections.map((s) => (
-                <li
-                  key={s.title}
-                  className="rounded-xl border border-line bg-[#f7faf9] px-3 py-2"
-                >
-                  <p className="text-sm font-medium">{s.title}</p>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-ink-muted">
-                    {s.body || "—"}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-line bg-[#0b2f2a] p-5 text-white shadow-[var(--shadow)]">
-          <p className="text-sm font-semibold text-accent">Preview no prompt</p>
-          <p className="mt-1 text-xs text-white/50">
-            Trecho que a IA recebe junto com campos e catálogo.
-          </p>
-          <pre className="mt-4 max-h-72 overflow-auto text-[11px] leading-relaxed whitespace-pre-wrap text-white/80">
-            {`ROTEIRO DE CONVERSA ATIVO ("${playbook.name}"):\nSiga este roteiro com prioridade…\n\n${content.slice(0, 1200)}${content.length > 1200 ? "\n…" : ""}`}
-          </pre>
-        </div>
+        </form>
+        <form action={delAction}>
+          <input type="hidden" name="id" value={playbook.id} />
+          <button
+            type="submit"
+            disabled={delPending}
+            className="rounded-lg px-3 py-2 text-xs text-ink-muted hover:bg-red-50 hover:text-danger"
+            onClick={(e) => {
+              if (!confirm("Remover este playbook?")) e.preventDefault();
+            }}
+          >
+            Excluir
+          </button>
+        </form>
+        {actState.success ? (
+          <span className="text-xs text-brand">{actState.success}</span>
+        ) : null}
+        {delState.error ? (
+          <span className="text-xs text-danger">{delState.error}</span>
+        ) : null}
       </div>
-
-      <form action={delAction} className="flex justify-end">
-        <input type="hidden" name="id" value={playbook.id} />
-        <button
-          type="submit"
-          disabled={delPending}
-          className="rounded-lg px-3 py-2 text-xs text-ink-muted hover:bg-red-50 hover:text-red-700"
-          onClick={(e) => {
-            if (!confirm("Remover este playbook?")) e.preventDefault();
-          }}
-        >
-          {delPending ? "…" : "Excluir playbook"}
-        </button>
-        {delState.error && (
-          <p className="ml-3 self-center text-xs text-red-600">{delState.error}</p>
-        )}
-      </form>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { AI_LIMITS, clampSavedText } from "@/lib/ai/limits";
 import { requireTenantAdmin } from "@/lib/crm/auth";
 import type { BillingType, TierPriceMode } from "@/lib/crm/pricing";
 
@@ -14,6 +15,11 @@ function parseMoney(raw: string) {
   return Number.isFinite(n) ? n : null;
 }
 
+function clampDescription(raw: string | null) {
+  if (!raw) return null;
+  return clampSavedText(raw, AI_LIMITS.serviceDescription).value;
+}
+
 export async function createService(
   _prev: ServiceState,
   formData: FormData,
@@ -22,7 +28,9 @@ export async function createService(
   if (ctx.error || !ctx.membership) return { error: ctx.error ?? "Erro" };
 
   const name = String(formData.get("name") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim() || null;
+  const description = clampDescription(
+    String(formData.get("description") ?? "").trim() || null,
+  );
   const billingType = String(formData.get("billingType") ?? "fixed") as BillingType;
   const unitLabel = String(formData.get("unitLabel") ?? "unidade").trim() || "unidade";
   const unitAttributeKey =
@@ -107,7 +115,9 @@ export async function updateService(
 
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim() || null;
+  const description = clampDescription(
+    String(formData.get("description") ?? "").trim() || null,
+  );
   const billingType = String(formData.get("billingType") ?? "fixed") as BillingType;
   const unitLabel = String(formData.get("unitLabel") ?? "unidade").trim() || "unidade";
   const unitAttributeKey =

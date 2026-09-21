@@ -24,6 +24,11 @@ export type Database = {
           max_members: number;
           monthly_fee_cents: number;
           billing_status: "trial" | "active" | "past_due" | "canceled";
+          monthly_ai_token_limit: number;
+          plan_id: string | null;
+          custom_max_members: number | null;
+          custom_max_channels: number | null;
+          custom_max_ai_replies_month: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -37,6 +42,11 @@ export type Database = {
           max_members?: number;
           monthly_fee_cents?: number;
           billing_status?: "trial" | "active" | "past_due" | "canceled";
+          monthly_ai_token_limit?: number;
+          plan_id?: string | null;
+          custom_max_members?: number | null;
+          custom_max_channels?: number | null;
+          custom_max_ai_replies_month?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -50,8 +60,136 @@ export type Database = {
           max_members?: number;
           monthly_fee_cents?: number;
           billing_status?: "trial" | "active" | "past_due" | "canceled";
+          monthly_ai_token_limit?: number;
+          plan_id?: string | null;
+          custom_max_members?: number | null;
+          custom_max_channels?: number | null;
+          custom_max_ai_replies_month?: number | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      plans: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          description: string | null;
+          max_members: number;
+          max_channels: number;
+          max_ai_replies_month: number;
+          is_custom: boolean;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          description?: string | null;
+          max_members: number;
+          max_channels: number;
+          max_ai_replies_month: number;
+          is_custom?: boolean;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          description?: string | null;
+          max_members?: number;
+          max_channels?: number;
+          max_ai_replies_month?: number;
+          is_custom?: boolean;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_reply_events: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          conversation_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          conversation_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          conversation_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_test_events: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          user_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          user_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          user_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      site_contacts: {
+        Row: {
+          id: string;
+          full_name: string;
+          email: string;
+          lgpd_consent: boolean;
+          lgpd_consent_at: string | null;
+          lgpd_text_version: string;
+          source: string;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          full_name: string;
+          email: string;
+          lgpd_consent?: boolean;
+          lgpd_consent_at?: string | null;
+          lgpd_text_version?: string;
+          source?: string;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string;
+          email?: string;
+          lgpd_consent?: boolean;
+          lgpd_consent_at?: string | null;
+          lgpd_text_version?: string;
+          source?: string;
+          notes?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -652,6 +790,54 @@ export type Database = {
           sender_type?: "contact" | "ai" | "agent" | "system";
           sender_user_id?: string | null;
           body?: string | null;
+          provider_message_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      message_attachments: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          contact_id: string;
+          conversation_id: string | null;
+          message_id: string | null;
+          kind: "image" | "document" | "audio" | "video" | "sticker" | "other";
+          file_name: string | null;
+          mime_type: string | null;
+          size_bytes: number;
+          storage_key: string | null;
+          status: "stored" | "rejected_too_large" | "failed" | "pending";
+          provider_message_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          contact_id: string;
+          conversation_id?: string | null;
+          message_id?: string | null;
+          kind: "image" | "document" | "audio" | "video" | "sticker" | "other";
+          file_name?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number;
+          storage_key?: string | null;
+          status?: "stored" | "rejected_too_large" | "failed" | "pending";
+          provider_message_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          contact_id?: string;
+          conversation_id?: string | null;
+          message_id?: string | null;
+          kind?: "image" | "document" | "audio" | "video" | "sticker" | "other";
+          file_name?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number;
+          storage_key?: string | null;
+          status?: "stored" | "rejected_too_large" | "failed" | "pending";
           provider_message_id?: string | null;
           created_at?: string;
         };
