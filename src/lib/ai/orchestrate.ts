@@ -366,6 +366,10 @@ export async function runAiForConversation(conversationId: string) {
   );
   const collected = mergeCollected(extracted, result.collected);
 
+  // Snapshot: se os dados já estavam completos antes deste turno, NÃO forçar handoff
+  // (bug: segunda conversa com lead já preenchido era jogada pra humano à toa).
+  const wasReadyBefore = requiredAttributesFilled(attrList, currentValues);
+
   if (Object.keys(collected).length > 0) {
     await persistCollectedAttributes({
       supabase,
@@ -400,15 +404,18 @@ export async function runAiForConversation(conversationId: string) {
     /r\$\s*\d|valor\s+total|or[cç]amento/i.test(result.text ?? "");
 
   const dataReady = requiredAttributesFilled(attrList, currentValues);
+  const justBecameReady = dataReady && !wasReadyBefore;
   const buyIntent = wantsToCloseSale(latestInbound.body);
+  const askedForHuman = wantsHuman(latestInbound.body);
 
-  // Após humano/resolvida: não forçar handoff só porque dados já existem.
+  // Só força handoff se o cliente quer fechar AGORA, ou se os dados
+  // acabaram de ficar completos neste turno (não em toda msg seguinte).
   const shouldHandoffToClose =
     result.action === "reply" &&
     (buyIntent ||
       (!resumedAfterHuman &&
-        dataReady &&
-        (quotedThisTurn || aiSaidQuote || buyIntent)));
+        justBecameReady &&
+        (quotedThisTurn || aiSaidQuote || catalog.length === 0)));
 
   if (shouldHandoffToClose) {
     const prior =
@@ -433,19 +440,21 @@ export async function runAiForConversation(conversationId: string) {
       usage: result.usage,
     };
   } else if (
-    resumedAfterHuman &&
     result.action === "handoff" &&
     !buyIntent &&
-    !wantsHuman(latestInbound.body)
+    !askedForHuman &&
+    (resumedAfterHuman || (dataReady && !justBecameReady))
   ) {
-    // Modelo tentou handoff por contexto antigo — responde sem transferir.
+    // Modelo tentou handoff sem pedido novo — mantém conversa com a IA.
     result = {
       action: "reply",
       text:
         (result.text && !/transfer|atendente humano/i.test(result.text)
           ? result.text
           : null) ||
-        "Oi! Em que posso te ajudar agora?",
+        (resumedAfterHuman
+          ? "Oi! Em que posso te ajudar agora?"
+          : "Claro — me conta como posso ajudar."),
       collected: result.collected,
       usage: result.usage,
     };
