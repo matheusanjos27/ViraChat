@@ -17,13 +17,13 @@ fi
 cd "$VIRA_ROOT"
 git pull --ff-only || git pull
 
-# Detecta nome do Kong
-KONG_NAME="$(docker ps --format '{{.Names}}' | grep -i kong | head -1 || true)"
-if [ -z "${KONG_NAME:-}" ]; then
-  KONG_NAME="supabase-kong-1"
-  echo "Aviso: Kong não encontrado rodando; usando $KONG_NAME"
+# Detecta gateway (Envoy novo ou Kong antigo)
+GW_NAME="$(docker ps --format '{{.Names}}' | grep -iE 'supabase-envoy|supabase-kong|kong' | head -1 || true)"
+if [ -z "${GW_NAME:-}" ]; then
+  GW_NAME="supabase-envoy"
+  echo "Aviso: gateway não encontrado rodando; usando $GW_NAME"
 else
-  echo "Kong: $KONG_NAME"
+  echo "API gateway: $GW_NAME"
 fi
 
 upsert_env() {
@@ -42,7 +42,7 @@ upsert_env APP_ALIAS "app.virachat.com.br"
 upsert_env ROOT_DOMAIN "virachat.com.br"
 upsert_env WA_DOMAIN "wa.virachat.com.br"
 upsert_env API_DOMAIN "api.virachat.com.br"
-upsert_env SUPABASE_KONG_UPSTREAM "${KONG_NAME}:8000"
+upsert_env SUPABASE_KONG_UPSTREAM "${GW_NAME}:8000"
 upsert_env NEXT_PUBLIC_APP_URL "https://www.virachat.com.br"
 upsert_env NEXT_PUBLIC_SUPABASE_URL "https://api.virachat.com.br"
 upsert_env EVOLUTION_SERVER_URL "https://wa.virachat.com.br"
@@ -59,12 +59,15 @@ else
   echo "Aviso: $SUPABASE_DIR/docker/.env não encontrado — pulei Supabase"
 fi
 
-# Rede Kong
+# Rede do gateway (Envoy/Kong) com o compose do Vira
 VIRA_NET="$(docker network ls --format '{{.Name}}' | grep -E '^docker_default$' | head -1 || true)"
-KONG_ID="$(docker ps -qf name=kong | head -1 || true)"
-if [ -n "${VIRA_NET:-}" ] && [ -n "${KONG_ID:-}" ]; then
-  docker network connect "$VIRA_NET" "$KONG_ID" 2>/dev/null || true
-  echo "==> Kong na rede $VIRA_NET"
+GW_ID="$(docker ps -qf name=supabase-envoy | head -1 || true)"
+if [ -z "${GW_ID:-}" ]; then
+  GW_ID="$(docker ps -qf name=kong | head -1 || true)"
+fi
+if [ -n "${VIRA_NET:-}" ] && [ -n "${GW_ID:-}" ]; then
+  docker network connect "$VIRA_NET" "$GW_ID" 2>/dev/null || true
+  echo "==> Gateway na rede $VIRA_NET"
 fi
 
 echo "==> Trocando compose IP -> produção (Caddy)"
