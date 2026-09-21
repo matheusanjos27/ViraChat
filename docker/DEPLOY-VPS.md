@@ -236,36 +236,26 @@ cd docker && docker compose -f docker-compose.prod.yml up -d --build
 
 Quando algo sobe na `main`, o GitHub Actions:
 
-1. Entra na VPS por SSH (chave)  
+1. Entra na VPS por SSH (**senha** ou chave)  
 2. Roda `docker/scripts/deploy.sh`  
 3. `git pull` → **migrations** (`DATABASE_URL`) → `docker compose up --build`
 
-### 7.1 Chave SSH só para deploy
-
-No seu PC:
-
-```bash
-ssh-keygen -t ed25519 -C "virachat-deploy" -f virachat-deploy -N ""
-```
-
-Na VPS:
-
-```bash
-mkdir -p ~/.ssh
-cat >> ~/.ssh/authorized_keys   # cola o conteúdo de virachat-deploy.pub
-chmod 600 ~/.ssh/authorized_keys
-```
-
-### 7.2 Secrets no GitHub
+### 7.1 Secrets no GitHub (modo senha — atual)
 
 Repo → **Settings → Secrets and variables → Actions → New repository secret**:
 
 | Secret | Valor |
 |---|---|
-| `VPS_HOST` | `200.192.27.111` |
+| `VPS_HOST` | IP da VPS |
 | `VPS_USER` | `root` (ou o user SSH) |
-| `VPS_SSH_KEY` | conteúdo **completo** do arquivo privado `virachat-deploy` |
+| `VPS_PASSWORD` | senha SSH da VPS |
 | `VPS_PORT` | `22` (opcional) |
+
+Pode apagar `VPS_SSH_KEY` se existir — o workflow não usa mais chave.
+
+### 7.2 (Opcional) Chave SSH só para deploy
+
+Se no futuro preferir chave em vez de senha, gere no PC, coloque a `.pub` em `~/.ssh/authorized_keys` na VPS e troque o workflow para `key: ${{ secrets.VPS_SSH_KEY }}`.
 
 ### 7.3 DATABASE_URL na VPS
 
