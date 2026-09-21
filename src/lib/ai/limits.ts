@@ -21,7 +21,7 @@ export const AI_LIMITS = {
   /** Wait before running AI so bursts coalesce into one call. */
   debounceMs: 1_500,
   /** Max completion tokens (provider). */
-  maxCompletionTokens: 280,
+  maxCompletionTokens: 360,
 } as const;
 
 const SEP = "\n---\n";

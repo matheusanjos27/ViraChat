@@ -30,7 +30,7 @@ export default async function ConversationsPage({
   const { data: rows } = await supabase
     .from("conversations")
     .select(
-      "id, status, last_message_at, assigned_to, channel_id, contacts(id, display_name, phone_e164, external_id), channels(id, display_name)",
+      "id, status, last_message_at, assigned_to, channel_id, contacts(id, display_name, phone_e164, external_id, notes), channels(id, display_name)",
     )
     .eq("tenant_id", tenantId)
     .order("last_message_at", { ascending: false })
@@ -54,6 +54,7 @@ export default async function ConversationsPage({
       display_name: string | null;
       phone_e164: string | null;
       external_id: string | null;
+      notes: string | null;
     } | null;
     channels: { id: string; display_name: string } | null;
   };
@@ -88,6 +89,7 @@ export default async function ConversationsPage({
       display_name: null,
       phone_e164: null,
       external_id: null,
+      notes: null,
     },
     preview: previewByConv.get(r.id) ?? null,
     channel_name: r.channels?.display_name ?? null,

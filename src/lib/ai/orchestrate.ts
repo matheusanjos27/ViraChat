@@ -32,6 +32,10 @@ import {
 } from "@/lib/crm/deal-stage";
 import { decryptToken } from "@/lib/crypto/tokens";
 import { canAiReply, sliceMessagesForAiSession } from "@/lib/conversations/status";
+import {
+  buildDeterministicHandoffSummary,
+  mergeHandoffNote,
+} from "@/lib/crm/handoff-summary";
 import { createAppNotification } from "@/lib/notifications";
 import {
   disableTenantAi,
@@ -176,17 +180,6 @@ export async function runAiForConversation(conversationId: string) {
     return { skipped: "no_inbound" as const };
   }
 
-  if (wantsHuman(latestInbound.body)) {
-    return forceHandoffWithoutLlm({
-      supabase,
-      conversation,
-      text: "Claro — vou te transferir para um atendente humano. Aguarde um momento.",
-      reason: "explicit_human_request",
-      notifyTitle: "Atendimento humano solicitado",
-      notifyBody: "O contato pediu um atendente. Assuma em até 5 minutos.",
-    });
-  }
-
   const history: AiChatMessage[] = sessionMessages
     .filter((m) => m.body)
     .slice(0, -1)
@@ -221,6 +214,23 @@ export async function runAiForConversation(conversationId: string) {
     email: contactEarly?.email,
     company_name: contactEarly?.company_name,
   });
+
+  if (wantsHuman(latestInbound.body)) {
+    const summary = buildDeterministicHandoffSummary({
+      reason: "explicit_human_request",
+      latestUserMessage: latestInbound.body,
+      values: currentValues,
+    });
+    return forceHandoffWithoutLlm({
+      supabase,
+      conversation,
+      text: "Claro — vou te transferir para um atendente humano. Aguarde um momento.",
+      reason: "explicit_human_request",
+      notifyTitle: "Atendimento humano solicitado",
+      notifyBody: truncate(summary.replace(/\n/g, " · "), 220),
+      handoffSummary: summary,
+    });
+  }
 
   const attributeBlock = buildAttributePromptBlock(attrList, currentValues, {
     name: contactEarly?.display_name,
@@ -406,12 +416,19 @@ export async function runAiForConversation(conversationId: string) {
       !/transfer|atendente|humano/i.test(result.text ?? "")
         ? `${result.text!.trim()}\n\n`
         : "";
+    const reason = buyIntent
+      ? "cliente_quer_fechar"
+      : "dados_coletados_fechamento";
     result = {
       action: "handoff",
-      reason: buyIntent
-        ? "cliente_quer_fechar"
-        : "dados_coletados_fechamento",
+      reason,
       text: `${prior}Perfeito — vou te transferir para um atendente finalizar o atendimento.`,
+      handoff_summary: buildDeterministicHandoffSummary({
+        reason,
+        latestUserMessage: latestInbound.body,
+        values: currentValues,
+        quotedTotal,
+      }),
       collected: result.collected,
       usage: result.usage,
     };
@@ -544,6 +561,21 @@ export async function runAiForConversation(conversationId: string) {
       .eq("id", conversationId)
       .eq("status", "ai_active");
 
+    const summary =
+      (result.handoff_summary && result.handoff_summary.trim()) ||
+      buildDeterministicHandoffSummary({
+        reason: result.reason,
+        latestUserMessage: latestInbound.body,
+        values: currentValues,
+        quotedTotal,
+      });
+
+    await persistHandoffNoteOnContact({
+      supabase,
+      contactId: conversation.contact_id,
+      summary,
+    });
+
     const contactLabel =
       contact?.display_name ||
       contact?.phone_e164 ||
@@ -554,7 +586,7 @@ export async function runAiForConversation(conversationId: string) {
       tenantId: conversation.tenant_id,
       type: "handoff",
       title: "Atendimento humano solicitado",
-      body: `${contactLabel} pediu um atendente. Assuma em até 5 minutos.`,
+      body: `${contactLabel}: ${truncate(summary.replace(/\n/g, " · "), 220)}`,
       conversationId,
     });
   } else {
@@ -626,6 +658,7 @@ async function forceHandoffWithoutLlm({
   reason,
   notifyTitle,
   notifyBody,
+  handoffSummary,
 }: {
   supabase: ReturnType<typeof createServiceClient>;
   conversation: ConvRow;
@@ -633,6 +666,7 @@ async function forceHandoffWithoutLlm({
   reason: string;
   notifyTitle: string;
   notifyBody: string;
+  handoffSummary?: string;
 }) {
   const contact = conversation.contacts as {
     phone_e164: string | null;
@@ -699,6 +733,16 @@ async function forceHandoffWithoutLlm({
     .eq("id", conversation.id)
     .eq("status", "ai_active");
 
+  const summary =
+    handoffSummary?.trim() ||
+    buildDeterministicHandoffSummary({ reason });
+
+  await persistHandoffNoteOnContact({
+    supabase,
+    contactId: conversation.contact_id,
+    summary,
+  });
+
   const contactLabel =
     contact?.display_name ||
     contact?.phone_e164 ||
@@ -720,6 +764,31 @@ async function forceHandoffWithoutLlm({
     skippedLlm: true as const,
     reason,
   };
+}
+
+async function persistHandoffNoteOnContact({
+  supabase,
+  contactId,
+  summary,
+}: {
+  supabase: ReturnType<typeof createServiceClient>;
+  contactId: string;
+  summary: string;
+}) {
+  const { data: row } = await supabase
+    .from("contacts")
+    .select("notes")
+    .eq("id", contactId)
+    .maybeSingle();
+
+  const notes = mergeHandoffNote(row?.notes, summary);
+  const { error } = await supabase
+    .from("contacts")
+    .update({ notes })
+    .eq("id", contactId);
+  if (error) {
+    console.error("[ai] handoff note failed", error.message);
+  }
 }
 
 async function persistCollectedAttributes({

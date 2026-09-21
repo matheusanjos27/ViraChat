@@ -22,6 +22,8 @@ export type AiReplyResult =
       action: "handoff";
       reason: string;
       text?: string;
+      /** Resumo interno para o atendente humano (não enviado ao cliente). */
+      handoff_summary?: string;
       collected?: Record<string, string>;
       usage?: AiTokenUsage;
     };

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/actions/auth";
 import type { NotificationItem } from "@/components/app/notification-bell";
+import { useSupabaseKeepAlive } from "@/lib/supabase/keep-alive";
 
 const NotificationBell = dynamic(
   () =>
@@ -70,6 +71,7 @@ export function AppShell({
   const pathname = usePathname() ?? "";
   const [mounted, setMounted] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  useSupabaseKeepAlive();
 
   useEffect(() => {
     setMounted(true);

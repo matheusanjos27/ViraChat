@@ -118,6 +118,30 @@ export async function updateContactAttributeValue(
   return { success: "Salvo." };
 }
 
+export async function updateContactNotes(
+  _prev: CrmState,
+  formData: FormData,
+): Promise<CrmState> {
+  const ctx = await requireTenantMembership();
+  if (ctx.error || !ctx.membership) return { error: ctx.error ?? "Erro" };
+
+  const contactId = String(formData.get("contactId") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "");
+  if (!contactId) return { error: "Contato inválido." };
+
+  const { error } = await ctx.supabase
+    .from("contacts")
+    .update({ notes: notes.trim() || null })
+    .eq("id", contactId)
+    .eq("tenant_id", ctx.membership.tenant_id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/leads");
+  revalidatePath("/app/conversations");
+  return { success: "Observações salvas." };
+}
+
 /**
  * Apaga o lead/contato e tudo ligado a ele (conversas, mensagens, deals,
  * atributos, anexos no banco e arquivos no disco) para liberar espaço.

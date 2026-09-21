@@ -9,6 +9,9 @@ import {
   sendAgentMessage,
   type ConversationActionState,
 } from "@/app/actions/conversations";
+import { updateContactNotes, type CrmState } from "@/app/actions/crm";
+import { withTimeout } from "@/lib/async/with-timeout";
+import { extractLatestHandoffSummary } from "@/lib/crm/handoff-summary";
 import { createClient } from "@/lib/supabase/client";
 import {
   statusLabel,
@@ -227,82 +230,135 @@ export function InboxWorkspace({
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
+    let inFlight = false;
+    let inFlightSince = 0;
+    const POLL_TIMEOUT_MS = 15_000;
 
     // Polling estável: Realtime estava derrubando a aba em produção (hydration/recover loop).
     setLiveState("polling");
 
     async function refreshList() {
-      const { data: rows } = await supabase
-        .from("conversations")
-        .select(
-          "id, status, last_message_at, assigned_to, channel_id, contacts(id, display_name, phone_e164, external_id), channels(id, display_name)",
-        )
-        .eq("tenant_id", tenantId)
-        .order("last_message_at", { ascending: false })
-        .limit(80);
-      if (cancelled || !rows) return;
+      if (cancelled || document.hidden) return;
+      // Request anterior pendurado → libera (era o "só F5 resolve").
+      if (inFlight && Date.now() - inFlightSince > POLL_TIMEOUT_MS + 500) {
+        inFlight = false;
+      }
+      if (inFlight) return;
+      inFlight = true;
+      inFlightSince = Date.now();
+      try {
+        const { data: rows, error } = await withTimeout(
+          supabase
+            .from("conversations")
+            .select(
+              "id, status, last_message_at, assigned_to, channel_id, contacts(id, display_name, phone_e164, external_id, notes), channels(id, display_name)",
+            )
+            .eq("tenant_id", tenantId)
+            .order("last_message_at", { ascending: false })
+            .limit(80),
+          POLL_TIMEOUT_MS,
+          "inbox.conversations",
+        );
 
-      const ids = rows.map((r) => r.id);
-      const previewByConv = new Map<string, string | null>();
-      if (ids.length > 0) {
-        const { data: recentMsgs } = await supabase
-          .from("messages")
-          .select("conversation_id, body, created_at")
-          .in("conversation_id", ids)
-          .order("created_at", { ascending: false })
-          .limit(200);
-        for (const m of recentMsgs ?? []) {
-          if (!previewByConv.has(m.conversation_id)) {
-            previewByConv.set(m.conversation_id, m.body);
+        if (error) {
+          console.warn("[inbox] refresh list", error.message);
+          if (/jwt|session|expired|auth/i.test(error.message)) {
+            await withTimeout(
+              supabase.auth.refreshSession(),
+              10_000,
+              "inbox.refreshSession",
+            ).catch(() => null);
+          }
+          return;
+        }
+        if (cancelled || !rows) return;
+
+        const ids = rows.map((r) => r.id);
+        const previewByConv = new Map<string, string | null>();
+        if (ids.length > 0) {
+          const { data: recentMsgs } = await withTimeout(
+            supabase
+              .from("messages")
+              .select("conversation_id, body, created_at")
+              .in("conversation_id", ids)
+              .order("created_at", { ascending: false })
+              .limit(200),
+            POLL_TIMEOUT_MS,
+            "inbox.previews",
+          ).catch(() => ({ data: null }));
+          for (const m of recentMsgs ?? []) {
+            if (!previewByConv.has(m.conversation_id)) {
+              previewByConv.set(m.conversation_id, m.body);
+            }
           }
         }
-      }
 
-      const next: InboxConversation[] = rows.map((r) => {
-        const contact =
-          (r.contacts as unknown as InboxConversation["contact"] | null) ?? {
-            id: "unknown",
-            display_name: null,
-            phone_e164: null,
-            external_id: null,
+        const next: InboxConversation[] = rows.map((r) => {
+          const contact =
+            (r.contacts as unknown as InboxConversation["contact"] | null) ?? {
+              id: "unknown",
+              display_name: null,
+              phone_e164: null,
+              external_id: null,
+              notes: null,
+            };
+          const channel = r.channels as unknown as {
+            id: string;
+            display_name: string;
+          } | null;
+          return {
+            id: r.id,
+            status: r.status as InboxConversation["status"],
+            last_message_at: r.last_message_at,
+            assigned_to: r.assigned_to,
+            channel_id: r.channel_id ?? channel?.id ?? null,
+            contact,
+            preview: previewByConv.get(r.id) ?? null,
+            channel_name: channel?.display_name ?? null,
           };
-        const channel = r.channels as unknown as {
-          id: string;
-          display_name: string;
-        } | null;
-        return {
-          id: r.id,
-          status: r.status as InboxConversation["status"],
-          last_message_at: r.last_message_at,
-          assigned_to: r.assigned_to,
-          channel_id: r.channel_id ?? channel?.id ?? null,
-          contact,
-          preview: previewByConv.get(r.id) ?? null,
-          channel_name: channel?.display_name ?? null,
-        };
-      });
-      setConversations(next);
+        });
+        setConversations(next);
 
-      const openId = selectedIdRef.current;
-      if (openId) {
-        const { data: msgs } = await supabase
-          .from("messages")
-          .select("id, body, direction, sender_type, created_at")
-          .eq("conversation_id", openId)
-          .order("created_at", { ascending: true });
-        if (!cancelled && msgs) {
-          setMessages(msgs as InboxMessage[]);
+        const openId = selectedIdRef.current;
+        if (openId) {
+          const { data: msgs } = await withTimeout(
+            supabase
+              .from("messages")
+              .select("id, body, direction, sender_type, created_at")
+              .eq("conversation_id", openId)
+              .order("created_at", { ascending: true }),
+            POLL_TIMEOUT_MS,
+            "inbox.messages",
+          ).catch(() => ({ data: null }));
+          if (!cancelled && msgs) {
+            setMessages(msgs as InboxMessage[]);
+          }
         }
+      } catch (err) {
+        console.warn("[inbox] refresh failed", err);
+      } finally {
+        inFlight = false;
       }
     }
+
+    void refreshList();
 
     const pollTimer = setInterval(() => {
       void refreshList();
     }, 8000);
 
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        inFlight = false;
+        void refreshList();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       cancelled = true;
       clearInterval(pollTimer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [tenantId]);
 
@@ -757,10 +813,23 @@ export function InboxWorkspace({
                   <p className="text-sm font-semibold text-ink">Observações</p>
                   <span className="text-ink-muted">✎</span>
                 </div>
-                <textarea
-                  rows={3}
-                  placeholder="Adicionar uma observação..."
-                  className="w-full resize-none rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-placeholder focus:border-brand focus:ring-2 focus:ring-brand/15"
+                {selected.status === "waiting_human" ||
+                selected.status === "human_active" ? (
+                  (() => {
+                    const handoffNote = extractLatestHandoffSummary(
+                      selected.contact.notes,
+                    );
+                    return handoffNote ? (
+                      <div className="mb-3 rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-3 py-2.5 text-xs leading-relaxed text-[#7a4510] whitespace-pre-wrap">
+                        {handoffNote}
+                      </div>
+                    ) : null;
+                  })()
+                ) : null}
+                <ContactNotesForm
+                  key={`${selected.contact.id}:${selected.contact.notes ?? ""}`}
+                  contactId={selected.contact.id}
+                  initialNotes={selected.contact.notes ?? ""}
                 />
               </div>
             </div>
@@ -788,6 +857,49 @@ function DetailRow({
       <span className="text-xs text-ink-muted">{label}</span>
       <span className="text-right text-sm font-medium text-ink">{value}</span>
     </div>
+  );
+}
+
+const emptyCrm: CrmState = {};
+
+function ContactNotesForm({
+  contactId,
+  initialNotes,
+}: {
+  contactId: string;
+  initialNotes: string;
+}) {
+  const [notes, setNotes] = useState(initialNotes);
+  const [state, action, pending] = useActionState(updateContactNotes, emptyCrm);
+
+  return (
+    <form action={action} className="space-y-2">
+      <input type="hidden" name="contactId" value={contactId} />
+      <textarea
+        name="notes"
+        rows={5}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Adicionar uma observação..."
+        className="w-full resize-none rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-placeholder focus:border-brand focus:ring-2 focus:ring-brand/15"
+      />
+      <div className="flex items-center justify-between gap-2">
+        {state.error ? (
+          <p className="text-xs text-danger">{state.error}</p>
+        ) : state.success ? (
+          <p className="text-xs text-brand">{state.success}</p>
+        ) : (
+          <span />
+        )}
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+        >
+          {pending ? "Salvando…" : "Salvar"}
+        </button>
+      </div>
+    </form>
   );
 }
 

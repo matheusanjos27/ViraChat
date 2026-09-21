@@ -58,6 +58,7 @@ export type LeadRow = {
     preview: string | null;
   } | null;
   attachments: LeadAttachment[];
+  notes?: string | null;
 };
 
 function formatPhone(raw: string | null | undefined) {
@@ -632,6 +633,12 @@ function LeadDetail({
                 }
               />
             </div>
+
+            {lead.notes?.trim() ? (
+              <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-3 py-2.5 text-xs leading-relaxed text-[#7a4510] whitespace-pre-wrap">
+                {lead.notes.trim()}
+              </div>
+            ) : null}
 
             {lead.attachments.length > 0 ? (
               <div>

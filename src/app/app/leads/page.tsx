@@ -40,7 +40,7 @@ export default async function LeadsPage() {
     supabase
       .from("contacts")
       .select(
-        "id, display_name, phone_e164, email, company_name, temperature, created_at",
+        "id, display_name, phone_e164, email, company_name, temperature, created_at, notes",
       )
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
@@ -230,6 +230,7 @@ export default async function LeadsPage() {
           }
         : null,
       attachments: attachmentsByContact.get(c.id) ?? [],
+      notes: c.notes ?? null,
     });
   }
 

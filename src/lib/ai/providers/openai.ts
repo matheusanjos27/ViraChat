@@ -25,8 +25,9 @@ Se a mensagem do sistema disser SESSÃO NOVA (após humano), NÃO faça handoff 
 
 Humano/atendente → action=handoff. Senão action=reply.
 Se o cliente der um CAMPO A COLETAR, inclua "collected". Se avançar no funil, "deal_stage" (nome exato; nunca "Fechado" sozinho — use Qualificado/Orçamento/Proposta e handoff).
+No handoff, preencha "handoff_summary" (3–6 linhas, PT-BR) só para o atendente: o que a pessoa quer, dados relevantes, objeções e próximo passo. NÃO coloque esse resumo no "text" (text é só a mensagem ao cliente).
 Só JSON: {"action":"reply","text":"...","collected":{},"deal_stage":"..."}
-ou {"action":"handoff","reason":"...","text":"..."}`;
+ou {"action":"handoff","reason":"...","text":"...","handoff_summary":"..."}`;
 
 function parseAiJson(raw: string): AiReplyResult | null {
   const match = raw.match(/\{[\s\S]*\}/);
@@ -36,6 +37,7 @@ function parseAiJson(raw: string): AiReplyResult | null {
       action?: string;
       text?: string;
       reason?: string;
+      handoff_summary?: string;
       collected?: Record<string, string>;
       deal_stage?: string;
     };
@@ -53,6 +55,10 @@ function parseAiJson(raw: string): AiReplyResult | null {
         action: "handoff",
         reason: data.reason || "handoff",
         text: data.text,
+        handoff_summary:
+          typeof data.handoff_summary === "string"
+            ? data.handoff_summary.trim()
+            : undefined,
         collected,
       };
     }

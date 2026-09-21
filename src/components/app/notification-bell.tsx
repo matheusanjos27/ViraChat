@@ -7,6 +7,7 @@ import {
   playHandoffSound,
   unlockNotificationAudio,
 } from "@/lib/notifications/sound";
+import { withTimeout } from "@/lib/async/with-timeout";
 
 export type NotificationItem = {
   id: string;
@@ -120,6 +121,10 @@ export function NotificationBell({
 
   useEffect(() => {
     const supabase = createClient();
+    let cancelled = false;
+    let inFlight = false;
+    let inFlightSince = 0;
+    const POLL_TIMEOUT_MS = 12_000;
 
     const handleIncoming = (incoming: NotificationItem[]) => {
       const known = knownIdsRef.current;
@@ -151,20 +156,60 @@ export function NotificationBell({
     };
 
     const tick = async () => {
-      const { data } = await supabase
-        .from("app_notifications")
-        .select("id, type, title, body, conversation_id, read_at, created_at")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false })
-        .limit(30);
-      if (data) handleIncoming(data as NotificationItem[]);
+      if (cancelled || document.hidden) return;
+      if (inFlight && Date.now() - inFlightSince > POLL_TIMEOUT_MS + 500) {
+        inFlight = false;
+      }
+      if (inFlight) return;
+      inFlight = true;
+      inFlightSince = Date.now();
+      try {
+        const { data, error } = await withTimeout(
+          supabase
+            .from("app_notifications")
+            .select("id, type, title, body, conversation_id, read_at, created_at")
+            .eq("tenant_id", tenantId)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          POLL_TIMEOUT_MS,
+          "notifications.poll",
+        );
+        if (error) {
+          if (/jwt|session|expired|auth/i.test(error.message)) {
+            await withTimeout(
+              supabase.auth.refreshSession(),
+              10_000,
+              "notifications.refreshSession",
+            ).catch(() => null);
+          }
+          return;
+        }
+        if (data) handleIncoming(data as NotificationItem[]);
+      } catch (err) {
+        console.warn("[notifications] poll failed", err);
+      } finally {
+        inFlight = false;
+      }
     };
 
     void tick();
     const id = window.setInterval(() => {
       void tick();
     }, 8_000);
-    return () => window.clearInterval(id);
+
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        inFlight = false;
+        void tick();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [tenantId]);
 
   async function markAllRead() {

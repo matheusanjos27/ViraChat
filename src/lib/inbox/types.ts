@@ -5,6 +5,7 @@ export type InboxContact = {
   display_name: string | null;
   phone_e164: string | null;
   external_id: string | null;
+  notes?: string | null;
 };
 
 export type InboxMessage = {

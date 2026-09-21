@@ -28,19 +28,22 @@ function tone(
   freq: number,
   start: number,
   dur: number,
-  gain = 0.12,
+  gain: number,
+  type: OscillatorType = "square",
 ) {
   const osc = ctx.createOscillator();
   const g = ctx.createGain();
-  osc.type = "sine";
+  osc.type = type;
   osc.frequency.value = freq;
+  // Ataque rápido + volume alto (alerta precisa “furar” o ambiente)
   g.gain.setValueAtTime(0.0001, start);
-  g.gain.exponentialRampToValueAtTime(gain, start + 0.02);
+  g.gain.exponentialRampToValueAtTime(gain, start + 0.015);
+  g.gain.setValueAtTime(gain, start + Math.max(0.04, dur * 0.55));
   g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
   osc.connect(g);
   g.connect(ctx.destination);
   osc.start(start);
-  osc.stop(start + dur + 0.02);
+  osc.stop(start + dur + 0.03);
 }
 
 export async function playHandoffSound() {
@@ -50,9 +53,13 @@ export async function playHandoffSound() {
     if (ctx.state === "suspended") await ctx.resume();
     unlocked = true;
     const t0 = ctx.currentTime;
-    // Duas notas rápidas — “ping-ping” de alerta
-    tone(ctx, 880, t0, 0.14, 0.14);
-    tone(ctx, 1175, t0 + 0.16, 0.18, 0.12);
+    // Três beeps fortes (square = bem audível no PC)
+    tone(ctx, 880, t0, 0.22, 0.55, "square");
+    tone(ctx, 1175, t0 + 0.26, 0.24, 0.5, "square");
+    tone(ctx, 1320, t0 + 0.54, 0.28, 0.45, "square");
+    // Harmônico senoidal por cima (mais “cheio”)
+    tone(ctx, 880, t0, 0.22, 0.22, "sine");
+    tone(ctx, 1175, t0 + 0.26, 0.24, 0.2, "sine");
   } catch {
     // Autoplay bloqueado até o usuário interagir com a página
   }
