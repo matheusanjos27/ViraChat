@@ -13,11 +13,24 @@ export {
   type AttachmentKind,
 } from "@/lib/attachments/format";
 
+/** Statically scoped default — keeps Turbopack from tracing the whole project. */
+const DEFAULT_ATTACHMENTS_DIR = path.join(process.cwd(), "data", "attachments");
+
 export function attachmentsRoot() {
-  return (
-    process.env.ATTACHMENTS_DIR?.trim() ||
-    path.join(process.cwd(), "data", "attachments")
-  );
+  return process.env.ATTACHMENTS_DIR?.trim() || DEFAULT_ATTACHMENTS_DIR;
+}
+
+function resolveUnderRoot(root: string, ...parts: string[]) {
+  const abs = path.join(/*turbopackIgnore: true*/ root, ...parts);
+  const resolvedRoot = path.resolve(/*turbopackIgnore: true*/ root);
+  const resolved = path.resolve(/*turbopackIgnore: true*/ abs);
+  const prefix = resolvedRoot.endsWith(path.sep)
+    ? resolvedRoot
+    : resolvedRoot + path.sep;
+  if (resolved !== resolvedRoot && !resolved.startsWith(prefix)) {
+    throw new Error("Caminho de anexo inválido");
+  }
+  return resolved;
 }
 
 export async function saveAttachmentBytes(params: {
@@ -38,20 +51,15 @@ export async function saveAttachmentBytes(params: {
     .replace(/[^\w.\-()+ ]+/g, "_")
     .slice(0, 120);
   const rel = path.posix.join(params.tenantId, `${id}-${safeName}`);
-  const abs = path.join(attachmentsRoot(), params.tenantId);
-  await mkdir(abs, { recursive: true });
-  await writeFile(path.join(attachmentsRoot(), rel), params.bytes);
+  const root = attachmentsRoot();
+  const dir = resolveUnderRoot(root, params.tenantId);
+  await mkdir(dir, { recursive: true });
+  await writeFile(resolveUnderRoot(root, rel), params.bytes);
   return { storageKey: rel, sizeBytes: params.bytes.length };
 }
 
 export async function readAttachmentBytes(storageKey: string) {
-  const abs = path.join(attachmentsRoot(), storageKey);
-  const root = path.resolve(attachmentsRoot());
-  const resolved = path.resolve(abs);
-  if (!resolved.startsWith(root)) {
-    throw new Error("Caminho de anexo inválido");
-  }
-  return readFile(resolved);
+  return readFile(resolveUnderRoot(attachmentsRoot(), storageKey));
 }
 
 export function decodeBase64Payload(raw: string) {
