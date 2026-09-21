@@ -179,3 +179,68 @@ export async function resolveConversationAction(
   revalidatePath("/app/conversations");
   return { success: "Conversa resolvida." };
 }
+
+/**
+ * Apaga só esta conversa (mensagens + anexos da thread). O lead/contato permanece.
+ */
+export async function deleteConversationAction(
+  _prev: ConversationActionState,
+  formData: FormData,
+): Promise<ConversationActionState> {
+  const conversationId = String(formData.get("conversationId") ?? "").trim();
+  if (!conversationId) return { error: "Conversa inválida." };
+
+  const { requireTenantMembership } = await import("@/lib/crm/auth");
+  const ctx = await requireTenantMembership();
+  if (ctx.error || !ctx.membership || !ctx.user) {
+    return { error: ctx.error ?? "Não autenticado." };
+  }
+
+  const tenantId = ctx.membership.tenant_id;
+  const { createServiceClient } = await import("@/lib/supabase/admin");
+  const { deleteAttachmentFile } = await import("@/lib/attachments/store");
+  const admin = createServiceClient();
+
+  const { data: conversation, error: convErr } = await admin
+    .from("conversations")
+    .select("id")
+    .eq("id", conversationId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  if (convErr) return { error: convErr.message };
+  if (!conversation) return { error: "Conversa não encontrada." };
+
+  const { data: attachments } = await admin
+    .from("message_attachments")
+    .select("id, storage_key")
+    .eq("tenant_id", tenantId)
+    .eq("conversation_id", conversationId);
+
+  for (const a of attachments ?? []) {
+    if (a.storage_key) {
+      await deleteAttachmentFile(a.storage_key);
+    }
+  }
+
+  if ((attachments ?? []).length > 0) {
+    await admin
+      .from("message_attachments")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("conversation_id", conversationId);
+  }
+
+  const { error } = await admin
+    .from("conversations")
+    .delete()
+    .eq("id", conversationId)
+    .eq("tenant_id", tenantId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/conversations");
+  revalidatePath("/app/leads");
+  revalidatePath("/app");
+  return { success: "Conversa excluída." };
+}

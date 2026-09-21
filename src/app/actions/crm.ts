@@ -118,6 +118,62 @@ export async function updateContactAttributeValue(
   return { success: "Salvo." };
 }
 
+/**
+ * Apaga o lead/contato e tudo ligado a ele (conversas, mensagens, deals,
+ * atributos, anexos no banco e arquivos no disco) para liberar espaço.
+ */
+export async function deleteLead(
+  _prev: CrmState,
+  formData: FormData,
+): Promise<CrmState> {
+  const ctx = await requireTenantMembership();
+  if (ctx.error || !ctx.membership) return { error: ctx.error ?? "Erro" };
+
+  const contactId = String(formData.get("contactId") ?? "").trim();
+  if (!contactId) return { error: "Lead inválido." };
+
+  const tenantId = ctx.membership.tenant_id;
+  const { createServiceClient } = await import("@/lib/supabase/admin");
+  const { deleteAttachmentFile } = await import("@/lib/attachments/store");
+  const admin = createServiceClient();
+
+  const { data: contact, error: contactErr } = await admin
+    .from("contacts")
+    .select("id")
+    .eq("id", contactId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  if (contactErr) return { error: contactErr.message };
+  if (!contact) return { error: "Lead não encontrado." };
+
+  const { data: attachments } = await admin
+    .from("message_attachments")
+    .select("id, storage_key")
+    .eq("tenant_id", tenantId)
+    .eq("contact_id", contactId);
+
+  for (const a of attachments ?? []) {
+    if (a.storage_key) {
+      await deleteAttachmentFile(a.storage_key);
+    }
+  }
+
+  const { error } = await admin
+    .from("contacts")
+    .delete()
+    .eq("id", contactId)
+    .eq("tenant_id", tenantId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/leads");
+  revalidatePath("/app/conversations");
+  revalidatePath("/app/deals");
+  revalidatePath("/app");
+  return { success: "Lead excluído. Dados e arquivos removidos." };
+}
+
 export async function createDealStage(
   _prev: CrmState,
   formData: FormData,

@@ -89,6 +89,10 @@ export async function ingestInboundTextMessage(msg: InboundText) {
   }
 
   let conversationId: string;
+  const createdAt = msg.timestamp
+    ? new Date(Number(msg.timestamp) * 1000).toISOString()
+    : new Date().toISOString();
+
   const { data: openConv } = await supabase
     .from("conversations")
     .select("id, status")
@@ -120,7 +124,11 @@ export async function ingestInboundTextMessage(msg: InboundText) {
         .update({
           status: "ai_active",
           assigned_to: null,
-          last_message_at: new Date().toISOString(),
+          waiting_human_at: null,
+          handoff_busy_sent_at: null,
+          // Alinha com o timestamp da nova mensagem (evita cortar o inbound).
+          ai_session_started_at: createdAt,
+          last_message_at: createdAt,
         })
         .eq("id", resolved.id)
         .select("id")
@@ -135,7 +143,8 @@ export async function ingestInboundTextMessage(msg: InboundText) {
           channel_id: account.channel_id,
           contact_id: contactId,
           status: "ai_active",
-          last_message_at: new Date().toISOString(),
+          ai_session_started_at: createdAt,
+          last_message_at: createdAt,
         })
         .select("id")
         .single();
@@ -143,10 +152,6 @@ export async function ingestInboundTextMessage(msg: InboundText) {
       conversationId = createdConv.id;
     }
   }
-
-  const createdAt = msg.timestamp
-    ? new Date(Number(msg.timestamp) * 1000).toISOString()
-    : new Date().toISOString();
 
   const { data: insertedMsg, error: messageError } = await supabase
     .from("messages")

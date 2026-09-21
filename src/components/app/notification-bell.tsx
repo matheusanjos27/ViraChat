@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  playHandoffSound,
+  unlockNotificationAudio,
+} from "@/lib/notifications/sound";
 
 export type NotificationItem = {
   id: string;
@@ -32,6 +36,10 @@ function TimeAgo({ iso }: { iso: string }) {
   return <span suppressHydrationWarning>{label}</span>;
 }
 
+function isHandoffType(type: string) {
+  return type === "handoff" || type === "handoff_busy";
+}
+
 export function NotificationBell({
   tenantId,
   initialItems,
@@ -46,6 +54,10 @@ export function NotificationBell({
   );
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const knownIdsRef = useRef<Set<string>>(
+    new Set(initialItems.map((n) => n.id)),
+  );
+  const primedRef = useRef(false);
 
   const unread = items.filter((n) => !n.read_at).length;
 
@@ -57,6 +69,21 @@ export function NotificationBell({
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  // Desbloqueia áudio no primeiro clique/tecla em qualquer lugar do app.
+  useEffect(() => {
+    function prime() {
+      if (primedRef.current) return;
+      primedRef.current = true;
+      unlockNotificationAudio();
+    }
+    window.addEventListener("pointerdown", prime, { once: true });
+    window.addEventListener("keydown", prime, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", prime);
+      window.removeEventListener("keydown", prime);
+    };
   }, []);
 
   useLayoutEffect(() => {
@@ -86,13 +113,43 @@ export function NotificationBell({
     };
   }, [open]);
 
-  // Realtime desligado (estabilidade); polling leve a cada 60s.
   useEffect(() => {
     setItems(initialItems);
+    knownIdsRef.current = new Set(initialItems.map((n) => n.id));
   }, [initialItems]);
 
   useEffect(() => {
     const supabase = createClient();
+
+    const handleIncoming = (incoming: NotificationItem[]) => {
+      const known = knownIdsRef.current;
+      const freshHandoffs = incoming.filter(
+        (n) => isHandoffType(n.type) && !n.read_at && !known.has(n.id),
+      );
+      for (const n of incoming) known.add(n.id);
+
+      if (freshHandoffs.length > 0) {
+        void playHandoffSound();
+        if (
+          typeof window !== "undefined" &&
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+          const first = freshHandoffs[0];
+          try {
+            new Notification(first.title, {
+              body: first.body ?? "Cliente aguardando atendimento humano.",
+              tag: `handoff-${first.id}`,
+            });
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
+      setItems(incoming);
+    };
+
     const tick = async () => {
       const { data } = await supabase
         .from("app_notifications")
@@ -100,11 +157,13 @@ export function NotificationBell({
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false })
         .limit(30);
-      if (data) setItems(data as NotificationItem[]);
+      if (data) handleIncoming(data as NotificationItem[]);
     };
+
+    void tick();
     const id = window.setInterval(() => {
       void tick();
-    }, 60_000);
+    }, 8_000);
     return () => window.clearInterval(id);
   }, [tenantId]);
 
@@ -139,6 +198,7 @@ export function NotificationBell({
     if (Notification.permission === "default") {
       void Notification.requestPermission();
     }
+    unlockNotificationAudio();
   }
 
   return (
@@ -151,10 +211,20 @@ export function NotificationBell({
         }}
         className="relative flex size-10 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
         aria-label="Notificações"
-        title="Notificações"
+        title="Notificações (som em pedidos de humano)"
       >
-        <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7" strokeLinecap="round" strokeLinejoin="round" />
+        <svg
+          viewBox="0 0 24 24"
+          className="size-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
+          <path
+            d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
           <path d="M10 19a2 2 0 0 0 4 0" strokeLinecap="round" />
         </svg>
         {unread > 0 ? (
@@ -220,7 +290,7 @@ export function NotificationBell({
                         {n.body.replace(/\s*\(instance:[^)]+\)\s*$/, "")}
                       </p>
                     ) : null}
-                    {n.type === "handoff" ? (
+                    {n.type === "handoff" || n.type === "handoff_busy" ? (
                       <p className="mt-1.5 text-[11px] font-medium text-[#b54708]">
                         Aguardando humano
                       </p>

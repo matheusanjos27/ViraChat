@@ -659,6 +659,7 @@ export type Database = {
           last_message_at: string | null;
           waiting_human_at: string | null;
           handoff_busy_sent_at: string | null;
+          ai_session_started_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -672,6 +673,7 @@ export type Database = {
           last_message_at?: string | null;
           waiting_human_at?: string | null;
           handoff_busy_sent_at?: string | null;
+          ai_session_started_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -685,6 +687,7 @@ export type Database = {
           last_message_at?: string | null;
           waiting_human_at?: string | null;
           handoff_busy_sent_at?: string | null;
+          ai_session_started_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -75,6 +75,21 @@ export async function readAttachmentBytes(storageKey: string) {
   return readFile(resolveUnderRoot(attachmentsRoot(), storageKey));
 }
 
+/** Remove arquivo do disco; ignora se já não existir. */
+export async function deleteAttachmentFile(storageKey: string) {
+  const key = storageKey?.trim();
+  if (!key) return;
+  const { unlink } = await import("node:fs/promises");
+  try {
+    await unlink(resolveUnderRoot(attachmentsRoot(), key));
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      console.warn("[attachments] unlink failed", key, err);
+    }
+  }
+}
+
 export function decodeBase64Payload(raw: string) {
   const cleaned = raw
     .replace(/^data:[^;]+;base64,/i, "")

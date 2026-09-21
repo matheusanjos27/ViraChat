@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   assumeConversationAction,
+  deleteConversationAction,
   releaseToAiAction,
   resolveConversationAction,
   sendAgentMessage,
@@ -552,6 +553,7 @@ export function InboxWorkspace({
                 <ConversationControls
                   conversationId={selected.id}
                   status={selected.status}
+                  onDeleted={() => setSelectedId(null)}
                 />
                 <button
                   type="button"
@@ -792,9 +794,11 @@ function DetailRow({
 function ConversationControls({
   conversationId,
   status,
+  onDeleted,
 }: {
   conversationId: string;
   status: InboxConversation["status"];
+  onDeleted?: () => void;
 }) {
   const [assumeState, assumeAction, assumePending] = useActionState(
     assumeConversationAction,
@@ -808,6 +812,14 @@ function ConversationControls({
     resolveConversationAction,
     emptyAction,
   );
+  const [deleteState, deleteAction, deletePending] = useActionState(
+    deleteConversationAction,
+    emptyAction,
+  );
+
+  useEffect(() => {
+    if (deleteState.success) onDeleted?.();
+  }, [deleteState.success, onDeleted]);
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -850,9 +862,34 @@ function ConversationControls({
           </button>
         </form>
       )}
-      {(assumeState.error || releaseState.error || resolveState.error) && (
+      <form action={deleteAction}>
+        <input type="hidden" name="conversationId" value={conversationId} />
+        <button
+          type="submit"
+          disabled={deletePending}
+          className="rounded-lg border border-danger/30 bg-red-50 px-3 py-1.5 text-xs font-semibold text-danger hover:bg-red-100 disabled:opacity-60"
+          onClick={(e) => {
+            if (
+              !confirm(
+                "Excluir esta conversa?\n\nApaga mensagens e arquivos desta thread. O lead continua na lista. Não dá para desfazer.",
+              )
+            ) {
+              e.preventDefault();
+            }
+          }}
+        >
+          {deletePending ? "…" : "Excluir"}
+        </button>
+      </form>
+      {(assumeState.error ||
+        releaseState.error ||
+        resolveState.error ||
+        deleteState.error) && (
         <p className="w-full text-right text-xs text-danger">
-          {assumeState.error || releaseState.error || resolveState.error}
+          {assumeState.error ||
+            releaseState.error ||
+            resolveState.error ||
+            deleteState.error}
         </p>
       )}
     </div>

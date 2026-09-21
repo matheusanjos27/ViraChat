@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useActionState } from "react";
 import {
   createDeal,
+  deleteLead,
   updateContactAttributeValue,
   type CrmState,
 } from "@/app/actions/crm";
@@ -541,6 +542,11 @@ function LeadDetail({
     empty,
   );
   const [dealState, dealAction, dealPending] = useActionState(createDeal, empty);
+  const [delState, delAction, delPending] = useActionState(deleteLead, empty);
+
+  useEffect(() => {
+    if (delState.success) onClose();
+  }, [delState.success, onClose]);
 
   const tabs: { id: DetailTab; label: string }[] = [
     { id: "resumo", label: "Resumo" },
@@ -784,7 +790,7 @@ function LeadDetail({
         ) : null}
       </div>
 
-      <div className="border-t border-line p-4">
+      <div className="space-y-2 border-t border-line p-4">
         {lead.conv ? (
           <Link
             href={`/app/conversations?c=${lead.conv.id}`}
@@ -797,6 +803,34 @@ function LeadDetail({
             Sem conversa vinculada ainda.
           </p>
         )}
+        <form action={delAction}>
+          <input type="hidden" name="contactId" value={lead.id} />
+          <button
+            type="submit"
+            disabled={delPending}
+            className="w-full rounded-xl border border-danger/30 bg-red-50 px-4 py-2.5 text-sm font-semibold text-danger hover:bg-red-100 disabled:opacity-60"
+            onClick={(e) => {
+              const label =
+                lead.display_name ||
+                lead.company_name ||
+                formatPhone(lead.phone_e164);
+              if (
+                !confirm(
+                  `Excluir o lead "${label}"?\n\nIsso apaga conversas, mensagens, deals e arquivos deste lead. Não dá para desfazer.`,
+                )
+              ) {
+                e.preventDefault();
+              }
+            }}
+          >
+            {delPending ? "Excluindo…" : "Excluir lead"}
+          </button>
+          {delState.error ? (
+            <p className="mt-2 text-center text-xs text-danger">
+              {delState.error}
+            </p>
+          ) : null}
+        </form>
       </div>
     </aside>
   );

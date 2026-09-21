@@ -31,7 +31,7 @@ import {
   inferDealStageHint,
 } from "@/lib/crm/deal-stage";
 import { decryptToken } from "@/lib/crypto/tokens";
-import { canAiReply } from "@/lib/conversations/status";
+import { canAiReply, sliceMessagesForAiSession } from "@/lib/conversations/status";
 import { createAppNotification } from "@/lib/notifications";
 import {
   disableTenantAi,
@@ -49,7 +49,7 @@ export async function runAiForConversation(conversationId: string) {
   const { data: conversation, error: convError } = await supabase
     .from("conversations")
     .select(
-      "id, tenant_id, status, channel_id, contact_id, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
+      "id, tenant_id, status, channel_id, contact_id, ai_session_started_at, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
     )
     .eq("id", conversationId)
     .single();
@@ -160,7 +160,16 @@ export async function runAiForConversation(conversationId: string) {
       .order("sort_order", { ascending: true }),
   ]);
 
-  const latestInbound = [...(messages ?? [])]
+  const sessionSlice = sliceMessagesForAiSession(
+    messages ?? [],
+    (
+      conversation as { ai_session_started_at?: string | null }
+    ).ai_session_started_at,
+  );
+  const sessionMessages = sessionSlice.messages;
+  const resumedAfterHuman = sessionSlice.resumedAfterHuman;
+
+  const latestInbound = [...sessionMessages]
     .reverse()
     .find((m) => m.direction === "inbound" && m.body);
   if (!latestInbound?.body) {
@@ -178,7 +187,7 @@ export async function runAiForConversation(conversationId: string) {
     });
   }
 
-  const history: AiChatMessage[] = (messages ?? [])
+  const history: AiChatMessage[] = sessionMessages
     .filter((m) => m.body)
     .slice(0, -1)
     .slice(-AI_LIMITS.historyTurns)
@@ -288,6 +297,14 @@ export async function runAiForConversation(conversationId: string) {
         .join("\n")
     : "";
 
+  const resumeBlock = resumedAfterHuman
+    ? `SESSÃO NOVA (após atendimento humano/encerramento):
+- Ignore o histórico antigo da venda — esta é uma conversa retomada.
+- NÃO faça handoff só porque os dados do lead já estão na base.
+- Só action=handoff se o cliente pedir atendente agora ou quiser fechar/contratar de novo nesta mensagem.
+- Cumprimente de forma breve e pergunte como pode ajudar hoje.`
+    : "";
+
   const light = isLightContextTurn(latestInbound.body, history.length);
 
   let result: AiReplyResult = await provider.generateReply({
@@ -296,8 +313,10 @@ export async function runAiForConversation(conversationId: string) {
     history,
     latestUserMessage: latestInbound.body,
     playbookBlock: light
-      ? [companyBlock, playbookBlock].filter(Boolean).join("\n\n")
-      : [companyBlock, playbookBlock, funnelBlock].filter(Boolean).join("\n\n"),
+      ? [companyBlock, resumeBlock, playbookBlock].filter(Boolean).join("\n\n")
+      : [companyBlock, resumeBlock, playbookBlock, funnelBlock]
+          .filter(Boolean)
+          .join("\n\n"),
     // Sempre injeta dados já conhecidos — senão a IA pergunta de novo no "oi".
     attributeBlock,
     catalogBlock: light ? undefined : catalogBlock,
@@ -328,7 +347,7 @@ export async function runAiForConversation(conversationId: string) {
   const extracted = extractCollectedFromMessages(
     attrList,
     currentValues,
-    (messages ?? []).map((m) => ({
+    sessionMessages.map((m) => ({
       direction: m.direction as "inbound" | "outbound",
       body: m.body,
       sender_type: m.sender_type,
@@ -372,10 +391,14 @@ export async function runAiForConversation(conversationId: string) {
 
   const dataReady = requiredAttributesFilled(attrList, currentValues);
   const buyIntent = wantsToCloseSale(latestInbound.body);
+
+  // Após humano/resolvida: não forçar handoff só porque dados já existem.
   const shouldHandoffToClose =
     result.action === "reply" &&
-    ((dataReady && (quotedThisTurn || aiSaidQuote || buyIntent)) ||
-      buyIntent);
+    (buyIntent ||
+      (!resumedAfterHuman &&
+        dataReady &&
+        (quotedThisTurn || aiSaidQuote || buyIntent)));
 
   if (shouldHandoffToClose) {
     const prior =
@@ -389,6 +412,23 @@ export async function runAiForConversation(conversationId: string) {
         ? "cliente_quer_fechar"
         : "dados_coletados_fechamento",
       text: `${prior}Perfeito — vou te transferir para um atendente finalizar o atendimento.`,
+      collected: result.collected,
+      usage: result.usage,
+    };
+  } else if (
+    resumedAfterHuman &&
+    result.action === "handoff" &&
+    !buyIntent &&
+    !wantsHuman(latestInbound.body)
+  ) {
+    // Modelo tentou handoff por contexto antigo — responde sem transferir.
+    result = {
+      action: "reply",
+      text:
+        (result.text && !/transfer|atendente humano/i.test(result.text)
+          ? result.text
+          : null) ||
+        "Oi! Em que posso te ajudar agora?",
       collected: result.collected,
       usage: result.usage,
     };
