@@ -1,3 +1,4 @@
+import { statfs } from "node:fs/promises";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 export type HealthCheck = {
@@ -7,6 +8,50 @@ export type HealthCheck = {
   detail: string;
   latencyMs: number | null;
 };
+
+export type DiskStats = {
+  path: string;
+  totalBytes: number;
+  usedBytes: number;
+  freeBytes: number;
+  usedPercent: number;
+  ok: boolean;
+};
+
+function formatGb(bytes: number) {
+  return (bytes / 1024 / 1024 / 1024).toFixed(1);
+}
+
+async function readDiskStats(): Promise<DiskStats | null> {
+  for (const path of ["/host", "/"]) {
+    try {
+      const s = await statfs(path);
+      const totalBytes = Number(s.blocks) * Number(s.bsize);
+      const freeBytes = Number(s.bavail) * Number(s.bsize);
+      const usedBytes = Math.max(0, totalBytes - freeBytes);
+      if (totalBytes <= 0) continue;
+      // / no container costuma ser pequenininho — preferir /host se existir
+      if (path === "/" && totalBytes < 20 * 1024 * 1024 * 1024) {
+        // menos de 20GB provavelmente é só o container; tenta /host antes (já tentou)
+        if (path === "/") {
+          // se só temos /, reporta mesmo assim com aviso no label
+        }
+      }
+      const usedPercent = Math.round((usedBytes / totalBytes) * 100);
+      return {
+        path,
+        totalBytes,
+        usedBytes,
+        freeBytes,
+        usedPercent,
+        ok: usedPercent < 90,
+      };
+    } catch {
+      // tenta próximo path
+    }
+  }
+  return null;
+}
 
 async function timedFetch(
   url: string,
@@ -29,7 +74,7 @@ async function timedFetch(
       ok: false,
       status: 0,
       latencyMs: Date.now() - started,
-      error: err instanceof Error ? err.message : " falha",
+      error: err instanceof Error ? err.message : "falha",
     };
   }
 }
@@ -37,9 +82,30 @@ async function timedFetch(
 export async function collectPlatformHealth(): Promise<{
   overall: "healthy" | "degraded" | "down";
   checks: HealthCheck[];
+  disk: DiskStats | null;
   checkedAt: string;
 }> {
   const checks: HealthCheck[] = [];
+  const disk = await readDiskStats();
+
+  if (disk) {
+    const fromHost = disk.path === "/host";
+    checks.push({
+      id: "disk",
+      label: fromHost ? "Disco SSD (VPS)" : "Disco (filesystem do app)",
+      ok: disk.ok,
+      detail: `${formatGb(disk.usedBytes)} GB usados de ${formatGb(disk.totalBytes)} GB · ${formatGb(disk.freeBytes)} GB livres (${disk.usedPercent}%)`,
+      latencyMs: null,
+    });
+  } else {
+    checks.push({
+      id: "disk",
+      label: "Disco SSD (VPS)",
+      ok: false,
+      detail: "Não foi possível ler o disco (monte /:/host:ro no container)",
+      latencyMs: null,
+    });
+  }
 
   // Database
   {
@@ -65,7 +131,7 @@ export async function collectPlatformHealth(): Promise<{
     }
   }
 
-  // App (public URL or local)
+  // App
   {
     const appUrl = (
       process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000"
@@ -107,7 +173,7 @@ export async function collectPlatformHealth(): Promise<{
     }
   }
 
-  // Supabase Kong / Auth
+  // Supabase API
   {
     const sb = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
     if (!sb) {
@@ -151,6 +217,7 @@ export async function collectPlatformHealth(): Promise<{
   return {
     overall,
     checks,
+    disk,
     checkedAt: new Date().toISOString(),
   };
 }
