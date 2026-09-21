@@ -61,9 +61,11 @@ export default async function PlatformUsagePage({
     byTenant.set(e.tenant_id, cur);
   }
 
-  const nameById = new Map((tenants ?? []).map((t) => [t.id, t.name]));
-  const selectedName = tenantFilter
-    ? nameById.get(tenantFilter) ?? "Cliente"
+  const nameById = new Map<string, string>(
+    (tenants ?? []).map((t) => [t.id, t.name]),
+  );
+  const selectedName: string | null = tenantFilter
+    ? (nameById.get(tenantFilter) ?? "Cliente")
     : null;
 
   const rows = [...byTenant.entries()]

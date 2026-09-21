@@ -6,12 +6,11 @@ import {
 } from "@/lib/dev/ui-preview";
 import type { Database } from "@/lib/supabase/database.types";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyClient = any;
+type ServerClient = ReturnType<typeof createServerClient<Database>>;
 
-export async function createClient(): Promise<AnyClient> {
+export async function createClient(): Promise<ServerClient> {
   if (isUiPreview()) {
-    return createPreviewSupabase();
+    return createPreviewSupabase() as unknown as ServerClient;
   }
 
   const cookieStore = await cookies();

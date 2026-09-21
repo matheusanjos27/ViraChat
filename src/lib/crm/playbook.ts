@@ -111,10 +111,12 @@ export function normalizePlaybookSections(content: string) {
     const prev = byTitle.get(s.title);
     byTitle.set(s.title, prev ? `${prev}\n${s.body}`.trim() : s.body);
   }
-  const ordered = PLAYBOOK_SECTION_ORDER.map((title) => ({
-    title,
-    body: byTitle.get(title) ?? "",
-  }));
+  const ordered: { title: string; body: string }[] = PLAYBOOK_SECTION_ORDER.map(
+    (title) => ({
+      title,
+      body: byTitle.get(title) ?? "",
+    }),
+  );
   for (const [title, body] of byTitle) {
     if (
       !PLAYBOOK_SECTION_ORDER.includes(
