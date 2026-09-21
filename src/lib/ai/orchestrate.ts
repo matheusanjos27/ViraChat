@@ -7,6 +7,7 @@ import {
   isLightContextTurn,
   offersHandoffConfirmation,
   truncate,
+  wantsCatalogList,
   wantsHuman,
 } from "@/lib/ai/limits";
 import { getDefaultAiProvider } from "@/lib/ai/providers/openai";
@@ -25,6 +26,7 @@ import {
 } from "@/lib/crm/playbook";
 import {
   buildCatalogPromptBlock,
+  formatCatalogListMessage,
   formatQuoteMessage,
   quoteCatalog,
   type ServiceForQuote,
@@ -144,7 +146,7 @@ export async function runAiForConversation(conversationId: string) {
     supabase
       .from("services")
       .select(
-        "id, name, description, billing_type, unit_label, unit_attribute_key, base_price, min_price, is_active",
+        "id, name, description, offer_kind, billing_type, unit_label, unit_attribute_key, base_price, min_price, is_active",
       )
       .eq("tenant_id", conversation.tenant_id)
       .eq("is_active", true)
@@ -287,6 +289,9 @@ export async function runAiForConversation(conversationId: string) {
     id: s.id,
     name: s.name,
     description: s.description,
+    offer_kind: (s.offer_kind === "service" ? "service" : "product") as
+      | "product"
+      | "service",
     billing_type: s.billing_type,
     unit_label: s.unit_label,
     unit_attribute_key: s.unit_attribute_key,
@@ -302,6 +307,14 @@ export async function runAiForConversation(conversationId: string) {
       sort_order: t.sort_order,
     })),
   }));
+
+  if (wantsCatalogList(latestInbound.body)) {
+    return replyAndStayOnAi({
+      supabase,
+      conversation,
+      text: formatCatalogListMessage(catalog),
+    });
+  }
 
   let catalogBlock = buildCatalogPromptBlock(catalog);
   let quotedThisTurn = false;

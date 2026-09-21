@@ -62,7 +62,7 @@ export default async function AiSettingsPage() {
     supabase
       .from("services")
       .select(
-        "id, name, description, billing_type, unit_label, unit_attribute_key, base_price, min_price, is_active, sort_order",
+        "id, name, description, offer_kind, billing_type, unit_label, unit_attribute_key, base_price, min_price, is_active, sort_order",
       )
       .eq("tenant_id", membership.tenant_id)
       .order("sort_order", { ascending: true }),
@@ -86,6 +86,7 @@ export default async function AiSettingsPage() {
     id: s.id,
     name: s.name,
     description: s.description,
+    offer_kind: s.offer_kind === "service" ? "service" : "product",
     billing_type: s.billing_type,
     unit_label: s.unit_label,
     unit_attribute_key: s.unit_attribute_key,

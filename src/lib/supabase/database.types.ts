@@ -531,6 +531,7 @@ export type Database = {
           tenant_id: string;
           name: string;
           description: string | null;
+          offer_kind: "product" | "service";
           billing_type: "fixed" | "per_unit" | "tiered";
           unit_label: string;
           unit_attribute_key: string | null;
@@ -547,6 +548,7 @@ export type Database = {
           tenant_id: string;
           name: string;
           description?: string | null;
+          offer_kind?: "product" | "service";
           billing_type?: "fixed" | "per_unit" | "tiered";
           unit_label?: string;
           unit_attribute_key?: string | null;
@@ -563,6 +565,7 @@ export type Database = {
           tenant_id?: string;
           name?: string;
           description?: string | null;
+          offer_kind?: "product" | "service";
           billing_type?: "fixed" | "per_unit" | "tiered";
           unit_label?: string;
           unit_attribute_key?: string | null;
@@ -980,6 +983,7 @@ export type Database = {
       attribute_type: "text" | "number" | "select" | "date" | "email" | "phone";
       lead_temperature: "hot" | "warm" | "cold";
       billing_type: "fixed" | "per_unit" | "tiered";
+      offer_kind: "product" | "service";
       tier_price_mode: "flat" | "per_unit";
       playbook_trigger: "new_contact" | "keyword" | "manual";
     };

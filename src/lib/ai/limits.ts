@@ -138,7 +138,7 @@ export function isLightContextTurn(
 
   if (
     msg.length <= 20 &&
-    !/(or[cç]amento|pre[cç]o|plano|quero|preciso|contratar|servi[cç]o|valor|empresa|email|e-mail)/i.test(
+    !/(or[cç]amento|pre[cç]o|plano|quero|preciso|contratar|servi[cç]o|produto|valor|empresa|email|e-mail|cat[aá]logo|vende|comprar|shampoo|tem\b|quais|lista)/i.test(
       msg,
     )
   ) {
@@ -146,6 +146,15 @@ export function isLightContextTurn(
   }
 
   return false;
+}
+
+/** Cliente pediu para ver o que a empresa vende / listar catálogo. */
+export function wantsCatalogList(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  return /(o\s+que\s+(voc[eê]s?\s+)?(t[eê]m|vende|oferece)|quais?\s+(s[aã]o\s+)?(os\s+)?(produtos?|servi[cç]os?|op[cç][oõ]es|itens)|lista(r)?\s+(de\s+)?(produtos?|servi[cç]os?|op[cç][oõ]es)|me\s+(mostra|passa|manda).{0,20}(produtos?|cat[aá]logo|op[cç][oõ]es)|cat[aá]logo|o\s+que\s+vende|tem\s+o\s+que|voc[eê]s?\s+t[eê]m\s+o\s+que)/i.test(
+    t,
+  );
 }
 
 export function clampSavedText(

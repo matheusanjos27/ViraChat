@@ -2,6 +2,7 @@ import { AI_LIMITS, truncate } from "@/lib/ai/limits";
 
 export type BillingType = "fixed" | "per_unit" | "tiered";
 export type TierPriceMode = "flat" | "per_unit";
+export type OfferKind = "product" | "service";
 
 export type PricingTier = {
   id?: string;
@@ -16,6 +17,7 @@ export type ServiceForQuote = {
   id: string;
   name: string;
   description: string | null;
+  offer_kind: OfferKind;
   billing_type: BillingType;
   unit_label: string;
   unit_attribute_key: string | null;
@@ -168,16 +170,18 @@ Informe que não há oferta cadastrada e faça handoff para um atendente.`,
   }
 
   const blocks = active.map((s) => {
+    const kindLabel =
+      s.offer_kind === "service" ? "SERVIÇO" : "PRODUTO";
     const desc = s.description
       ? ` — ${truncate(s.description, AI_LIMITS.serviceDescription)}`
       : "";
     if (s.billing_type === "fixed") {
-      return `- ${s.name}: valor fixo ${money(Number(s.base_price))}${desc}`;
+      return `- [${kindLabel}] ${s.name}: valor fixo ${money(Number(s.base_price))}${desc}`;
     }
     if (s.billing_type === "per_unit") {
       const min =
         s.min_price != null ? `, mínimo ${money(Number(s.min_price))}` : "";
-      return `- ${s.name}: ${money(Number(s.base_price))} por ${s.unit_label}${min}${desc}`;
+      return `- [${kindLabel}] ${s.name}: ${money(Number(s.base_price))} por ${s.unit_label}${min}${desc}`;
     }
     const tiers = [...s.tiers]
       .sort((a, b) => a.min_units - b.min_units)
@@ -193,18 +197,57 @@ Informe que não há oferta cadastrada e faça handoff para um atendente.`,
         return `  · ${range}: ${price}`;
       })
       .join("\n");
-    return `- ${s.name} (por faixas de ${s.unit_label})${desc}:\n${tiers}`;
+    return `- [${kindLabel}] ${s.name} (por faixas de ${s.unit_label})${desc}:\n${tiers}`;
   });
 
   return truncate(
-    `CATÁLOGO OFICIAL (use APENAS estes itens — nome, descrição e preço abaixo; nada genérico fora desta lista):\n${blocks.join("\n")}\nPeça a quantidade antes de orçar, se faltar. Se o cliente pedir algo que não está na lista, diga que não oferece e sugira o item mais próximo da lista OU handoff.`,
+    `CATÁLOGO OFICIAL — lista FECHADA (copie nomes/preços daqui; é proibido inventar item genérico):
+${blocks.join("\n")}
+Regras: (1) ao listar o que vende, use SOMENTE estes itens; (2) diga se é PRODUTO ou SERVIÇO conforme a tag; (3) se o cliente pedir algo fora da lista, diga que não tem cadastrado e ofereça o item mais próximo da lista OU handoff; (4) nunca invente "Shampoo Hidratante/Anti-queda/Sem Sulfato" nem qualquer nome que não esteja acima.`,
     AI_LIMITS.catalogBlock,
   );
 }
 
+/** Lista determinística do catálogo (WhatsApp) — evita alucinação da IA. */
+export function formatCatalogListMessage(services: ServiceForQuote[]) {
+  const active = services.filter((s) => s.is_active);
+  if (active.length === 0) {
+    return "No momento não tenho produtos/serviços ativos no catálogo. Posso te passar para um atendente?";
+  }
+
+  const products = active.filter((s) => s.offer_kind !== "service");
+  const servicesOnly = active.filter((s) => s.offer_kind === "service");
+
+  const linesFor = (items: ServiceForQuote[]) =>
+    items
+      .map((s, i) => {
+        const price =
+          s.billing_type === "fixed"
+            ? money(Number(s.base_price))
+            : s.billing_type === "per_unit"
+              ? `${money(Number(s.base_price))}/${s.unit_label}`
+              : `a partir das faixas de ${s.unit_label}`;
+        const desc = s.description
+          ? ` — ${truncate(s.description, 120)}`
+          : "";
+        return `${i + 1}. *${s.name}*${desc}\n   ${price}`;
+      })
+      .join("\n\n");
+
+  const parts: string[] = ["No nosso catálogo temos:"];
+  if (products.length) {
+    parts.push(`*Produtos*\n${linesFor(products)}`);
+  }
+  if (servicesOnly.length) {
+    parts.push(`*Serviços*\n${linesFor(servicesOnly)}`);
+  }
+  parts.push("Qual te interessa?");
+  return parts.join("\n\n");
+}
+
 /** Formata um QuoteResult para exibir no WhatsApp / UI. */
 export function formatQuoteMessage(quote: QuoteResult, units: number) {
-  if (quote.lines.length === 0) return "Nenhum serviço ativo para orçar.";
+  if (quote.lines.length === 0) return "Nenhum item ativo para orçar.";
   const lines = quote.lines
     .map((l) => `✅ ${l.serviceName}\n${l.explanation}`)
     .join("\n\n");

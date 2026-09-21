@@ -11,6 +11,7 @@ import {
   formatQuoteMessage,
   quoteCatalog,
   type BillingType,
+  type OfferKind,
   type ServiceForQuote,
   type TierPriceMode,
 } from "@/lib/crm/pricing";
@@ -69,9 +70,9 @@ export function ServicesManager({
         <div className="rounded-2xl border border-line bg-surface shadow-[var(--shadow)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
             <div>
-              <h2 className="font-semibold text-ink">Serviços</h2>
+              <h2 className="font-semibold text-ink">Catálogo</h2>
               <p className="mt-0.5 text-sm text-ink-muted">
-                {services.length} no catálogo — clique para editar
+                {services.length} itens — produto ou serviço
               </p>
             </div>
             <button
@@ -79,20 +80,20 @@ export function ServicesManager({
               onClick={() => setCreateOpen(true)}
               className="inline-flex items-center rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
             >
-              Criar Serviço
+              Criar item
             </button>
           </div>
           {services.length === 0 ? (
             <div className="px-5 py-10 text-center">
               <p className="text-sm text-ink-muted">
-                Nenhum serviço ainda. Crie o primeiro no catálogo.
+                Nenhum item ainda. Cadastre o primeiro produto ou serviço.
               </p>
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
                 className="mt-4 inline-flex rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-paper"
               >
-                Criar Serviço
+                Criar item
               </button>
             </div>
           ) : (
@@ -103,6 +104,9 @@ export function ServicesManager({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-ink">{s.name}</p>
+                        <span className="rounded-full bg-paper px-2 py-0.5 text-[10px] font-semibold text-ink-muted">
+                          {s.offer_kind === "service" ? "Serviço" : "Produto"}
+                        </span>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             s.is_active
@@ -165,7 +169,7 @@ export function ServicesManager({
                     id="novo-servico-title"
                     className="text-lg font-semibold text-ink"
                   >
-                    Novo serviço
+                    Novo item
                   </h2>
                   <p className="mt-0.5 text-sm text-ink-muted">
                     Fixo, por unidade ou por faixas.
@@ -270,6 +274,9 @@ function ServiceForm({
   const [billingType, setBillingType] = useState<BillingType>(
     service?.billing_type ?? "fixed",
   );
+  const [offerKind, setOfferKind] = useState<OfferKind>(
+    service?.offer_kind ?? "product",
+  );
   const [tiers, setTiers] = useState<TierDraft[]>(
     service?.tiers?.length
       ? service.tiers.map((t) => ({
@@ -297,6 +304,7 @@ function ServiceForm({
       {service && <input type="hidden" name="id" value={service.id} />}
       <input type="hidden" name="tiersJson" value={JSON.stringify(tiers)} />
       <input type="hidden" name="billingType" value={billingType} />
+      <input type="hidden" name="offerKind" value={offerKind} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
@@ -306,7 +314,7 @@ function ServiceForm({
             required
             defaultValue={service?.name}
             className={`${field} mt-1`}
-            placeholder="Ex: Plano mensal"
+            placeholder="Ex: Shampoo cabelo cacheado"
           />
         </div>
         <div className="sm:col-span-2">
@@ -317,6 +325,17 @@ function ServiceForm({
             className={`${field} mt-1`}
             placeholder="Opcional"
           />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Tipo</label>
+          <select
+            value={offerKind}
+            onChange={(e) => setOfferKind(e.target.value as OfferKind)}
+            className={`${field} mt-1`}
+          >
+            <option value="product">Produto</option>
+            <option value="service">Serviço</option>
+          </select>
         </div>
         <div>
           <label className="text-sm font-medium">Tipo de cobrança</label>
@@ -491,7 +510,7 @@ function ServiceForm({
         {pending
           ? "Salvando…"
           : mode === "create"
-            ? "Criar serviço"
+            ? "Criar item"
             : "Salvar alterações"}
       </button>
     </form>

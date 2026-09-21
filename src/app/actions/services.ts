@@ -31,6 +31,9 @@ export async function createService(
   const description = clampDescription(
     String(formData.get("description") ?? "").trim() || null,
   );
+  const offerKindRaw = String(formData.get("offerKind") ?? "product");
+  const offerKind =
+    offerKindRaw === "service" ? ("service" as const) : ("product" as const);
   const billingType = String(formData.get("billingType") ?? "fixed") as BillingType;
   const unitLabel = String(formData.get("unitLabel") ?? "unidade").trim() || "unidade";
   const unitAttributeKey =
@@ -40,7 +43,7 @@ export async function createService(
   const minPrice = minPriceRaw ? parseMoney(minPriceRaw) : null;
   const isActive = formData.get("isActive") === "on";
 
-  if (!name) return { error: "Informe o nome do serviço." };
+  if (!name) return { error: "Informe o nome do item." };
   if (!["fixed", "per_unit", "tiered"].includes(billingType)) {
     return { error: "Tipo de cobrança inválido." };
   }
@@ -59,6 +62,7 @@ export async function createService(
       tenant_id: ctx.membership.tenant_id,
       name,
       description,
+      offer_kind: offerKind,
       billing_type: billingType,
       unit_label: unitLabel,
       unit_attribute_key: unitAttributeKey,
@@ -96,14 +100,13 @@ export async function createService(
         );
       }
     } catch {
-      return { error: "Serviço criado, mas faixas inválidas. Edite as faixas." };
+      return { error: "Item criado, mas faixas inválidas. Edite as faixas." };
     }
   }
 
   revalidatePath("/app/settings/services");
   revalidatePath("/app/settings/ai");
-  revalidatePath("/app/settings/ai");
-  return { success: "Serviço criado." };
+  return { success: "Item criado." };
 }
 
 export async function updateService(
@@ -118,6 +121,9 @@ export async function updateService(
   const description = clampDescription(
     String(formData.get("description") ?? "").trim() || null,
   );
+  const offerKindRaw = String(formData.get("offerKind") ?? "product");
+  const offerKind =
+    offerKindRaw === "service" ? ("service" as const) : ("product" as const);
   const billingType = String(formData.get("billingType") ?? "fixed") as BillingType;
   const unitLabel = String(formData.get("unitLabel") ?? "unidade").trim() || "unidade";
   const unitAttributeKey =
@@ -134,6 +140,7 @@ export async function updateService(
     .update({
       name,
       description,
+      offer_kind: offerKind,
       billing_type: billingType,
       unit_label: unitLabel,
       unit_attribute_key: unitAttributeKey,
@@ -173,13 +180,13 @@ export async function updateService(
         );
       }
     } catch {
-      return { error: "Serviço salvo, mas faixas inválidas." };
+      return { error: "Item salvo, mas faixas inválidas." };
     }
   }
 
   revalidatePath("/app/settings/services");
   revalidatePath("/app/settings/ai");
-  return { success: "Serviço atualizado." };
+  return { success: "Item atualizado." };
 }
 
 export async function deleteService(
