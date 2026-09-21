@@ -1,6 +1,8 @@
 import { isMonthlyTokenBudgetExceeded } from "@/lib/ai/budget";
 import {
   AI_LIMITS,
+  affirmsHandoffOffer,
+  declinesHandoffOffer,
   isLightContextTurn,
   truncate,
   wantsHuman,
@@ -53,7 +55,7 @@ export async function runAiForConversation(conversationId: string) {
   const { data: conversation, error: convError } = await supabase
     .from("conversations")
     .select(
-      "id, tenant_id, status, channel_id, contact_id, ai_session_started_at, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
+      "id, tenant_id, status, channel_id, contact_id, ai_session_started_at, handoff_offer_pending_at, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
     )
     .eq("id", conversationId)
     .single();
@@ -232,6 +234,37 @@ export async function runAiForConversation(conversationId: string) {
     });
   }
 
+  const offerPending = Boolean(
+    (conversation as { handoff_offer_pending_at?: string | null })
+      .handoff_offer_pending_at,
+  );
+
+  if (offerPending && affirmsHandoffOffer(latestInbound.body)) {
+    const summary = buildDeterministicHandoffSummary({
+      reason: "cliente_confirmou_atendente",
+      latestUserMessage: latestInbound.body,
+      values: currentValues,
+    });
+    return forceHandoffWithoutLlm({
+      supabase,
+      conversation,
+      text: "Perfeito — vou te transferir para um atendente. Aguarde um momento.",
+      reason: "cliente_confirmou_atendente",
+      notifyTitle: "Atendimento humano solicitado",
+      notifyBody: truncate(summary.replace(/\n/g, " · "), 220),
+      handoffSummary: summary,
+    });
+  }
+
+  if (offerPending && declinesHandoffOffer(latestInbound.body)) {
+    return replyAndStayOnAi({
+      supabase,
+      conversation,
+      text: "Tranquilo — continuo te atendendo por aqui. Em que posso te ajudar?",
+      clearHandoffOffer: true,
+    });
+  }
+
   const attributeBlock = buildAttributePromptBlock(attrList, currentValues, {
     name: contactEarly?.display_name,
     phone:
@@ -311,11 +344,20 @@ export async function runAiForConversation(conversationId: string) {
     ? `SESSÃO NOVA (após atendimento humano/encerramento):
 - Ignore o histórico antigo da venda — esta é uma conversa retomada.
 - NÃO faça handoff só porque os dados do lead já estão na base.
-- Só action=handoff se o cliente pedir atendente agora ou quiser fechar/contratar de novo nesta mensagem.
+- Só ofereça atendente se o cliente pedir agora ou quiser fechar/contratar de novo nesta mensagem — e SEMPRE pergunte antes (action=reply).
 - Cumprimente de forma breve e pergunte como pode ajudar hoje.`
     : "";
 
-  const light = isLightContextTurn(latestInbound.body, history.length);
+  const offerPendingBlock = offerPending
+    ? `OFERTA DE ATENDENTE PENDENTE: você já perguntou se o cliente quer falar com um humano.
+- Se confirmar (sim/quero/pode), use action=handoff.
+- Se recusar (não), use action=reply e continue ajudando.
+- Se a mensagem for outro assunto, use action=reply e ajude no assunto (sem transferir).`
+    : "";
+
+  const light =
+    !offerPending &&
+    isLightContextTurn(latestInbound.body, history.length);
 
   let result: AiReplyResult = await provider.generateReply({
     agentName: aiConfig.name,
@@ -323,8 +365,16 @@ export async function runAiForConversation(conversationId: string) {
     history,
     latestUserMessage: latestInbound.body,
     playbookBlock: light
-      ? [companyBlock, resumeBlock, playbookBlock].filter(Boolean).join("\n\n")
-      : [companyBlock, resumeBlock, playbookBlock, funnelBlock]
+      ? [companyBlock, resumeBlock, offerPendingBlock, playbookBlock]
+          .filter(Boolean)
+          .join("\n\n")
+      : [
+          companyBlock,
+          resumeBlock,
+          offerPendingBlock,
+          playbookBlock,
+          funnelBlock,
+        ]
           .filter(Boolean)
           .join("\n\n"),
     // Sempre injeta dados já conhecidos — senão a IA pergunta de novo no "oi".
@@ -407,31 +457,27 @@ export async function runAiForConversation(conversationId: string) {
   const justBecameReady = dataReady && !wasReadyBefore;
   const buyIntent = wantsToCloseSale(latestInbound.body);
   const askedForHuman = wantsHuman(latestInbound.body);
+  const confirmedOffer =
+    offerPending && affirmsHandoffOffer(latestInbound.body);
 
-  // Só força handoff se o cliente quer fechar AGORA, ou se os dados
-  // acabaram de ficar completos neste turno (não em toda msg seguinte).
-  const shouldHandoffToClose =
+  // Em vez de transferir direto: oferece atendente e espera sim/não.
+  const shouldOfferHandoff =
     result.action === "reply" &&
+    !offerPending &&
     (buyIntent ||
       (!resumedAfterHuman &&
         justBecameReady &&
         (quotedThisTurn || aiSaidQuote || catalog.length === 0)));
 
-  if (shouldHandoffToClose) {
-    const prior =
-      (result.text ?? "").trim() &&
-      !/transfer|atendente|humano/i.test(result.text ?? "")
-        ? `${result.text!.trim()}\n\n`
-        : "";
-    const reason = buyIntent
-      ? "cliente_quer_fechar"
-      : "dados_coletados_fechamento";
+  let markHandoffOfferPending = false;
+
+  if (confirmedOffer && result.action === "reply") {
     result = {
       action: "handoff",
-      reason,
-      text: `${prior}Perfeito — vou te transferir para um atendente finalizar o atendimento.`,
+      reason: "cliente_confirmou_atendente",
+      text: "Perfeito — vou te transferir para um atendente. Aguarde um momento.",
       handoff_summary: buildDeterministicHandoffSummary({
-        reason,
+        reason: "cliente_confirmou_atendente",
         latestUserMessage: latestInbound.body,
         values: currentValues,
         quotedTotal,
@@ -439,25 +485,52 @@ export async function runAiForConversation(conversationId: string) {
       collected: result.collected,
       usage: result.usage,
     };
-  } else if (
-    result.action === "handoff" &&
-    !buyIntent &&
-    !askedForHuman &&
-    (resumedAfterHuman || (dataReady && !justBecameReady))
-  ) {
-    // Modelo tentou handoff sem pedido novo — mantém conversa com a IA.
+  } else if (shouldOfferHandoff) {
+    const prior =
+      (result.text ?? "").trim() &&
+      !/atendente|humano|transfer/i.test(result.text ?? "")
+        ? `${result.text!.trim()}\n\n`
+        : "";
+    const dealStage =
+      result.action === "reply" ? result.deal_stage : undefined;
     result = {
       action: "reply",
-      text:
-        (result.text && !/transfer|atendente humano/i.test(result.text)
-          ? result.text
-          : null) ||
-        (resumedAfterHuman
-          ? "Oi! Em que posso te ajudar agora?"
-          : "Claro — me conta como posso ajudar."),
+      text: `${prior}Posso te passar para um atendente humano agora? Responde *sim* ou *não*.`,
       collected: result.collected,
       usage: result.usage,
+      deal_stage: dealStage,
     };
+    markHandoffOfferPending = true;
+  } else if (result.action === "handoff" && !askedForHuman && !confirmedOffer) {
+    const spurious =
+      resumedAfterHuman || (dataReady && !justBecameReady);
+    if (spurious) {
+      result = {
+        action: "reply",
+        text:
+          (result.text && !/transfer|atendente humano/i.test(result.text)
+            ? result.text
+            : null) ||
+          (resumedAfterHuman
+            ? "Oi! Em que posso te ajudar agora?"
+            : "Claro — me conta como posso ajudar."),
+        collected: result.collected,
+        usage: result.usage,
+      };
+    } else {
+      const prior =
+        (result.text ?? "").trim() &&
+        !/vou te transfer|transferir para um atendente/i.test(result.text ?? "")
+          ? `${result.text!.trim()}\n\n`
+          : "";
+      result = {
+        action: "reply",
+        text: `${prior}Posso te passar para um atendente humano agora? Responde *sim* ou *não*.`,
+        collected: result.collected,
+        usage: result.usage,
+      };
+      markHandoffOfferPending = true;
+    }
   }
 
   const stageHint =
@@ -566,6 +639,7 @@ export async function runAiForConversation(conversationId: string) {
         last_message_at: now,
         waiting_human_at: now,
         handoff_busy_sent_at: null,
+        handoff_offer_pending_at: null,
       })
       .eq("id", conversationId)
       .eq("status", "ai_active");
@@ -601,7 +675,12 @@ export async function runAiForConversation(conversationId: string) {
   } else {
     await supabase
       .from("conversations")
-      .update({ last_message_at: now })
+      .update({
+        last_message_at: now,
+        ...(markHandoffOfferPending
+          ? { handoff_offer_pending_at: now }
+          : {}),
+      })
       .eq("id", conversationId);
   }
 
@@ -738,6 +817,7 @@ async function forceHandoffWithoutLlm({
       last_message_at: now,
       waiting_human_at: now,
       handoff_busy_sent_at: null,
+      handoff_offer_pending_at: null,
     })
     .eq("id", conversation.id)
     .eq("status", "ai_active");
@@ -772,6 +852,90 @@ async function forceHandoffWithoutLlm({
     conversationId: conversation.id,
     skippedLlm: true as const,
     reason,
+  };
+}
+
+async function replyAndStayOnAi({
+  supabase,
+  conversation,
+  text,
+  clearHandoffOffer,
+}: {
+  supabase: ReturnType<typeof createServiceClient>;
+  conversation: ConvRow;
+  text: string;
+  clearHandoffOffer?: boolean;
+}) {
+  const contact = conversation.contacts as {
+    phone_e164: string | null;
+    external_id: string | null;
+    display_name: string | null;
+  } | null;
+
+  const channel = conversation.channels as {
+    whatsapp_accounts:
+      | {
+          phone_number_id: string;
+          access_token_encrypted: string;
+          onboard_source?: string;
+        }
+      | {
+          phone_number_id: string;
+          access_token_encrypted: string;
+          onboard_source?: string;
+        }[]
+      | null;
+  } | null;
+
+  const wa = Array.isArray(channel?.whatsapp_accounts)
+    ? channel?.whatsapp_accounts[0]
+    : channel?.whatsapp_accounts;
+
+  const to =
+    contact?.phone_e164 ||
+    (contact?.external_id ? `+${contact.external_id}` : null);
+
+  const now = new Date().toISOString();
+
+  if (wa && to) {
+    try {
+      const token = decryptToken(wa.access_token_encrypted);
+      const providerMessageId = await sendOutboundText({
+        channel: wa,
+        accessToken: token,
+        toE164: to,
+        body: text,
+      });
+      await supabase.from("messages").insert({
+        tenant_id: conversation.tenant_id,
+        conversation_id: conversation.id,
+        direction: "outbound",
+        sender_type: "ai",
+        body: text,
+        provider_message_id: providerMessageId,
+        created_at: now,
+      });
+    } catch (err) {
+      console.error("[ai] stay-on-ai send failed", err);
+      return {
+        error: err instanceof Error ? err.message : "send_failed",
+      };
+    }
+  }
+
+  await supabase
+    .from("conversations")
+    .update({
+      last_message_at: now,
+      ...(clearHandoffOffer ? { handoff_offer_pending_at: null } : {}),
+    })
+    .eq("id", conversation.id);
+
+  return {
+    ok: true as const,
+    action: "reply" as const,
+    conversationId: conversation.id,
+    skippedLlm: true as const,
   };
 }
 

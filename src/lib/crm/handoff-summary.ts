@@ -13,11 +13,13 @@ export function buildDeterministicHandoffSummary(input: {
   const reasonLabel =
     input.reason === "explicit_human_request"
       ? "Cliente pediu atendente humano"
-      : input.reason === "cliente_quer_fechar"
-        ? "Cliente quer fechar / contratar"
-        : input.reason === "dados_coletados_fechamento"
-          ? "Dados coletados — finalizar venda"
-          : input.reason;
+      : input.reason === "cliente_confirmou_atendente"
+        ? "Cliente confirmou que quer atendente"
+        : input.reason === "cliente_quer_fechar"
+          ? "Cliente quer fechar / contratar"
+          : input.reason === "dados_coletados_fechamento"
+            ? "Dados coletados — finalizar venda"
+            : input.reason;
 
   lines.push(`Motivo: ${reasonLabel}`);
 

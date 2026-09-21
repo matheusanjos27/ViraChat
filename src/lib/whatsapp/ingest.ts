@@ -106,6 +106,16 @@ export async function ingestInboundTextMessage(msg: InboundText) {
 
   if (openConv) {
     conversationId = openConv.id;
+    if (openConv.status === "waiting_human") {
+      // Safety net if in-app/Vercel cron lagged: still notify after 5 min.
+      void import("@/lib/handoff/timeout")
+        .then(({ sendBusyMessageForConversation }) =>
+          sendBusyMessageForConversation(conversationId),
+        )
+        .catch((err) =>
+          console.error("[handoff-timeout] ingest trigger failed", err),
+        );
+    }
   } else {
     const { data: resolved } = await supabase
       .from("conversations")

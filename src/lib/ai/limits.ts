@@ -51,6 +51,38 @@ export function wantsHuman(text: string): boolean {
   );
 }
 
+/** Cliente confirma a oferta de falar com atendente (após a IA perguntar). */
+export function affirmsHandoffOffer(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  if (
+    /^(sim|s+|quero|pode|pode\s+ser|claro|ok+|okay|beleza|isso|afirmativo|por\s+favor|pfv|manda|vai|transfer[ea]|pode\s+transfer)[\s!.?]*$/i.test(
+      t,
+    )
+  ) {
+    return true;
+  }
+  return /(^|\b)(sim[,.]?\s*(quero|pode|por\s+favor)?|quero\s+(sim|falar|atendente|humano)|pode\s+(sim|transfer|passar)|pode\s+passar\s+pro?\s+atendente)(\b|$)/i.test(
+    t,
+  );
+}
+
+/** Cliente recusa a oferta de atendente. */
+export function declinesHandoffOffer(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  if (
+    /^(n[aã]o|nao|n+|negativo|deixa|agora\s+n[aã]o|melhor\s+n[aã]o|obrigad[oa])[\s!.?]*$/i.test(
+      t,
+    )
+  ) {
+    return true;
+  }
+  return /(n[aã]o\s+(quero|preciso|agora|obrigad)|prefiro\s+(continuar|falar)\s+(com\s+)?(voc[eê]|a\s+ia)|continua\s+(voc[eê]|a[ií])|sem\s+atendente)/i.test(
+    t,
+  );
+}
+
 /**
  * Early/short turns (ex.: "bom dia") — skip catalog, fields and funnel
  * so fixed overhead doesn't burn ~1k tokens on a greeting.
