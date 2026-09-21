@@ -47,9 +47,24 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  const needsPasswordChange =
+    user?.user_metadata?.must_change_password === true;
+
+  if (
+    needsPasswordChange &&
+    !path.startsWith("/auth/set-password") &&
+    !path.startsWith("/api/")
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/set-password";
+    url.search = "force=1";
+    return NextResponse.redirect(url);
+  }
+
   if (user && (path === "/login" || path === "/signup")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/app";
+    url.pathname = needsPasswordChange ? "/auth/set-password" : "/app";
+    if (needsPasswordChange) url.search = "force=1";
     return NextResponse.redirect(url);
   }
 

@@ -53,7 +53,7 @@ export function SetPasswordForm() {
         disabled={pending}
         className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-deep disabled:opacity-60"
       >
-        {pending ? "Salvando…" : "Definir senha e entrar"}
+        {pending ? "Salvando…" : "Salvar senha e entrar"}
       </button>
     </form>
   );

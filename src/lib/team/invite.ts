@@ -112,6 +112,7 @@ export async function inviteUserToTenant(input: {
           email_confirm: true,
           user_metadata: {
             full_name: fullName || existingAuth.user_metadata?.full_name || email,
+            must_change_password: true,
           },
         },
       );
@@ -127,6 +128,7 @@ export async function inviteUserToTenant(input: {
             full_name: fullName || email,
             invited_tenant_id: tenantId,
             invited_role: role,
+            must_change_password: true,
           },
         });
       if (createError) return { error: createError.message };
@@ -190,8 +192,8 @@ export async function inviteUserToTenant(input: {
   if (withPassword) {
     return {
       success: createdWithPassword
-        ? `Usuário criado: ${email}. Pode entrar em /login com a senha provisória.`
-        : `Usuário existente vinculado e senha atualizada: ${email}.`,
+        ? `Usuário criado: ${email}. No 1º login trocará a senha provisória.`
+        : `Usuário vinculado com senha provisória: ${email}. Troca obrigatória no 1º login.`,
     };
   }
 

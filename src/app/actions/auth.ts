@@ -15,6 +15,12 @@ function formatAuthError(message: string) {
   return message;
 }
 
+function mustChangePassword(
+  user: { user_metadata?: Record<string, unknown> } | null | undefined,
+) {
+  return user?.user_metadata?.must_change_password === true;
+}
+
 export async function signIn(
   _prev: AuthState,
   formData: FormData,
@@ -34,6 +40,14 @@ export async function signIn(
 
   if (error) {
     return { error: formatAuthError(error.message) };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (mustChangePassword(user)) {
+    redirect("/auth/set-password?force=1");
   }
 
   if (await isCurrentUserPlatformAdmin()) {
@@ -65,7 +79,21 @@ export async function setPassword(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.updateUser({ password });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Sessão expirada. Faça login novamente." };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password,
+    data: {
+      ...user.user_metadata,
+      must_change_password: false,
+    },
+  });
 
   if (error) {
     return { error: formatAuthError(error.message) };
