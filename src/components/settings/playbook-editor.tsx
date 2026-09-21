@@ -15,6 +15,8 @@ import {
   type Playbook,
   type PlaybookTrigger,
 } from "@/lib/crm/playbook";
+import { CharCount } from "@/components/ui/char-count";
+import { AI_LIMITS } from "@/lib/ai/limits";
 
 const empty: PlaybookState = {};
 const field =
@@ -220,9 +222,17 @@ function PlaybookAccordion({ playbook }: { playbook: Playbook }) {
   );
 
   function updateBody(title: string, body: string) {
-    setSections((prev) =>
-      prev.map((s) => (s.title === title ? { ...s, body } : s)),
-    );
+    setSections((prev) => {
+      const without = prev.map((s) =>
+        s.title === title ? { ...s, body: "" } : s,
+      );
+      const usedByOthers = serializePlaybookSections(without).length;
+      const room = Math.max(0, AI_LIMITS.playbook - usedByOthers);
+      const clipped = body.slice(0, room);
+      return prev.map((s) =>
+        s.title === title ? { ...s, body: clipped } : s,
+      );
+    });
   }
 
   return (
@@ -303,7 +313,29 @@ function PlaybookAccordion({ playbook }: { playbook: Playbook }) {
                   <span className="text-sm font-semibold text-ink">
                     {s.title}
                   </span>
-                  <span className="text-ink-muted">{isOpen ? "▼" : "▶"}</span>
+                  <span className="text-ink-muted" aria-hidden>
+                    {isOpen ? (
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="size-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : (
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="size-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
                 </button>
                 {isOpen ? (
                   <div className="border-t border-line px-4 py-3">
@@ -320,6 +352,8 @@ function PlaybookAccordion({ playbook }: { playbook: Playbook }) {
             );
           })}
         </div>
+
+        <CharCount value={content} max={AI_LIMITS.playbook} />
 
         {state.error ? (
           <p className="mt-3 text-sm text-danger">{state.error}</p>

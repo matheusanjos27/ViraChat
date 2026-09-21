@@ -4,20 +4,20 @@
 
 export const AI_LIMITS = {
   /** Max chars of model-facing instructions (after stripping preview block). */
-  instructions: 4_000,
-  playbook: 2_500,
-  about: 800,
-  catalogBlock: 3_000,
-  attributeBlock: 1_500,
-  serviceDescription: 200,
-  messageBody: 1_500,
-  historyTurns: 8,
+  instructions: 2_000,
+  playbook: 1_200,
+  about: 400,
+  catalogBlock: 2_000,
+  attributeBlock: 800,
+  serviceDescription: 160,
+  messageBody: 1_200,
+  historyTurns: 4,
   /** Default monthly token budget when tenant has no override. */
   defaultMonthlyTokens: 2_000_000,
   /** Wait before running AI so bursts coalesce into one call. */
   debounceMs: 1_500,
   /** Max completion tokens (provider). */
-  maxCompletionTokens: 600,
+  maxCompletionTokens: 220,
 } as const;
 
 const SEP = "\n---\n";
@@ -45,6 +45,38 @@ export function wantsHuman(text: string): boolean {
   return /(atendente|humano|pessoa\s+real|falar\s+com\s+(algu[eé]m|voc[eê]s)|operador|suporte\s+humano)/i.test(
     text,
   );
+}
+
+/**
+ * Early/short turns (ex.: "bom dia") — skip catalog, fields and funnel
+ * so fixed overhead doesn't burn ~1k tokens on a greeting.
+ */
+export function isLightContextTurn(
+  latestUserMessage: string,
+  priorHistoryTurns: number,
+): boolean {
+  if (priorHistoryTurns > 2) return false;
+  const msg = latestUserMessage.trim();
+  if (!msg || msg.length > 48) return false;
+
+  if (
+    /^(oi|ol[aá]|oie|opa|eai|e\s*a[ií]|hey|hi|hello|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem\??|td\s*bem\??|obrigad[oa]|valeu|ok+|beleza|sim|nao|não)[\s!.?]*$/i.test(
+      msg,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    msg.length <= 20 &&
+    !/(or[cç]amento|pre[cç]o|plano|quero|preciso|contratar|servi[cç]o|valor|empresa|email|e-mail)/i.test(
+      msg,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export function clampSavedText(

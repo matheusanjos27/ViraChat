@@ -1,15 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { AI_LIMITS } from "@/lib/ai/limits";
 import type { AiProvider, AiReplyResult } from "@/lib/ai/types";
 
-const SYSTEM_RULES = `Você é um atendente de WhatsApp de uma empresa.
-Responda em português do Brasil, de forma curta e clara (no máximo ~3 parágrafos curtos).
-Se o cliente pedir falar com humano, atendente, pessoa real, ou se o assunto for sensível demais para você resolver, use action=handoff.
-Caso contrário use action=reply com a mensagem final para o cliente.
-Nunca invente preços, políticas ou dados que não estejam nas instruções.
-Responda APENAS com JSON válido no formato:
+const SYSTEM_RULES = `Atendente WhatsApp. PT-BR, curto (≤2 parágrafos).
+Humano/atendente → action=handoff. Senão action=reply.
+Não invente preços nem dados. Só JSON:
 {"action":"reply","text":"..."}
-ou
-{"action":"handoff","reason":"...","text":"mensagem opcional ao cliente antes da transferência"}`;
+ou {"action":"handoff","reason":"...","text":"..."}`;
 
 function wantsHuman(text: string) {
   return /(atendente|humano|pessoa\s+real|falar\s+com\s+(algu[eé]m|voc[eê]s)|operador|suporte\s+humano)/i.test(
@@ -51,7 +48,7 @@ export class ClaudeAiProvider implements AiProvider {
 
     const response = await client.messages.create({
       model,
-      max_tokens: 600,
+      max_tokens: AI_LIMITS.maxCompletionTokens,
       system: `${SYSTEM_RULES}\n\nNome do assistente: ${input.agentName}\nInstruções da empresa:\n${input.instructions}`,
       messages: [
         ...history,

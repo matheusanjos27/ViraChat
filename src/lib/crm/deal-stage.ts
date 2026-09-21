@@ -7,17 +7,8 @@ export function buildFunnelPromptBlock(stages: { name: string }[]) {
   if (stages.length === 0) return "";
   const names = stages.map((s) => s.name).join(" → ");
   return `
-FUNIL DE VENDAS (atualize deal_stage no JSON quando o lead avançar):
-Etapas: ${names}
-
-Regras:
-- Interesse comercial / pediu info ou orçamento → "Qualificado" (ou equivalente)
-- Você apresentou preço/orçamento com base no catálogo → "Orçamento"
-- Cliente pediu proposta formal / fechamento → "Proposta"
-- Negociando valor/prazo → "Negociação"
-- Confirmou compra → etapa de ganho (ex: "Fechado")
-- Desistiu / sem interesse → etapa de perda (ex: "Perdido")
-Inclua "deal_stage" com o NOME EXATO de uma etapa acima sempre que avançar.
+FUNIL: ${names}
+Ao avançar, inclua "deal_stage" com o nome exato (ex.: Qualificado, Orçamento, Proposta, Negociação, Fechado, Perdido).
 `.trim();
 }
 

@@ -76,7 +76,7 @@ export default async function ChannelsPage() {
           </h1>
           <p className="mt-2 text-ink-muted">
             Empresa <span className="font-medium text-ink">{tenant.name}</span>.
-            Conecte números por QR (Baileys). A IA responde em todos.
+            Conecte números por QR Code. A IA responde em todos.
           </p>
         </header>
 
@@ -171,9 +171,6 @@ export default async function ChannelsPage() {
 
         <section className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
           <h2 className="text-lg font-semibold">Conectar WhatsApp</h2>
-          <p className="mt-1 text-sm text-ink-muted">
-            Evolution API (Baileys) — sem Meta Business Manager.
-          </p>
           <div className="mt-4">
             <BaileysConnectForm tenantId={tenantId} enabled={evolutionOn} />
           </div>

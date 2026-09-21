@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { updateAiConfig, type AiConfigState } from "@/app/actions/ai-config";
+import { CharCount } from "@/components/ui/char-count";
+import { AI_LIMITS } from "@/lib/ai/limits";
 
 const initial: AiConfigState = {};
 
@@ -9,6 +11,11 @@ const field =
   "w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
 
 const SEP = "\n---\n";
+
+/** Apresentação WhatsApp — curta de propósito */
+const PRESENTATION_MAX = 500;
+/** Prompt que a IA usa (cap de instruções do modelo) */
+const PROMPT_MAX = AI_LIMITS.instructions;
 
 export function splitAiInstructions(raw: string) {
   if (raw.includes(SEP)) {
@@ -143,11 +150,15 @@ export function AiIdentityPanel({
           </p>
           <textarea
             value={presentation}
-            onChange={(e) => setPresentation(e.target.value)}
+            onChange={(e) =>
+              setPresentation(e.target.value.slice(0, PRESENTATION_MAX))
+            }
             rows={3}
+            maxLength={PRESENTATION_MAX}
             className={`${field} mt-2`}
             placeholder={`Olá! Eu sou ${assistantName || "o Assistente"}. Como posso ajudar?`}
           />
+          <CharCount value={presentation} max={PRESENTATION_MAX} />
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
@@ -157,11 +168,13 @@ export function AiIdentityPanel({
           </p>
           <textarea
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => setPrompt(e.target.value.slice(0, PROMPT_MAX))}
             rows={4}
+            maxLength={PROMPT_MAX}
             className={`${field} mt-2`}
             placeholder="Horário comercial, tom, o que evitar…"
           />
+          <CharCount value={prompt} max={PROMPT_MAX} />
         </div>
 
         {state.error ? (

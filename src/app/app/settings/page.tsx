@@ -69,7 +69,7 @@ export default async function SettingsPage() {
   const cards = [
     {
       href: "/app/settings/company",
-      icon: "🏢",
+      icon: "company" as const,
       title: "Empresa",
       badge: null as string | null,
       badgeTone: "neutral" as const,
@@ -78,7 +78,7 @@ export default async function SettingsPage() {
     },
     {
       href: "/app/settings/ai",
-      icon: "🤖",
+      icon: "ai" as const,
       title: "IA",
       badge: aiOn ? "IA ativa" : "IA pausada",
       badgeTone: aiOn ? ("success" as const) : ("muted" as const),
@@ -87,7 +87,7 @@ export default async function SettingsPage() {
     },
     {
       href: "/app/settings/team",
-      icon: "👥",
+      icon: "team" as const,
       title: "Equipe",
       badge: `${members} usuário${members === 1 ? "" : "s"}`,
       badgeTone: "info" as const,
@@ -100,7 +100,7 @@ export default async function SettingsPage() {
     },
     {
       href: "/app/channels",
-      icon: "📱",
+      icon: "channels" as const,
       title: "Canais",
       badge: `${channels} conectado${channels === 1 ? "" : "s"}`,
       badgeTone: channels > 0 ? ("success" as const) : ("muted" as const),
@@ -109,7 +109,7 @@ export default async function SettingsPage() {
     },
     {
       href: "/app/settings/pipeline",
-      icon: "📈",
+      icon: "pipeline" as const,
       title: "Funil",
       badge: `${stages} etapa${stages === 1 ? "" : "s"}`,
       badgeTone: "info" as const,
@@ -118,7 +118,7 @@ export default async function SettingsPage() {
     },
     {
       href: "/app/settings/help",
-      icon: "?",
+      icon: "help" as const,
       title: "Ajuda",
       badge: "Roteiro",
       badgeTone: "info" as const,
@@ -200,8 +200,8 @@ export default async function SettingsPage() {
               className="group flex flex-col rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)] transition duration-200 hover:-translate-y-[3px] hover:border-brand hover:shadow-[0_12px_32px_rgba(15,118,110,0.12)]"
             >
               <div className="flex items-start justify-between gap-3">
-                <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-2xl">
-                  {c.icon}
+                <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+                  <SettingsCardIcon name={c.icon} />
                 </span>
                 {c.badge ? (
                   <span
@@ -232,7 +232,10 @@ export default async function SettingsPage() {
               <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-4 mt-5">
                 <p className="text-[11px] text-ink-placeholder">{c.footer}</p>
                 <span className="text-sm font-semibold text-brand">
-                  Abrir →
+                  Abrir
+                  <span aria-hidden className="ml-1 inline-block transition group-hover:translate-x-0.5">
+                    →
+                  </span>
                 </span>
               </div>
             </Link>
@@ -241,6 +244,72 @@ export default async function SettingsPage() {
       </div>
     </div>
   );
+}
+
+function SettingsCardIcon({
+  name,
+}: {
+  name: "company" | "ai" | "team" | "channels" | "pipeline" | "help";
+}) {
+  const common = {
+    viewBox: "0 0 24 24",
+    className: "size-6",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  switch (name) {
+    case "company":
+      return (
+        <svg {...common}>
+          <path d="M4 20V8.5L12 4l8 4.5V20" />
+          <path d="M9 20v-6h6v6" />
+          <path d="M9 10.5h.01M12 10.5h.01M15 10.5h.01M9 14h.01M15 14h.01" />
+        </svg>
+      );
+    case "ai":
+      return (
+        <svg {...common}>
+          <rect x="5" y="7" width="14" height="11" rx="3" />
+          <path d="M9 11.5h.01M15 11.5h.01M9.5 15c.8.8 1.7 1.2 2.5 1.2s1.7-.4 2.5-1.2" />
+          <path d="M12 7V4M8 4h8" />
+        </svg>
+      );
+    case "team":
+      return (
+        <svg {...common}>
+          <circle cx="9" cy="8" r="2.5" />
+          <circle cx="16" cy="9" r="2" />
+          <path d="M4.5 18c.6-2.4 2.4-3.8 4.5-3.8s3.9 1.4 4.5 3.8" />
+          <path d="M13.5 18c.4-1.6 1.5-2.7 3-2.7 1.3 0 2.3.8 2.8 2.1" />
+        </svg>
+      );
+    case "channels":
+      return (
+        <svg {...common}>
+          <path d="M6.5 6.5h11A2.5 2.5 0 0 1 20 9v7a2.5 2.5 0 0 1-2.5 2.5h-5.2L8 21.2V18.5H6.5A2.5 2.5 0 0 1 4 16V9a2.5 2.5 0 0 1 2.5-2.5Z" />
+          <path d="M8.5 11.5h7M8.5 14.5h4.5" />
+        </svg>
+      );
+    case "pipeline":
+      return (
+        <svg {...common}>
+          <path d="M4 16.5 9 11l3.5 3.5L20 7" />
+          <path d="M15 7h5v5" />
+        </svg>
+      );
+    case "help":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M9.8 9.6a2.4 2.4 0 1 1 3.4 2.2c-.7.4-1.2.9-1.2 1.7V14" />
+          <path d="M12 17h.01" />
+        </svg>
+      );
+  }
 }
 
 function StatChip({

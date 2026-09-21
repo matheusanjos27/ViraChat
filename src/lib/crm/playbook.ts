@@ -130,12 +130,7 @@ export function normalizePlaybookSections(content: string) {
 export function buildPlaybookPromptBlock(playbook: Playbook | null) {
   if (!playbook?.is_active || !playbook.content.trim()) return "";
   const content = truncate(playbook.content.trim(), AI_LIMITS.playbook);
-  return `
-ROTEIRO DE CONVERSA ATIVO ("${playbook.name}"):
-Siga este roteiro com prioridade, adaptando à conversa real. Não leia as seções em voz alta para o cliente — execute-as.
-
-${content}
-`.trim();
+  return `ROTEIRO ("${playbook.name}"):\n${content}`;
 }
 
 /** Escolhe o playbook ativo: keyword match primeiro, depois new_contact. */

@@ -26,9 +26,9 @@ const TYPE_ICON: Record<string, string> = {
   text: "Aa",
   number: "#",
   email: "@",
-  phone: "☎",
-  date: "📅",
-  select: "▾",
+  phone: "Tel",
+  date: "Data",
+  select: "Lista",
 };
 
 export function FieldsManager({ attributes }: { attributes: Attr[] }) {

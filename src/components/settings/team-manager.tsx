@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   inviteCollaboratorAction,
   removeCollaboratorAction,
@@ -41,6 +41,7 @@ export function TeamManager({
     removeCollaboratorAction,
     initial,
   );
+  const [roleHelpOpen, setRoleHelpOpen] = useState(false);
 
   const remaining = Math.max(0, maxMembers - used);
   const atLimit = remaining <= 0;
@@ -164,9 +165,25 @@ export function TeamManager({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium" htmlFor="role">
-                Papel
-              </label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-sm font-medium" htmlFor="role">
+                  Papel
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setRoleHelpOpen((v) => !v)}
+                  aria-expanded={roleHelpOpen}
+                  aria-controls="role-help"
+                  title="O que cada papel faz"
+                  className={`flex size-5 items-center justify-center rounded-full border text-[11px] font-semibold transition ${
+                    roleHelpOpen
+                      ? "border-brand bg-brand-soft text-brand-deep"
+                      : "border-line bg-paper text-ink-muted hover:border-brand/40 hover:text-brand"
+                  }`}
+                >
+                  ?
+                </button>
+              </div>
               <select
                 id="role"
                 name="role"
@@ -177,6 +194,23 @@ export function TeamManager({
                 <option value="agent">Atendente</option>
                 <option value="supervisor">Supervisor</option>
               </select>
+              {roleHelpOpen ? (
+                <div
+                  id="role-help"
+                  className="rounded-xl border border-line bg-paper px-3 py-2.5 text-xs leading-relaxed text-ink-muted"
+                >
+                  <p>
+                    <span className="font-semibold text-ink">Atendente</span> —
+                    conversas, leads e funil. Não altera configurações nem
+                    equipe.
+                  </p>
+                  <p className="mt-2">
+                    <span className="font-semibold text-ink">Supervisor</span> —
+                    tudo do atendente + convidar pessoas, empresa, IA e
+                    pipeline.
+                  </p>
+                </div>
+              ) : null}
             </div>
             {inviteState.error ? (
               <p className="text-sm text-danger">{inviteState.error}</p>

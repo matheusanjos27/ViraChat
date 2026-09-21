@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { updateCompanyProfile, type CompanyState } from "@/app/actions/company";
+import { CharCount } from "@/components/ui/char-count";
+import { AI_LIMITS } from "@/lib/ai/limits";
 
 const empty: CompanyState = {};
 const field =
@@ -21,6 +23,7 @@ export function CompanyForm({
   slug: string;
 }) {
   const [state, action, pending] = useActionState(updateCompanyProfile, empty);
+  const [aboutText, setAboutText] = useState(about ?? "");
 
   return (
     <form
@@ -43,10 +46,15 @@ export function CompanyForm({
         <textarea
           name="about"
           rows={5}
-          defaultValue={about ?? ""}
+          value={aboutText}
+          maxLength={AI_LIMITS.about}
+          onChange={(e) =>
+            setAboutText(e.target.value.slice(0, AI_LIMITS.about))
+          }
           className={`${field} mt-1`}
           placeholder="O que vocês fazem, para quem, diferenciais. A IA usa isso na abertura e no diagnóstico."
         />
+        <CharCount value={aboutText} max={AI_LIMITS.about} />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>

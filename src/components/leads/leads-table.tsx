@@ -207,32 +207,6 @@ export function LeadsTable({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
-      <div className="hidden shrink-0 items-center gap-4 border-b border-line bg-surface px-5 py-3 lg:flex">
-        <label className="relative min-w-0 flex-1">
-          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-placeholder">
-            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="11" cy="11" r="6.5" />
-              <path d="M16.5 16.5 20 20" strokeLinecap="round" />
-            </svg>
-          </span>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar leads por nome, telefone ou empresa…"
-            className="w-full rounded-xl border border-line bg-paper py-2.5 pl-10 pr-3 text-sm outline-none placeholder:text-ink-placeholder focus:border-brand focus:bg-surface focus:ring-2 focus:ring-brand/15"
-          />
-        </label>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-medium text-ink-body">
-            <span className="live-dot size-1.5 rounded-full bg-success" />
-            WhatsApp conectado
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white">
-            IA ativa
-          </span>
-        </div>
-      </div>
-
       <div
         className={`grid min-h-0 flex-1 grid-cols-1 ${
           selected ? "lg:grid-cols-[minmax(0,1fr)_340px]" : ""
@@ -248,7 +222,11 @@ export function LeadsTable({
                 Temperatura, dados coletados, deals e anexos do WhatsApp.
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-body">
+                <span className="live-dot size-1.5 rounded-full bg-success" />
+                WhatsApp conectado
+              </span>
               <Link
                 href="/app/settings/ai?tab=campos"
                 className="rounded-lg border border-line bg-surface px-3 py-2 text-xs font-medium text-ink-body hover:bg-paper"
@@ -285,43 +263,56 @@ export function LeadsTable({
             ))}
           </div>
 
-          <div className="mb-4 flex flex-wrap items-center gap-2 lg:hidden">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar…"
-              className="min-w-40 flex-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </div>
-
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <select
-              value={tempFilter}
-              onChange={(e) => setTempFilter(e.target.value as FilterTemp)}
-              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm"
-            >
-              <option value="all">Temperatura</option>
-              <option value="hot">Quente</option>
-              <option value="warm">Morno</option>
-              <option value="cold">Frio</option>
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm"
-            >
-              <option value="all">Status</option>
-              <option value="ai_active">IA ativa</option>
-              <option value="waiting_human">Aguardando</option>
-              <option value="human_active">Em atendimento</option>
-              <option value="resolved">Resolvida</option>
-            </select>
-            <p className="ml-auto text-sm text-ink-muted">
-              {filtered.length} lead{filtered.length !== 1 ? "s" : ""}
-            </p>
-          </div>
-
           <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow)]">
+            <div className="flex flex-wrap items-center gap-2 border-b border-line bg-paper/80 px-3 py-2.5 sm:px-4">
+              <label className="relative min-w-[12rem] flex-1">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-placeholder">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="size-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  >
+                    <circle cx="11" cy="11" r="6.5" />
+                    <path d="M16.5 16.5 20 20" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar na tabela…"
+                  className="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-3 text-sm outline-none placeholder:text-ink-placeholder focus:border-brand focus:ring-2 focus:ring-brand/15"
+                />
+              </label>
+              <select
+                value={tempFilter}
+                onChange={(e) => setTempFilter(e.target.value as FilterTemp)}
+                className="rounded-lg border border-line bg-surface px-2.5 py-2 text-sm"
+                aria-label="Filtrar por temperatura"
+              >
+                <option value="all">Temperatura</option>
+                <option value="hot">Quente</option>
+                <option value="warm">Morno</option>
+                <option value="cold">Frio</option>
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2.5 py-2 text-sm"
+                aria-label="Filtrar por status"
+              >
+                <option value="all">Status</option>
+                <option value="ai_active">IA ativa</option>
+                <option value="waiting_human">Aguardando</option>
+                <option value="human_active">Em atendimento</option>
+                <option value="resolved">Resolvida</option>
+              </select>
+              <p className="ml-auto whitespace-nowrap px-1 text-xs text-ink-muted sm:text-sm">
+                {filtered.length} lead{filtered.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+
             {filtered.length === 0 ? (
               <div className="px-6 py-16 text-center text-sm text-ink-muted">
                 Nenhum lead encontrado.

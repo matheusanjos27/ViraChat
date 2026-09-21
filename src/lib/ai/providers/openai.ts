@@ -9,19 +9,12 @@ import type { AiProvider, AiReplyResult } from "@/lib/ai/types";
 
 export { wantsHuman };
 
-const SYSTEM_RULES = `Você é um atendente de WhatsApp de uma empresa.
-Responda em português do Brasil, de forma curta e clara (no máximo ~3 parágrafos curtos).
-Se houver um ROTEIRO DE CONVERSA ATIVO, siga-o com prioridade (sem ler as seções em voz alta).
-Se o cliente pedir falar com humano, atendente, pessoa real, ou se o assunto for sensível demais para você resolver, use action=handoff.
-Caso contrário use action=reply com a mensagem final para o cliente.
-Nunca invente preços, políticas ou dados que não estejam nas instruções / catálogo.
-Quando o cliente informar qualquer dado dos CAMPOS A COLETAR (empresa, e-mail, responsável, porte, setor, etc.), você DEVE incluir "collected" no JSON na mesma resposta — não espere o fim da conversa.
-Quando o lead avançar no funil (interesse, orçamento apresentado, proposta, etc.), inclua "deal_stage" com o nome EXATO da etapa do FUNIL DE VENDAS.
-Opcionalmente use "deal_stage" junto com collected na mesma resposta.
-Responda APENAS com JSON válido no formato:
-{"action":"reply","text":"...","collected":{"empresa":"...","email":"..."},"deal_stage":"Orçamento"}
-ou
-{"action":"handoff","reason":"...","text":"mensagem opcional ao cliente antes da transferência"}`;
+const SYSTEM_RULES = `Atendente WhatsApp. PT-BR, curto (≤2 parágrafos).
+Siga o ROTEIRO se houver. Não invente preços nem dados.
+Humano/atendente → action=handoff. Senão action=reply.
+Se o cliente der um CAMPO A COLETAR, inclua "collected". Se avançar no funil, "deal_stage" (nome exato).
+Só JSON: {"action":"reply","text":"...","collected":{},"deal_stage":"..."}
+ou {"action":"handoff","reason":"...","text":"..."}`;
 
 function parseAiJson(raw: string): AiReplyResult | null {
   const match = raw.match(/\{[\s\S]*\}/);
@@ -104,7 +97,7 @@ export class OpenAiProvider implements AiProvider {
 
     const extras = [
       input.playbookBlock
-        ? truncate(input.playbookBlock, AI_LIMITS.playbook + 400)
+        ? truncate(input.playbookBlock, AI_LIMITS.playbook + 200)
         : "",
       input.attributeBlock
         ? truncate(input.attributeBlock, AI_LIMITS.attributeBlock)

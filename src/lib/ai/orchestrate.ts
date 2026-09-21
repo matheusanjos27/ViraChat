@@ -1,6 +1,7 @@
 import { isMonthlyTokenBudgetExceeded } from "@/lib/ai/budget";
 import {
   AI_LIMITS,
+  isLightContextTurn,
   truncate,
   wantsHuman,
 } from "@/lib/ai/limits";
@@ -263,16 +264,18 @@ export async function runAiForConversation(conversationId: string) {
         .join("\n")
     : "";
 
+  const light = isLightContextTurn(latestInbound.body, history.length);
+
   const result = await provider.generateReply({
     agentName: aiConfig.name,
     instructions: aiConfig.instructions,
     history,
     latestUserMessage: latestInbound.body,
-    playbookBlock: [companyBlock, playbookBlock, funnelBlock]
-      .filter(Boolean)
-      .join("\n\n"),
-    attributeBlock,
-    catalogBlock,
+    playbookBlock: light
+      ? [companyBlock, playbookBlock].filter(Boolean).join("\n\n")
+      : [companyBlock, playbookBlock, funnelBlock].filter(Boolean).join("\n\n"),
+    attributeBlock: light ? undefined : attributeBlock,
+    catalogBlock: light ? undefined : catalogBlock,
   });
 
   await recordAiReplyEvent({

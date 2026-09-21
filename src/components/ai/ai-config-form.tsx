@@ -1,9 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { updateAiConfig, type AiConfigState } from "@/app/actions/ai-config";
+import { CharCount } from "@/components/ui/char-count";
+import { AI_LIMITS } from "@/lib/ai/limits";
 
 const initial: AiConfigState = {};
+const NOTES_MAX = AI_LIMITS.instructions;
 
 const field =
   "w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
@@ -20,6 +23,7 @@ export function AiConfigForm({
   isEnabled: boolean;
 }) {
   const [state, action, pending] = useActionState(updateAiConfig, initial);
+  const [instructions, setInstructions] = useState(notes);
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -64,15 +68,20 @@ export function AiConfigForm({
         <textarea
           id="instructions"
           name="instructions"
-          defaultValue={notes}
+          value={instructions}
+          maxLength={NOTES_MAX}
+          onChange={(e) =>
+            setInstructions(e.target.value.slice(0, NOTES_MAX))
+          }
           rows={3}
           className={field}
           placeholder="Horários, restrições pontuais…"
         />
+        <CharCount value={instructions} max={NOTES_MAX} />
       </div>
 
       {state.error && (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm text-danger" role="alert">
           {state.error}
         </p>
       )}

@@ -190,13 +190,7 @@ export function buildCatalogPromptBlock(services: ServiceForQuote[]) {
   });
 
   return truncate(
-    `
-CATÁLOGO DE SERVIÇOS E PREÇOS (use estes valores — nunca invente preços):
-${blocks.join("\n")}
-
-Quando o cliente pedir orçamento e você souber a quantidade (${active[0]?.unit_label ?? "unidades"}), calcule com as regras acima e apresente a proposta de forma clara, separando mensalidade de serviços avulsos se fizer sentido.
-Se faltar a quantidade, pergunte antes de precificar.
-`.trim(),
+    `CATÁLOGO (não invente preços):\n${blocks.join("\n")}\nPeça a quantidade antes de orçar, se faltar.`,
     AI_LIMITS.catalogBlock,
   );
 }
