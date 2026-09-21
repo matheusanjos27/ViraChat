@@ -1,37 +1,30 @@
-name: Deploy VPS
+# Deploy VPS — DESLIGADO por enquanto (deploy manual na VPS).
+# Para reativar: descomente o bloco `on` abaixo e apague o `workflow_dispatch` dummy,
+# ou restaure o histórico deste arquivo.
+#
+# Manual:
+#   cd /opt/ViraChat && git pull
+#   cd docker && docker compose -f docker-compose.prod.yml up -d --build virachat
+#   # ou: bash /opt/ViraChat/docker/scripts/deploy.sh
+
+name: Deploy VPS (disabled)
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
-
-concurrency:
-  group: deploy-vps
-  cancel-in-progress: false
+    inputs:
+      confirm:
+        description: "Digite ENABLE para permitir (workflow desativado — use deploy manual)"
+        required: true
+        default: ""
 
 jobs:
-  deploy:
-    name: Pull · migrate · rebuild
+  skipped:
+    name: Disabled — use deploy manual
     runs-on: ubuntu-latest
-    timeout-minutes: 45
     steps:
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: 22
-          script_stop: true
-          command_timeout: 40m
-          script: |
-            set -euo pipefail
-            if [ ! -d /opt/ViraChat/.git ]; then
-              echo "Repo ainda não clonado em /opt/ViraChat — rode o setup inicial (DEPLOY-VPS.md)."
-              exit 1
-            fi
-            # Garante script atualizado antes do reset completo do deploy.sh
-            cd /opt/ViraChat
-            git fetch origin main
-            git reset --hard origin/main
-            bash /opt/ViraChat/docker/scripts/deploy.sh
+      - name: Stop
+        run: |
+          echo "Deploy via Actions está desligado. Use a VPS na mão:"
+          echo "  cd /opt/ViraChat && git pull"
+          echo "  cd docker && docker compose -f docker-compose.prod.yml up -d --build virachat"
+          exit 1
