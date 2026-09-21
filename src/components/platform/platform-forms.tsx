@@ -299,3 +299,33 @@ export function TenantBillingForm({
     </div>
   );
 }
+
+export function CancelInviteButton({ inviteId }: { inviteId: string }) {
+  const [state, action, pending] = useActionState(
+    platformCancelInvite,
+    initial,
+  );
+
+  return (
+    <form action={action} className="flex flex-col items-end gap-1">
+      <input type="hidden" name="inviteId" value={inviteId} />
+      <button
+        type="submit"
+        disabled={pending}
+        className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+      >
+        {pending ? "Removendo…" : "Cancelar"}
+      </button>
+      {state.error ? (
+        <p className="max-w-[140px] text-right text-[11px] text-red-600">
+          {state.error}
+        </p>
+      ) : null}
+      {state.success ? (
+        <p className="max-w-[140px] text-right text-[11px] text-brand">
+          {state.success}
+        </p>
+      ) : null}
+    </form>
+  );
+}
