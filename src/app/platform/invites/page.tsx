@@ -1,4 +1,7 @@
-import { InviteUserForm } from "@/components/platform/platform-forms";
+import {
+  CancelInviteButton,
+  InviteUserForm,
+} from "@/components/platform/platform-forms";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PlatformInvitesPage() {
@@ -22,7 +25,8 @@ export default async function PlatformInvitesPage() {
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Convites</h1>
         <p className="mt-2 text-ink-muted">
-          Convide usuários para um tenant (e-mail + papel).
+          Convide com senha provisória (atalho) ou por e-mail. Cancele pendentes
+          quando precisar.
         </p>
       </header>
 
@@ -54,15 +58,14 @@ export default async function PlatformInvitesPage() {
                     key={inv.id}
                     className="flex items-center justify-between gap-3 py-3 text-sm"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-medium">{inv.email}</p>
                       <p className="text-ink-muted">
-                        {tenantName ?? "—"} · {inv.role}
+                        {tenantName ?? "—"} · {inv.role} ·{" "}
+                        {inv.accepted_at ? "Aceito" : "Pendente"}
                       </p>
                     </div>
-                    <p className="text-xs text-ink-muted">
-                      {inv.accepted_at ? "Aceito" : "Pendente"}
-                    </p>
+                    <CancelInviteButton inviteId={inv.id} />
                   </li>
                 );
               })}
