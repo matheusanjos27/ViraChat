@@ -19,7 +19,11 @@ services:
       - caddy_config:/config
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      APP_ALIAS: ${APP_ALIAS:-localhost}
+      ROOT_DOMAIN: ${ROOT_DOMAIN:-localhost}
       WA_DOMAIN: ${WA_DOMAIN:-localhost}
+      API_DOMAIN: ${API_DOMAIN:-localhost}
+      SUPABASE_KONG_UPSTREAM: ${SUPABASE_KONG_UPSTREAM:-supabase-kong-1:8000}
     depends_on:
       - virachat
       - evolution-api
