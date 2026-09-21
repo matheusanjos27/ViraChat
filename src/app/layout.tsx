@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   title: "ViraChat — Atendimento com IA no WhatsApp",
   description:
     "IA responde no WhatsApp; o humano assume quando quiser. Central de conversas multi-número.",
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png", sizes: "512x512" }],
+    apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

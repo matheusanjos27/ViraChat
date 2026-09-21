@@ -15,9 +15,11 @@ const field =
 export function BaileysConnectForm({
   tenantId,
   enabled,
+  disabledMessage,
 }: {
   tenantId: string;
   enabled: boolean;
+  disabledMessage?: string;
 }) {
   const [state, action, pending] = useActionState(
     startBaileysChannel,
@@ -64,10 +66,14 @@ export function BaileysConnectForm({
   if (!enabled) {
     return (
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        Evolution/Baileys ainda não está ligado neste ambiente. No servidor,
-        configure <code className="font-mono">EVOLUTION_API_URL</code> e{" "}
-        <code className="font-mono">EVOLUTION_API_KEY</code> (veja{" "}
-        <code className="font-mono">docker/README.md</code>).
+        {disabledMessage ?? (
+          <>
+            Evolution/Baileys ainda não está ligado neste ambiente. No servidor,
+            configure <code className="font-mono">EVOLUTION_API_URL</code> e{" "}
+            <code className="font-mono">EVOLUTION_API_KEY</code> (veja{" "}
+            <code className="font-mono">docker/README.md</code>).
+          </>
+        )}
       </p>
     );
   }

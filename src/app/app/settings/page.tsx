@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PlanOverview } from "@/components/settings/plan-overview";
+import {
+  countTenantChannels,
+  getAiReplyUsageThisMonth,
+  getTenantPlanLimits,
+} from "@/lib/plans/limits";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function SettingsPage() {
@@ -25,8 +31,9 @@ export default async function SettingsPage() {
     { count: memberCount },
     { count: adminCount },
     { data: aiConfig },
-    { count: channelCount },
     { count: stageCount },
+    planLimits,
+    channelsUsed,
   ] = await Promise.all([
     supabase
       .from("tenants")
@@ -48,23 +55,24 @@ export default async function SettingsPage() {
       .eq("tenant_id", tenantId)
       .maybeSingle(),
     supabase
-      .from("channels")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId)
-      .eq("is_active", true),
-    supabase
       .from("deal_stages")
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenantId),
+    getTenantPlanLimits(tenantId),
+    countTenantChannels(tenantId),
   ]);
 
   const workspaceName = tenant?.name ?? "Workspace";
   const members = memberCount ?? 0;
   const admins = adminCount ?? 0;
-  const channels = channelCount ?? 0;
+  const channels = channelsUsed;
   const stages = stageCount ?? 0;
   const aiOn = aiConfig?.is_enabled ?? false;
-  const planLabel = "Starter";
+  const planLabel = planLimits?.planName ?? "Sem plano";
+  const aiUsage = await getAiReplyUsageThisMonth(
+    tenantId,
+    planLimits?.maxAiRepliesMonth ?? 0,
+  );
 
   const cards = [
     {
@@ -102,9 +110,17 @@ export default async function SettingsPage() {
       href: "/app/channels",
       icon: "channels" as const,
       title: "Canais",
-      badge: `${channels} conectado${channels === 1 ? "" : "s"}`,
+      badge: planLimits
+        ? `${channels}/${planLimits.maxChannels} WhatsApp`
+        : `${channels} conectado${channels === 1 ? "" : "s"}`,
       badgeTone: channels > 0 ? ("success" as const) : ("muted" as const),
-      points: ["WhatsApp (QR)", "Instagram (em breve)", "Messenger (em breve)"],
+      points: [
+        planLimits
+          ? `Até ${planLimits.maxChannels} número${planLimits.maxChannels === 1 ? "" : "s"} no plano`
+          : "WhatsApp (QR)",
+        "Conexão por QR Code",
+        "Instagram / Messenger em breve",
+      ],
       footer: channels > 0 ? "Canais ativos" : "Conectar número",
     },
     {
@@ -169,7 +185,17 @@ export default async function SettingsPage() {
               <p className="mt-1 text-lg font-semibold text-ink">
                 {workspaceName}
               </p>
-              <p className="mt-0.5 text-xs text-ink-muted">Plano {planLabel}</p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                Plano {planLabel}
+                {planLimits ? (
+                  <>
+                    {" · "}
+                    <a href="#meu-plano" className="text-brand hover:underline">
+                      ver direitos e consumo
+                    </a>
+                  </>
+                ) : null}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <StatChip
@@ -179,18 +205,37 @@ export default async function SettingsPage() {
               />
               <StatChip
                 label="Canal"
-                value={`${channels} conectado${channels === 1 ? "" : "s"}`}
+                value={
+                  planLimits
+                    ? `${channels}/${planLimits.maxChannels}`
+                    : `${channels} conectado${channels === 1 ? "" : "s"}`
+                }
                 tone={channels > 0 ? "success" : "muted"}
               />
               <StatChip
                 label="Equipe"
-                value={`${members} usuário${members === 1 ? "" : "s"}`}
+                value={
+                  planLimits
+                    ? `${members}/${planLimits.maxMembers}`
+                    : `${members} usuário${members === 1 ? "" : "s"}`
+                }
                 tone="info"
               />
               <StatChip label="Plano" value={planLabel} tone="neutral" />
             </div>
           </div>
         </section>
+
+        {planLimits ? (
+          <div className="mt-6">
+            <PlanOverview
+              plan={planLimits}
+              membersUsed={members}
+              channelsUsed={channels}
+              aiUsage={aiUsage}
+            />
+          </div>
+        ) : null}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
           {cards.map((c) => (

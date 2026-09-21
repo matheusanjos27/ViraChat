@@ -3,6 +3,10 @@ import { BaileysConnectForm } from "@/components/channels/baileys-connect-form";
 import { DisconnectChannelButton } from "@/components/channels/disconnect-channel-button";
 import { ReconnectChannelButton } from "@/components/channels/reconnect-channel-button";
 import { isEvolutionConfigured } from "@/lib/evolution/client";
+import {
+  countTenantChannels,
+  getTenantPlanLimits,
+} from "@/lib/plans/limits";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ChannelsPage() {
@@ -25,14 +29,23 @@ export default async function ChannelsPage() {
   const tenantId = membership.tenant_id;
   const evolutionOn = isEvolutionConfigured();
 
-  const { data: channels } = await supabase
-    .from("channels")
-    .select(
-      "id, display_name, is_active, created_at, whatsapp_accounts(display_phone, verified_name, phone_number_id, onboard_source, connection_status, last_webhook_at)",
-    )
-    .eq("tenant_id", tenantId)
-    .eq("provider_id", "whatsapp")
-    .order("created_at", { ascending: false });
+  const [channelsResult, planLimits, channelsUsed] = await Promise.all([
+    supabase
+      .from("channels")
+      .select(
+        "id, display_name, is_active, created_at, whatsapp_accounts(display_phone, verified_name, phone_number_id, onboard_source, connection_status, last_webhook_at)",
+      )
+      .eq("tenant_id", tenantId)
+      .eq("provider_id", "whatsapp")
+      .order("created_at", { ascending: false }),
+    getTenantPlanLimits(tenantId),
+    countTenantChannels(tenantId),
+  ]);
+
+  const channels = channelsResult.data;
+  const channelLimit = planLimits?.maxChannels ?? 0;
+  const atChannelLimit =
+    channelLimit > 0 && channelsUsed >= channelLimit;
 
   type ChannelRow = {
     id: string;
@@ -78,6 +91,24 @@ export default async function ChannelsPage() {
             Empresa <span className="font-medium text-ink">{tenant.name}</span>.
             Conecte números por QR Code. A IA responde em todos.
           </p>
+          {planLimits ? (
+            <p
+              className={`mt-3 inline-flex rounded-full border px-3 py-1.5 text-sm font-medium ${
+                atChannelLimit
+                  ? "border-amber-300 bg-amber-50 text-amber-950"
+                  : "border-line bg-surface text-ink-body"
+              }`}
+            >
+              {channelsUsed}/{planLimits.maxChannels} WhatsApp
+              {planLimits.maxChannels === 1 ? "" : "s"} no plano{" "}
+              <span className="ml-1 font-semibold text-ink">
+                {planLimits.planName}
+              </span>
+              {atChannelLimit ? (
+                <span className="ml-1 text-amber-800">· limite atingido</span>
+              ) : null}
+            </p>
+          ) : null}
         </header>
 
         {disconnected.length > 0 ? (
@@ -101,8 +132,7 @@ export default async function ChannelsPage() {
           <div className="rounded-xl border border-brand/15 bg-brand-soft/70 px-4 py-3 text-sm text-brand-deep">
             <p className="font-semibold">Conexão por QR</p>
             <p className="mt-1 text-brand-deep/80">
-              Escaneie no celular. O número continua no aparelho. Cada empresa
-              pode cadastrar N números.
+              Escaneie no celular. O número continua no aparelho.
             </p>
           </div>
 
@@ -171,8 +201,25 @@ export default async function ChannelsPage() {
 
         <section className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
           <h2 className="text-lg font-semibold">Conectar WhatsApp</h2>
+          {!atChannelLimit && planLimits ? (
+            <p className="mt-1 text-sm text-ink-muted">
+              Você ainda pode conectar{" "}
+              <strong className="text-ink">
+                {Math.max(0, planLimits.maxChannels - channelsUsed)}
+              </strong>{" "}
+              neste plano.
+            </p>
+          ) : null}
           <div className="mt-4">
-            <BaileysConnectForm tenantId={tenantId} enabled={evolutionOn} />
+            <BaileysConnectForm
+              tenantId={tenantId}
+              enabled={evolutionOn && !atChannelLimit}
+              disabledMessage={
+                atChannelLimit
+                  ? `Limite do plano ${planLimits?.planName ?? ""} atingido (${channelsUsed}/${planLimits?.maxChannels ?? 0} WhatsApps). Remova um canal ou peça upgrade.`
+                  : undefined
+              }
+            />
           </div>
         </section>
       </div>
