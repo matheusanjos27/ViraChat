@@ -83,6 +83,39 @@ export function declinesHandoffOffer(text: string): boolean {
   );
 }
 
+/** Texto da IA que já oferece / pede confirmação de handoff (evita perguntar 2x). */
+export function offersHandoffConfirmation(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  return /(deseja|quer(e)?|posso|pode|gostaria).{0,40}(atendente|humano|especialista|equipe|algu[eé]m)|(falar|passar|transfer).{0,30}(atendente|humano)|(sim\s*ou\s*n[aã]o|responde\s*\*?sim)/i.test(
+    t,
+  );
+}
+
+export const HANDOFF_OFFER_QUESTION =
+  "Posso te passar para um atendente humano agora? Responde *sim* ou *não*.";
+
+/** Junta conteúdo útil + pergunta única de confirmação (sem duplicar). */
+export function buildHandoffOfferText(priorText?: string | null): string {
+  const raw = (priorText ?? "").trim();
+  if (!raw) return HANDOFF_OFFER_QUESTION;
+  // Já perguntou sim/não — não acrescenta outra frase.
+  if (offersHandoffConfirmation(raw)) return raw;
+  // Prometeu transferir direto — troca a promessa pela pergunta.
+  if (/vou te transfer|transferir para um atendente/i.test(raw)) {
+    const cleaned = raw
+      .replace(
+        /[^.!?\n]*(vou te transfer|transferir para um atendente)[^.!?\n]*[.!?]?\s*/gi,
+        "",
+      )
+      .trim();
+    return cleaned
+      ? `${cleaned}\n\n${HANDOFF_OFFER_QUESTION}`
+      : HANDOFF_OFFER_QUESTION;
+  }
+  return `${raw}\n\n${HANDOFF_OFFER_QUESTION}`;
+}
+
 /**
  * Early/short turns (ex.: "bom dia") — skip catalog, fields and funnel
  * so fixed overhead doesn't burn ~1k tokens on a greeting.

@@ -2,8 +2,10 @@ import { isMonthlyTokenBudgetExceeded } from "@/lib/ai/budget";
 import {
   AI_LIMITS,
   affirmsHandoffOffer,
+  buildHandoffOfferText,
   declinesHandoffOffer,
   isLightContextTurn,
+  offersHandoffConfirmation,
   truncate,
   wantsHuman,
 } from "@/lib/ai/limits";
@@ -471,7 +473,14 @@ export async function runAiForConversation(conversationId: string) {
 
   let markHandoffOfferPending = false;
 
-  if (confirmedOffer && result.action === "reply") {
+  // Modelo já perguntou sim/não → só marca pendente, sem repetir a pergunta.
+  if (
+    result.action === "reply" &&
+    !offerPending &&
+    offersHandoffConfirmation(result.text ?? "")
+  ) {
+    markHandoffOfferPending = true;
+  } else if (confirmedOffer && result.action === "reply") {
     result = {
       action: "handoff",
       reason: "cliente_confirmou_atendente",
@@ -486,16 +495,11 @@ export async function runAiForConversation(conversationId: string) {
       usage: result.usage,
     };
   } else if (shouldOfferHandoff) {
-    const prior =
-      (result.text ?? "").trim() &&
-      !/atendente|humano|transfer/i.test(result.text ?? "")
-        ? `${result.text!.trim()}\n\n`
-        : "";
     const dealStage =
       result.action === "reply" ? result.deal_stage : undefined;
     result = {
       action: "reply",
-      text: `${prior}Posso te passar para um atendente humano agora? Responde *sim* ou *não*.`,
+      text: buildHandoffOfferText(result.text),
       collected: result.collected,
       usage: result.usage,
       deal_stage: dealStage,
@@ -518,14 +522,9 @@ export async function runAiForConversation(conversationId: string) {
         usage: result.usage,
       };
     } else {
-      const prior =
-        (result.text ?? "").trim() &&
-        !/vou te transfer|transferir para um atendente/i.test(result.text ?? "")
-          ? `${result.text!.trim()}\n\n`
-          : "";
       result = {
         action: "reply",
-        text: `${prior}Posso te passar para um atendente humano agora? Responde *sim* ou *não*.`,
+        text: buildHandoffOfferText(result.text),
         collected: result.collected,
         usage: result.usage,
       };
