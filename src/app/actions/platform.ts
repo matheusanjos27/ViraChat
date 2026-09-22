@@ -473,6 +473,85 @@ export async function platformRemoveTenantMember(
   };
 }
 
+function slugifyPlanName(name: string) {
+  const base = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return base || "plano";
+}
+
+export async function platformCreatePlan(
+  _prev: PlatformState,
+  formData: FormData,
+): Promise<PlatformState> {
+  if (!(await isCurrentUserPlatformAdmin())) {
+    return { error: "Apenas super admin." };
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  const maxMembers = Math.min(
+    500,
+    Math.max(1, Number.parseInt(String(formData.get("maxMembers") ?? "2"), 10) || 2),
+  );
+  const maxChannels = Math.min(
+    100,
+    Math.max(1, Number.parseInt(String(formData.get("maxChannels") ?? "1"), 10) || 1),
+  );
+  const maxAiReplies = Math.max(
+    0,
+    Number.parseInt(String(formData.get("maxAiReplies") ?? "500"), 10) || 0,
+  );
+
+  if (!name) return { error: "Informe o nome do plano." };
+
+  const admin = createServiceClient();
+  const { data: last } = await admin
+    .from("plans")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const sortOrder = (last?.sort_order ?? 0) + 10;
+
+  let slug = slugifyPlanName(name);
+  for (let i = 0; i < 6; i++) {
+    const candidate = i === 0 ? slug : `${slug}-${i + 1}`;
+    const { data: created, error } = await admin
+      .from("plans")
+      .insert({
+        slug: candidate,
+        name,
+        description,
+        max_members: maxMembers,
+        max_channels: maxChannels,
+        max_ai_replies_month: maxAiReplies,
+        is_custom: false,
+        sort_order: sortOrder,
+        is_active: true,
+      })
+      .select("id, name")
+      .maybeSingle();
+
+    if (!error && created) {
+      revalidatePath("/platform");
+      revalidatePath("/platform/plans");
+      revalidatePath("/platform/tenants");
+      return {
+        success: `Plano “${created.name}” criado. Já aparece na lista e pode atribuir a um cliente.`,
+      };
+    }
+    if (error?.code === "23505") continue; // slug duplicado
+    if (error) return { error: error.message };
+  }
+
+  return { error: "Não foi possível gerar um identificador único para o plano." };
+}
+
 export async function platformUpdatePlan(
   _prev: PlatformState,
   formData: FormData,

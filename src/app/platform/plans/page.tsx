@@ -21,8 +21,8 @@ export default async function PlatformPlansPage() {
           Catálogo de planos
         </h1>
         <p className="mt-2 max-w-2xl text-ink-muted">
-          Edite nome e limites padrão (Básico, Médio, Personalizado). Para{" "}
-          <strong>aplicar ou trocar</strong> o plano de um cliente, use{" "}
+          Crie e edite planos com o nome que quiser (Starter, Pro, KM Escala…).
+          Para <strong>aplicar</strong> a um cliente, use{" "}
           <Link href="/platform/tenants" className="font-medium text-brand hover:underline">
             Clientes
           </Link>
@@ -33,8 +33,8 @@ export default async function PlatformPlansPage() {
       <section className="mt-8 max-w-3xl rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
         <h2 className="text-lg font-semibold">Planos disponíveis</h2>
         <p className="mt-1 text-sm text-ink-muted">
-          Mudanças no catálogo afetam novos clientes e, nos planos não
-          personalizados, sincronizam o teto de equipe.
+          Quantos planos quiser. Cada um tem nome, equipe, WhatsApps e teto de
+          IA. O plano “Personalizado” ainda permite overrides por cliente.
         </p>
         <div className="mt-4">
           <PlansEditor plans={plans ?? []} />

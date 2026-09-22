@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import {
   platformAssignTenantPlan,
+  platformCreatePlan,
   platformUpdatePlan,
   type PlatformState,
 } from "@/app/actions/platform";
@@ -22,11 +23,101 @@ export type PlanRow = {
   is_custom: boolean;
 };
 
+export function CreatePlanForm() {
+  const [state, action, pending] = useActionState(platformCreatePlan, initial);
+
+  return (
+    <form
+      action={action}
+      className="rounded-2xl border border-dashed border-brand/40 bg-brand/5 p-4"
+    >
+      <p className="text-sm font-semibold text-ink">Novo plano</p>
+      <p className="mt-1 text-xs text-ink-muted">
+        Crie Starter, Pro, KM Escala, etc. Depois atribua em Clientes.
+      </p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-ink-muted">Nome</label>
+          <input
+            name="name"
+            required
+            placeholder="Ex: Pro, KM Escala, Business"
+            className={`${field} mt-1`}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-ink-muted">
+            Descrição (opcional)
+          </label>
+          <textarea
+            name="description"
+            rows={2}
+            placeholder="O que inclui este plano"
+            className={`${field} mt-1`}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-ink-muted">
+            Máx. equipe
+          </label>
+          <input
+            name="maxMembers"
+            type="number"
+            min={1}
+            max={500}
+            defaultValue={2}
+            className={`${field} mt-1`}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-ink-muted">
+            Máx. WhatsApps
+          </label>
+          <input
+            name="maxChannels"
+            type="number"
+            min={1}
+            max={100}
+            defaultValue={1}
+            className={`${field} mt-1`}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-ink-muted">
+            Respostas IA / mês
+          </label>
+          <input
+            name="maxAiReplies"
+            type="number"
+            min={0}
+            defaultValue={600}
+            className={`${field} mt-1`}
+          />
+        </div>
+      </div>
+      <button
+        type="submit"
+        disabled={pending}
+        className="mt-4 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+      >
+        {pending ? "Criando…" : "Criar plano"}
+      </button>
+      {state.error && (
+        <p className="mt-2 text-sm text-red-600">{state.error}</p>
+      )}
+      {state.success && (
+        <p className="mt-2 text-sm text-brand">{state.success}</p>
+      )}
+    </form>
+  );
+}
+
 export function PlansEditor({ plans }: { plans: PlanRow[] }) {
   const [state, action, pending] = useActionState(platformUpdatePlan, initial);
 
   return (
     <div className="space-y-4">
+      <CreatePlanForm />
       {plans.map((p) => (
         <form
           key={p.id}
@@ -37,7 +128,7 @@ export function PlansEditor({ plans }: { plans: PlanRow[] }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
               {p.slug}
-              {p.is_custom ? " · personalizado" : ""}
+              {p.is_custom ? " · personalizado (overrides por cliente)" : ""}
             </p>
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
