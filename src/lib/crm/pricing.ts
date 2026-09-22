@@ -254,6 +254,42 @@ export function quoteCatalogFocused(
   return quoteCatalog(services, units, ids);
 }
 
+/**
+ * Nomes do catálogo (sem preços) — material para a IA organizar a 1ª mensagem.
+ * Preços ficam no CATÁLOGO OFICIAL completo nas demais voltas / orçamento.
+ */
+export function buildOpeningCatalogOutline(services: ServiceForQuote[]) {
+  const active = services.filter((s) => s.is_active);
+  if (active.length === 0) {
+    return truncate(
+      `CATÁLOGO VAZIO: não há itens ativos.
+NÃO invente produtos. Informe e ofereça handoff.`,
+      AI_LIMITS.catalogBlock,
+    );
+  }
+
+  const fixed = active.filter((s) => s.billing_type === "fixed");
+  const tiered = active.filter((s) => s.billing_type === "tiered");
+  const perUnit = active.filter((s) => s.billing_type === "per_unit");
+
+  const line = (items: ServiceForQuote[]) =>
+    items.map((s) => `- ${s.name}`).join("\n");
+
+  const parts: string[] = [
+    `CATÁLOGO OFICIAL (só NOMES — use para organizar a mensagem; NÃO cole esta lista crua; NÃO invente preços nesta abertura):`,
+  ];
+  if (fixed.length || tiered.length) {
+    parts.push(`Valor fixo / faixas:\n${line([...fixed, ...tiered])}`);
+  }
+  if (perUnit.length) {
+    parts.push(`Por unidade:\n${line(perUnit)}`);
+  }
+  parts.push(
+    `Siga o ROTEIRO (Abertura). Resposta curta e organizada — sem wall de preços.`,
+  );
+  return truncate(parts.join("\n\n"), AI_LIMITS.catalogBlock);
+}
+
 /** Serializa o catálogo para o prompt da IA. */
 export function buildCatalogPromptBlock(services: ServiceForQuote[]) {
   const active = services.filter((s) => s.is_active);

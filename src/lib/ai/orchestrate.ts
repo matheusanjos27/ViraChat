@@ -37,10 +37,12 @@ import {
 } from "@/lib/crm/playbook";
 import {
   buildCatalogPromptBlock,
+  buildOpeningCatalogOutline,
   formatQuoteMessage,
   quoteCatalogFocused,
   type ServiceForQuote,
 } from "@/lib/crm/pricing";
+import { sanitizeOutboundAiText } from "@/lib/ai/parse-model-json";
 import {
   buildFunnelPromptBlock,
   ensureDealAndAdvanceStage,
@@ -485,15 +487,17 @@ export async function runAiForConversation(conversationId: string) {
     })),
   }));
 
-  // Abertura / pedido de lista: só evita "contexto leve" sem catálogo.
-  // Formato e o que listar vêm do playbook + prompt — sem template no código.
+  // Abertura: nomes só (IA organiza). Preços entram depois / no orçamento.
+  // Formato da mensagem = playbook + prompt, sem template de tenant no código.
   const openingTurn = isOpeningGreetingTurn(
     latestInbound.body,
     history.length,
   );
   const askedCatalogList = wantsCatalogList(latestInbound.body);
 
-  let catalogBlock = buildCatalogPromptBlock(catalog);
+  let catalogBlock = openingTurn
+    ? buildOpeningCatalogOutline(catalog)
+    : buildCatalogPromptBlock(catalog);
 
   let quotedThisTurn = false;
   let quotedTotal: number | null = null;
@@ -875,18 +879,18 @@ export async function runAiForConversation(conversationId: string) {
     return { skipped: "missing_channel_or_contact" as const };
   }
 
+  const outboundFallback =
+    "Recebi sua mensagem. Pode me confirmar o dado que pedi?";
   const outboundTextRaw =
     result.action === "handoff"
       ? result.text ||
         "Vou te transferir para um atendente humano. Aguarde um momento."
       : result.text;
 
-  const outboundText =
-    outboundTextRaw &&
-    /^[\s]*[\{\[]/.test(outboundTextRaw) &&
-    /[\}\]][\s]*$/.test(outboundTextRaw)
-      ? "Recebi sua mensagem. Pode me confirmar o dado que pedi?"
-      : outboundTextRaw;
+  const outboundText = sanitizeOutboundAiText(
+    outboundTextRaw,
+    outboundFallback,
+  );
 
   let providerMessageId: string | null = null;
   try {

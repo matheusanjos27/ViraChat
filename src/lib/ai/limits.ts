@@ -23,8 +23,8 @@ export const AI_LIMITS = {
   defaultMonthlyTokens: 2_000_000,
   /** Wait before running AI so bursts coalesce into one call. */
   debounceMs: 1_500,
-  /** Max completion tokens (provider). */
-  maxCompletionTokens: 360,
+  /** Max completion tokens (provider). Abertura organizada precisa de folga. */
+  maxCompletionTokens: 700,
 } as const;
 
 const SEP = "\n---\n";

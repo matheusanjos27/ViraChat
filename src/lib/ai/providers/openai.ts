@@ -5,6 +5,11 @@ import {
   truncate,
   wantsHuman,
 } from "@/lib/ai/limits";
+import {
+  extractReplyTextFromModelRaw,
+  looksLikeModelJsonEnvelope,
+  sanitizeOutboundAiText,
+} from "@/lib/ai/parse-model-json";
 import type { AiProvider, AiReplyResult } from "@/lib/ai/types";
 
 export { wantsHuman };
@@ -13,11 +18,13 @@ const SYSTEM_RULES = `Atendente WhatsApp. PT-BR, curto (≤2 parágrafos).
 Siga o ROTEIRO se houver.
 
 CATÁLOGO (regra dura):
-- Fale SOMENTE dos itens listados no bloco CATÁLOGO OFICIAL (nome exato, descrição e preço).
+- Fale SOMENTE dos itens listados no bloco CATÁLOGO OFICIAL (nome exato).
+- O catálogo é material INTERNO: NUNCA cole o bloco inteiro (nem a lista completa com todos os preços) na mensagem ao cliente.
+- Organize a resposta conforme o ROTEIRO / pedido do cliente (resumo, grupos, 1 item, orçamento pontual).
 - PROIBIDO inventar produtos/serviços que não estejam no CATÁLOGO.
 - Cada item tem tag [PRODUTO] ou [SERVIÇO] — use essa distinção ao falar com o cliente.
 - Se o catálogo estiver vazio ou o pedido não bater com nada cadastrado: diga que não tem essa opção e ofereça handoff (pergunte sim/não; não invente alternativa).
-- Ao listar o que vende, copie da lista oficial — nunca invente uma lista.
+- Só cite preço quando estiver orçando item(ns) pedidos ou quando o roteiro pedir valores.
 
 CAMPOS: se estiver em "DADOS JÁ NA BASE", NUNCA pergunte de novo (nome, e-mail, empresa, telefone, etc.).
 Só pergunte o que estiver em "SÓ PERGUNTE ESTES". Se não houver pendentes, não peça dados.
@@ -36,16 +43,9 @@ No handoff, preencha "handoff_summary" (3–6 linhas, PT-BR) só para o atendent
 Só JSON válido com action "reply" ou "handoff".
 action=reply SEMPRE com "text" não vazio (mensagem ao cliente).
 Nunca use action "collected" sozinho — use action=reply + "collected" + "text".
+O campo "text" é o que o cliente lê no WhatsApp — NUNCA coloque JSON, "action" ou chaves técnicas nele.
 Ex.: {"action":"reply","text":"Obrigado! Qual o e-mail?","collected":{"cnpj":"12.345.678/0001-90"},"deal_stage":"Qualificado"}
 ou {"action":"handoff","reason":"...","text":"...","handoff_summary":"..."}`;
-
-function looksLikeJsonBlob(text: string): boolean {
-  const t = text.trim();
-  return (
-    (t.startsWith("{") && t.endsWith("}")) ||
-    (t.startsWith("[") && t.endsWith("]"))
-  );
-}
 
 function fallbackClientText(latestUserMessage: string): string {
   if (wantsHuman(latestUserMessage)) {
@@ -105,7 +105,7 @@ function parseAiJson(raw: string): AiReplyResult | null {
       if (!text) return null; // deixa o caller montar texto seguro + collected
       return {
         action: "reply",
-        text,
+        text: sanitizeOutboundAiText(text, text),
         collected,
         deal_stage: data.deal_stage,
       };
@@ -202,7 +202,8 @@ export class OpenAiProvider implements AiProvider {
     const parsed = parseAiJson(raw);
     if (parsed) return { ...parsed, usage };
 
-    // Modelo devolveu JSON inválido / action=collected sem text / {}
+    // JSON truncado / inválido: tenta salvar só o "text" ao cliente
+    const rescuedText = extractReplyTextFromModelRaw(raw);
     let collectedFromRaw: Record<string, string> | undefined;
     try {
       const m = raw.match(/\{[\s\S]*\}/);
@@ -232,10 +233,10 @@ export class OpenAiProvider implements AiProvider {
       };
     }
 
-    const safeText =
-      raw && !looksLikeJsonBlob(raw)
-        ? raw
-        : fallbackClientText(latest);
+    const safeText = sanitizeOutboundAiText(
+      rescuedText ?? (looksLikeModelJsonEnvelope(raw) ? null : raw),
+      fallbackClientText(latest),
+    );
 
     return {
       action: "reply",
