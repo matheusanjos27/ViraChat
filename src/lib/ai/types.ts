@@ -41,6 +41,8 @@ export interface AiProvider {
   generateReply(input: {
     agentName: string;
     instructions: string;
+    /** Frase de apresentação WhatsApp — junta com instructions no modelo. */
+    presentation?: string | null;
     history: AiChatMessage[];
     latestUserMessage: string;
     attributeBlock?: string;

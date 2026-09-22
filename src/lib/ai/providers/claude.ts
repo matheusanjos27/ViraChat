@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { AI_LIMITS } from "@/lib/ai/limits";
+import { AI_LIMITS, instructionsForModel } from "@/lib/ai/limits";
 import type { AiProvider, AiReplyResult } from "@/lib/ai/types";
 
 const SYSTEM_RULES = `Atendente WhatsApp. PT-BR, curto (≤2 parágrafos).
@@ -20,6 +20,7 @@ export class ClaudeAiProvider implements AiProvider {
   async generateReply(input: {
     agentName: string;
     instructions: string;
+    presentation?: string | null;
     history: { role: "user" | "assistant"; content: string }[];
     latestUserMessage: string;
   }): Promise<AiReplyResult> {
@@ -40,6 +41,10 @@ export class ClaudeAiProvider implements AiProvider {
 
     const client = new Anthropic({ apiKey });
     const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
+    const instructions = instructionsForModel(
+      input.instructions,
+      input.presentation,
+    );
 
     const history = input.history.slice(-AI_LIMITS.historyTurnsMax).map((m) => ({
       role: m.role,
@@ -49,7 +54,7 @@ export class ClaudeAiProvider implements AiProvider {
     const response = await client.messages.create({
       model,
       max_tokens: AI_LIMITS.maxCompletionTokens,
-      system: `${SYSTEM_RULES}\n\nNome do assistente: ${input.agentName}\nInstruções da empresa:\n${input.instructions}`,
+      system: `${SYSTEM_RULES}\n\nNome do assistente: ${input.agentName}\nInstruções da empresa:\n${instructions}`,
       messages: [
         ...history,
         {

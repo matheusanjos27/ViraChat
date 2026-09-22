@@ -261,6 +261,7 @@ export async function platformInviteTenantUser(
   revalidatePath("/platform");
   revalidatePath("/platform/invites");
   revalidatePath("/platform/tenants");
+  if (tenantId) revalidatePath(`/platform/tenants/${tenantId}`);
   return result;
 }
 
@@ -287,32 +288,39 @@ export async function platformCancelInvite(
 
   const email = invite.email.trim().toLowerCase();
 
-  // Remove membership no tenant, se existir
-  const { data: listed } = await admin.auth.admin.listUsers({
-    page: 1,
-    perPage: 200,
-  });
-  const authUser = listed?.users?.find(
-    (u) => u.email?.toLowerCase() === email,
-  );
+  // Resolve usuário via profile (mais confiável que listUsers paginado)
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .ilike("email", email)
+    .maybeSingle();
 
-  if (authUser) {
+  let authUserId = profile?.id ?? null;
+  if (!authUserId) {
+    const { data: listed } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+    authUserId =
+      listed?.users?.find((u) => u.email?.toLowerCase() === email)?.id ?? null;
+  }
+
+  if (authUserId) {
     await admin
       .from("user_tenant_roles")
       .delete()
       .eq("tenant_id", invite.tenant_id)
-      .eq("user_id", authUser.id);
+      .eq("user_id", authUserId);
 
     const { count } = await admin
       .from("user_tenant_roles")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", authUser.id);
+      .eq("user_id", authUserId);
 
-    // Sem nenhum tenant: apaga o usuário Auth órfão
     if ((count ?? 0) === 0) {
-      await admin.from("platform_admins").delete().eq("user_id", authUser.id);
-      await admin.from("profiles").delete().eq("id", authUser.id);
-      await admin.auth.admin.deleteUser(authUser.id);
+      await admin.from("platform_admins").delete().eq("user_id", authUserId);
+      await admin.from("profiles").delete().eq("id", authUserId);
+      await admin.auth.admin.deleteUser(authUserId);
     }
   }
 
@@ -325,10 +333,143 @@ export async function platformCancelInvite(
 
   revalidatePath("/platform/invites");
   revalidatePath("/platform/tenants");
+  revalidatePath(`/platform/tenants/${invite.tenant_id}`);
   return {
     success: invite.accepted_at
       ? `Acesso de ${email} removido.`
-      : `Convite pendente de ${email} cancelado.`,
+      : `Convite de ${email} excluído.`,
+  };
+}
+
+export async function platformUpdateTenantMember(
+  _prev: PlatformState,
+  formData: FormData,
+): Promise<PlatformState> {
+  if (!(await isCurrentUserPlatformAdmin())) {
+    return { error: "Apenas super admin." };
+  }
+
+  const tenantId = String(formData.get("tenantId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const role = String(formData.get("role") ?? "agent") as InviteRole;
+  const password = String(formData.get("password") ?? "").trim();
+
+  if (!tenantId || !userId) return { error: "Membro inválido." };
+  if (!["admin", "supervisor", "agent"].includes(role)) {
+    return { error: "Papel inválido." };
+  }
+  if (password && password.length < 6) {
+    return { error: "Senha provisória: mínimo 6 caracteres." };
+  }
+
+  const admin = createServiceClient();
+  const { data: membership } = await admin
+    .from("user_tenant_roles")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!membership) return { error: "Usuário não pertence a este cliente." };
+
+  const { error: roleError } = await admin
+    .from("user_tenant_roles")
+    .update({ role })
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId);
+  if (roleError) return { error: roleError.message };
+
+  if (fullName) {
+    await admin
+      .from("profiles")
+      .update({ full_name: fullName })
+      .eq("id", userId);
+  }
+
+  const authPatch: {
+    password?: string;
+    user_metadata?: Record<string, unknown>;
+  } = {};
+  if (password) {
+    authPatch.password = password;
+    authPatch.user_metadata = { must_change_password: true };
+  }
+  if (fullName) {
+    authPatch.user_metadata = {
+      ...(authPatch.user_metadata ?? {}),
+      full_name: fullName,
+    };
+  }
+  if (Object.keys(authPatch).length > 0) {
+    const { data: existing } = await admin.auth.admin.getUserById(userId);
+    const { error: authError } = await admin.auth.admin.updateUserById(userId, {
+      ...authPatch,
+      user_metadata: {
+        ...(existing?.user?.user_metadata ?? {}),
+        ...(authPatch.user_metadata ?? {}),
+      },
+    });
+    if (authError) return { error: authError.message };
+  }
+
+  revalidatePath("/platform/tenants");
+  revalidatePath(`/platform/tenants/${tenantId}`);
+  return {
+    success: password
+      ? "Membro atualizado. Nova senha provisória definida (troca no 1º login)."
+      : "Membro atualizado.",
+  };
+}
+
+export async function platformRemoveTenantMember(
+  _prev: PlatformState,
+  formData: FormData,
+): Promise<PlatformState> {
+  if (!(await isCurrentUserPlatformAdmin())) {
+    return { error: "Apenas super admin." };
+  }
+
+  const tenantId = String(formData.get("tenantId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
+  if (!tenantId || !userId) return { error: "Membro inválido." };
+
+  const admin = createServiceClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("email")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const { error: delRole } = await admin
+    .from("user_tenant_roles")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId);
+  if (delRole) return { error: delRole.message };
+
+  if (profile?.email) {
+    await admin
+      .from("tenant_invites")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .ilike("email", profile.email);
+  }
+
+  const { count } = await admin
+    .from("user_tenant_roles")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if ((count ?? 0) === 0) {
+    await admin.from("platform_admins").delete().eq("user_id", userId);
+    await admin.from("profiles").delete().eq("id", userId);
+    await admin.auth.admin.deleteUser(userId);
+  }
+
+  revalidatePath("/platform/tenants");
+  revalidatePath(`/platform/tenants/${tenantId}`);
+  return {
+    success: `Acesso removido${profile?.email ? ` (${profile.email})` : ""}.`,
   };
 }
 

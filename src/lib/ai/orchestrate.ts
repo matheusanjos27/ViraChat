@@ -86,7 +86,7 @@ export async function runAiForConversation(conversationId: string) {
 
   const { data: aiConfig } = await supabase
     .from("ai_configs")
-    .select("name, instructions, is_enabled, close_mode")
+    .select("name, instructions, presentation, is_enabled, close_mode")
     .eq("tenant_id", conversation.tenant_id)
     .maybeSingle();
 
@@ -575,6 +575,7 @@ export async function runAiForConversation(conversationId: string) {
   let result: AiReplyResult = await provider.generateReply({
     agentName: aiConfig.name,
     instructions: aiConfig.instructions,
+    presentation: aiConfig.presentation,
     history,
     latestUserMessage: latestInbound.body,
     playbookBlock: light

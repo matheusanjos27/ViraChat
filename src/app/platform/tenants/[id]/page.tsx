@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TenantManagePanel } from "@/components/platform/tenants-workspace";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { getTenantUsageSummary } from "@/lib/platform/tenant-summary";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,8 +12,9 @@ export default async function PlatformTenantManagePage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const admin = createServiceClient();
 
-  const [{ data: tenant }, { data: plans }, summary, { data: invites }] =
+  const [{ data: tenant }, { data: plans }, summary, { data: invites }, { data: roles }] =
     await Promise.all([
       supabase
         .from("tenants")
@@ -34,20 +36,42 @@ export default async function PlatformTenantManagePage({
         .eq("tenant_id", id)
         .order("created_at", { ascending: false })
         .limit(40),
+      admin
+        .from("user_tenant_roles")
+        .select("user_id, role")
+        .eq("tenant_id", id)
+        .order("created_at", { ascending: true }),
     ]);
 
   if (!tenant) notFound();
 
-  const [{ count: memberCount }, { count: channelCount }] = await Promise.all([
-    supabase
-      .from("user_tenant_roles")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", id),
+  const userIds = (roles ?? []).map((r) => r.user_id);
+  const [{ count: channelCount }, { data: profiles }] = await Promise.all([
     supabase
       .from("whatsapp_accounts")
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", id),
+    userIds.length > 0
+      ? admin.from("profiles").select("id, full_name, email").in("id", userIds)
+      : Promise.resolve({
+          data: [] as {
+            id: string;
+            full_name: string | null;
+            email: string | null;
+          }[],
+        }),
   ]);
+
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const members = (roles ?? []).map((r) => {
+    const profile = profileById.get(r.user_id);
+    return {
+      userId: r.user_id,
+      email: profile?.email ?? null,
+      fullName: profile?.full_name ?? null,
+      role: r.role,
+    };
+  });
 
   const planRaw = tenant.plans as unknown;
   const plan = Array.isArray(planRaw)
@@ -82,7 +106,7 @@ export default async function PlatformTenantManagePage({
     is_custom_plan: isCustom,
     max_members: maxMembers,
     max_channels: maxChannels,
-    member_count: memberCount ?? 0,
+    member_count: members.length,
     channel_count: channelCount ?? 0,
     monthly_fee_cents: tenant.monthly_fee_cents ?? 0,
     billing_status: tenant.billing_status ?? "trial",
@@ -110,7 +134,7 @@ export default async function PlatformTenantManagePage({
           {tenant.name}
         </h1>
         <p className="mt-2 text-ink-muted">
-          {tenant.slug} · {plan?.name ?? "Sem plano"} · {memberCount ?? 0}/
+          {tenant.slug} · {plan?.name ?? "Sem plano"} · {members.length}/
           {maxMembers} assentos · {channelCount ?? 0}/{maxChannels} WhatsApps
         </p>
       </header>
@@ -120,6 +144,7 @@ export default async function PlatformTenantManagePage({
         plans={plans ?? []}
         summary={summary}
         invites={invites ?? []}
+        members={members}
       />
     </div>
   );

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AiSettingsWorkspace } from "@/components/settings/ai-settings-workspace";
 import type { Playbook } from "@/lib/crm/playbook";
 import type { ServiceForQuote } from "@/lib/crm/pricing";
+import { splitAiInstructions } from "@/lib/ai/limits";
 import {
   getAiReplyUsageThisMonth,
   getTenantPlanLimits,
@@ -46,7 +47,7 @@ export default async function AiSettingsPage() {
   ] = await Promise.all([
     supabase
       .from("ai_configs")
-      .select("name, instructions, is_enabled, close_mode")
+      .select("name, instructions, presentation, is_enabled, close_mode")
       .eq("tenant_id", membership.tenant_id)
       .maybeSingle(),
     supabase
@@ -105,6 +106,14 @@ export default async function AiSettingsPage() {
 
   const enabled = config?.is_enabled ?? false;
 
+  // Legado: presentation ainda embutida em instructions com \n---\n
+  const legacy = splitAiInstructions(config?.instructions ?? "");
+  const presentationSaved = (config?.presentation ?? "").trim();
+  const assistantPresentation = presentationSaved || legacy.presentation;
+  const assistantPrompt = presentationSaved
+    ? (config?.instructions ?? "")
+    : legacy.prompt || (config?.instructions ?? "");
+
   return (
     <div className="h-full overflow-y-auto bg-paper">
       <div className="px-5 py-6 lg:px-8">
@@ -125,7 +134,8 @@ export default async function AiSettingsPage() {
             <AiSettingsWorkspace
               tenantId={membership.tenant_id}
               assistantName={config?.name ?? "Assistente"}
-              assistantNotes={config?.instructions ?? ""}
+              assistantPresentation={assistantPresentation}
+              assistantPrompt={assistantPrompt}
               isEnabled={enabled}
               closeMode={
                 config?.close_mode === "callback" ? "callback" : "handoff"

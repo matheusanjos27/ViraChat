@@ -34,7 +34,8 @@ const testInitial: TestAiState = {};
 export function AiSettingsWorkspace({
   tenantId,
   assistantName,
-  assistantNotes,
+  assistantPresentation,
+  assistantPrompt,
   isEnabled,
   closeMode = "handoff",
   hasOpenAiKey,
@@ -49,7 +50,8 @@ export function AiSettingsWorkspace({
 }: {
   tenantId: string;
   assistantName: string;
-  assistantNotes: string;
+  assistantPresentation: string;
+  assistantPrompt: string;
   isEnabled: boolean;
   closeMode?: "handoff" | "callback";
   hasOpenAiKey: boolean;
@@ -87,7 +89,9 @@ export function AiSettingsWorkspace({
       {
         id: "prompt",
         label: "Prompt",
-        ok: Boolean(assistantNotes.trim()),
+        ok: Boolean(
+          assistantPresentation.trim() || assistantPrompt.trim(),
+        ),
       },
       {
         id: "campos",
@@ -113,7 +117,7 @@ export function AiSettingsWorkspace({
     const done = checks.filter((c) => c.ok).length;
     const pct = Math.round((done / checks.length) * 100);
     return { checks, done, pct };
-  }, [assistantName, assistantNotes, attributes, playbooks, services, isEnabled]);
+  }, [assistantName, assistantPresentation, assistantPrompt, attributes, playbooks, services, isEnabled]);
 
   const replyPct =
     aiRepliesLimit <= 0
@@ -268,7 +272,8 @@ export function AiSettingsWorkspace({
         <AiIdentityPanel
           tenantId={tenantId}
           name={assistantName}
-          notes={assistantNotes}
+          presentation={assistantPresentation}
+          prompt={assistantPrompt}
           isEnabled={isEnabled}
           closeMode={closeMode}
           quotaLocked={aiQuotaLocked}

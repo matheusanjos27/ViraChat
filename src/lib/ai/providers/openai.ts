@@ -122,6 +122,7 @@ export class OpenAiProvider implements AiProvider {
   async generateReply(input: {
     agentName: string;
     instructions: string;
+    presentation?: string | null;
     history: { role: "user" | "assistant"; content: string }[];
     latestUserMessage: string;
     attributeBlock?: string;
@@ -167,7 +168,10 @@ export class OpenAiProvider implements AiProvider {
       .filter(Boolean)
       .join("\n\n");
 
-    const instructions = instructionsForModel(input.instructions);
+    const instructions = instructionsForModel(
+      input.instructions,
+      input.presentation,
+    );
     const latest = truncate(input.latestUserMessage, AI_LIMITS.messageBody);
 
     const response = await client.chat.completions.create({

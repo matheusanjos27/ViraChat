@@ -870,6 +870,7 @@ export type Database = {
           tenant_id: string;
           name: string;
           instructions: string;
+          presentation: string;
           is_enabled: boolean;
           close_mode: "handoff" | "callback";
           created_at: string;
@@ -880,6 +881,7 @@ export type Database = {
           tenant_id: string;
           name?: string;
           instructions?: string;
+          presentation?: string;
           is_enabled?: boolean;
           close_mode?: "handoff" | "callback";
           created_at?: string;
@@ -890,6 +892,7 @@ export type Database = {
           tenant_id?: string;
           name?: string;
           instructions?: string;
+          presentation?: string;
           is_enabled?: boolean;
           close_mode?: "handoff" | "callback";
           created_at?: string;

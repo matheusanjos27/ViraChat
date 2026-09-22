@@ -29,17 +29,55 @@ export const AI_LIMITS = {
 
 const SEP = "\n---\n";
 
-/** Prefer the "prompt inicial" half; drop WhatsApp presentation fluff. */
-export function instructionsForModel(raw: string): string {
+/** Split legado (presentation\\n---\\nprompt) — UI nova usa colunas separadas. */
+export function splitAiInstructions(raw: string) {
   const text = (raw ?? "").trim();
-  if (!text) return "";
+  if (!text) return { presentation: "", prompt: "" };
   if (text.includes(SEP)) {
     const parts = text.split(SEP);
-    const presentation = (parts[0] ?? "").trim();
-    const prompt = parts.slice(1).join(SEP).trim();
-    return truncate(prompt || presentation, AI_LIMITS.instructions);
+    return {
+      presentation: (parts[0] ?? "").trim(),
+      prompt: parts.slice(1).join(SEP).trim(),
+    };
   }
-  return truncate(text, AI_LIMITS.instructions);
+  return { presentation: "", prompt: text };
+}
+
+/**
+ * Junta apresentação + prompt só na hora de mandar pro modelo.
+ * Campos ficam separados no banco/UI.
+ */
+export function instructionsForModel(
+  promptRaw: string,
+  presentationRaw?: string | null,
+): string {
+  const hasOwnPresentation =
+    typeof presentationRaw === "string" && presentationRaw.trim().length > 0;
+
+  let presentation = hasOwnPresentation ? presentationRaw.trim() : "";
+  let prompt = (promptRaw ?? "").trim();
+
+  // Legado: tudo ainda em instructions com ---
+  if (!hasOwnPresentation && prompt.includes(SEP)) {
+    const parts = splitAiInstructions(prompt);
+    presentation = parts.presentation;
+    prompt = parts.prompt;
+  } else if (prompt.includes(SEP)) {
+    // Coluna presentation já existe; limpa --- residual do prompt
+    prompt = splitAiInstructions(prompt).prompt || prompt;
+  }
+
+  const blocks: string[] = [];
+  if (presentation) {
+    blocks.push(
+      `APRESENTAÇÃO (use ao cumprimentar / na 1ª mensagem):\n${presentation}`,
+    );
+  }
+  if (prompt) {
+    blocks.push(`PROMPT INICIAL / INSTRUÇÕES:\n${prompt}`);
+  }
+
+  return truncate(blocks.join("\n\n"), AI_LIMITS.instructions);
 }
 
 export function truncate(text: string, max: number): string {

@@ -1,6 +1,7 @@
 "use server";
 
 import OpenAI from "openai";
+import { instructionsForModel } from "@/lib/ai/limits";
 import {
   assertTestAiAllowed,
   recordTestAiEvent,
@@ -49,7 +50,7 @@ export async function testAiReply(
     await Promise.all([
       supabase
         .from("ai_configs")
-        .select("name, instructions, is_enabled")
+        .select("name, instructions, presentation, is_enabled")
         .eq("tenant_id", tenantId)
         .maybeSingle(),
       supabase
@@ -68,10 +69,14 @@ export async function testAiReply(
 
   const assistantName = config?.name || "Assistente";
   const company = tenant?.name || "a empresa";
+  const companyInstructions = instructionsForModel(
+    config?.instructions ?? "",
+    config?.presentation ?? "",
+  );
   const system = [
     `Você é ${assistantName}, assistente de atendimento no WhatsApp da ${company}.`,
     "Responda em português do Brasil, mensagens curtas (estilo WhatsApp).",
-    config?.instructions ? `Instruções:\n${config.instructions}` : "",
+    companyInstructions ? `Instruções:\n${companyInstructions}` : "",
     tenant?.about ? `Sobre a empresa:\n${tenant.about}` : "",
     playbook?.content
       ? `Roteiro ativo (${playbook.name}):\n${playbook.content.slice(0, 2500)}`

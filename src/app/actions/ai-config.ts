@@ -16,11 +16,15 @@ export async function updateAiConfig(
 ): Promise<AiConfigState> {
   const tenantId = String(formData.get("tenantId") ?? "");
   const name = String(formData.get("name") ?? "").trim() || "Assistente";
-  const rawInstructions =
-    String(formData.get("instructions") ?? "").trim() ||
-    "Siga o roteiro de conversa e os dados da empresa.";
-  const clamped = clampSavedText(rawInstructions, AI_LIMITS.instructions * 2);
-  const instructions = clamped.value;
+  const presentationRaw = String(formData.get("presentation") ?? "").trim();
+  const promptRaw = String(formData.get("instructions") ?? "").trim();
+  const presentation = clampSavedText(presentationRaw, 500).value;
+  const promptClamped = clampSavedText(
+    promptRaw ||
+      "Siga o roteiro de conversa e os dados da empresa.",
+    AI_LIMITS.instructions,
+  );
+  const instructions = promptClamped.value;
   const isEnabled = formData.get("isEnabled") === "on";
   const closeModeRaw = String(formData.get("closeMode") ?? "handoff");
   const close_mode =
@@ -56,6 +60,7 @@ export async function updateAiConfig(
     .from("ai_configs")
     .update({
       name,
+      presentation,
       instructions,
       is_enabled: isEnabled,
       close_mode,
@@ -70,7 +75,7 @@ export async function updateAiConfig(
   revalidatePath("/app/ai");
   revalidatePath("/app/settings");
   return {
-    success: clamped.truncated
+    success: promptClamped.truncated
       ? "Assistente atualizado (texto enxugado para caber no limite)."
       : "Assistente atualizado.",
   };

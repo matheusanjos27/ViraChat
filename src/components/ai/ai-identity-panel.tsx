@@ -10,52 +10,34 @@ const initial: AiConfigState = {};
 const field =
   "w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
 
-const SEP = "\n---\n";
-
 /** Apresentação WhatsApp — curta de propósito */
 const PRESENTATION_MAX = 500;
 /** Prompt que a IA usa (cap de instruções do modelo) */
 const PROMPT_MAX = AI_LIMITS.instructions;
 
-export function splitAiInstructions(raw: string) {
-  const text = (raw ?? "").trim();
-  if (!text) return { presentation: "", prompt: "" };
-  if (text.includes(SEP)) {
-    const parts = text.split(SEP);
-    return {
-      presentation: (parts[0] ?? "").trim(),
-      prompt: parts.slice(1).join(SEP).trim(),
-    };
-  }
-  // Legado (sem separador): era nota/prompt da IA, não a frase de apresentação.
-  return { presentation: "", prompt: text };
-}
-
-export function joinAiInstructions(presentation: string, prompt: string) {
-  // Sempre grava o separador — senão o reload joga o prompt em "Como ela se apresenta".
-  return `${(presentation ?? "").trim()}${SEP}${(prompt ?? "").trim()}`;
-}
-
 export function AiIdentityPanel({
   tenantId,
   name,
-  notes,
+  presentation: presentationProp,
+  prompt: promptProp,
   isEnabled,
   closeMode = "handoff",
   quotaLocked = false,
 }: {
   tenantId: string;
   name: string;
-  notes: string;
+  /** Frase de apresentação (WhatsApp / 1ª mensagem) */
+  presentation: string;
+  /** Prompt inicial / instruções (cérebro) */
+  prompt: string;
   isEnabled: boolean;
   closeMode?: "handoff" | "callback";
   quotaLocked?: boolean;
 }) {
-  const split = splitAiInstructions(notes);
   const [enabled, setEnabled] = useState(isEnabled);
   const [assistantName, setAssistantName] = useState(name);
-  const [presentation, setPresentation] = useState(split.presentation);
-  const [prompt, setPrompt] = useState(split.prompt);
+  const [presentation, setPresentation] = useState(presentationProp);
+  const [prompt, setPrompt] = useState(promptProp);
   const [mode, setMode] = useState<"handoff" | "callback">(closeMode);
   const [state, action, pending] = useActionState(updateAiConfig, initial);
 
@@ -68,11 +50,10 @@ export function AiIdentityPanel({
   useEffect(() => {
     setEnabled(isEnabled);
     setAssistantName(name);
-    const next = splitAiInstructions(notes);
-    setPresentation(next.presentation);
-    setPrompt(next.prompt);
+    setPresentation(presentationProp);
+    setPrompt(promptProp);
     setMode(closeMode);
-  }, [isEnabled, name, notes, closeMode]);
+  }, [isEnabled, name, presentationProp, promptProp, closeMode]);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -80,11 +61,6 @@ export function AiIdentityPanel({
         <input type="hidden" name="tenantId" value={tenantId} />
         <input type="hidden" name="isEnabled" value={enabled ? "on" : ""} />
         <input type="hidden" name="closeMode" value={mode} />
-        <input
-          type="hidden"
-          name="instructions"
-          value={joinAiInstructions(presentation, prompt)}
-        />
 
         <div
           className={`rounded-2xl border p-5 shadow-[var(--shadow)] transition ${
@@ -119,7 +95,6 @@ export function AiIdentityPanel({
               }
               onClick={() => {
                 setEnabled((v) => {
-                  // Impede religar se a cota do mês acabou
                   if (!v && quotaLocked) return false;
                   return !v;
                 });
@@ -203,13 +178,16 @@ export function AiIdentityPanel({
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
-          <label className="text-sm font-medium text-ink">
+          <label className="text-sm font-medium text-ink" htmlFor="presentation">
             Como ela se apresenta
           </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Frase que o cliente ouve no começo — aparece no preview ao lado.
+            Só a frase de cumprimento no WhatsApp (preview ao lado). Fica
+            separada do prompt — o sistema junta na hora de chamar a IA.
           </p>
           <textarea
+            id="presentation"
+            name="presentation"
             value={presentation}
             onChange={(e) =>
               setPresentation(e.target.value.slice(0, PRESENTATION_MAX))
@@ -223,14 +201,19 @@ export function AiIdentityPanel({
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
-          <label className="text-sm font-medium text-ink">Prompt inicial</label>
+          <label className="text-sm font-medium text-ink" htmlFor="instructions">
+            Prompt inicial
+          </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Notas extras, horários, restrições — o “cérebro” complementar.
+            Notas, tom, horários, restrições — o “cérebro”. Não misture com a
+            frase de apresentação.
           </p>
           <textarea
+            id="instructions"
+            name="instructions"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value.slice(0, PROMPT_MAX))}
-            rows={4}
+            rows={5}
             maxLength={PROMPT_MAX}
             className={`${field} mt-2`}
             placeholder="Horário comercial, tom, o que evitar…"
@@ -276,7 +259,8 @@ export function AiIdentityPanel({
           </div>
         </div>
         <p className="mt-3 text-xs text-ink-muted">
-          Assim o cliente vê a IA no primeiro contato.
+          Só a apresentação aparece aqui. O prompt inicial vai junto só na
+          chamada da IA.
         </p>
       </aside>
     </div>

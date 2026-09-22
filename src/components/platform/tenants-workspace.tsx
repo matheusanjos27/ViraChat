@@ -9,8 +9,10 @@ import {
   platformCreateTenant,
   platformDeleteTenant,
   platformInviteTenantUser,
+  platformRemoveTenantMember,
   platformUpdateTenantAiBudget,
   platformUpdateTenantBilling,
+  platformUpdateTenantMember,
   type PlatformState,
 } from "@/app/actions/platform";
 import type { PlanRow } from "@/components/platform/plans-forms";
@@ -299,11 +301,19 @@ function CreateTenantModal({
   );
 }
 
+export type TenantMemberRow = {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  role: string;
+};
+
 export function TenantManagePanel({
   tenant,
   plans,
   summary,
   invites,
+  members,
 }: {
   tenant: TenantClientRow;
   plans: PlanRow[];
@@ -315,6 +325,7 @@ export function TenantManagePanel({
     accepted_at: string | null;
     created_at: string;
   }[];
+  members: TenantMemberRow[];
 }) {
   return (
     <div className="mt-8 space-y-6">
@@ -327,6 +338,7 @@ export function TenantManagePanel({
         <InviteSection tenantId={tenant.id} tenantName={tenant.name} />
       </div>
 
+      <MembersSection tenantId={tenant.id} members={members} />
       <InvitesListSection invites={invites} />
       <DeleteSection tenant={tenant} />
     </div>
@@ -582,6 +594,159 @@ function InviteSection({
   );
 }
 
+function MembersSection({
+  tenantId,
+  members,
+}: {
+  tenantId: string;
+  members: TenantMemberRow[];
+}) {
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
+      <h3 className="text-sm font-semibold text-ink">Usuários do cliente</h3>
+      <p className="mt-0.5 text-xs text-ink-muted">
+        Editar nome, papel ou definir nova senha provisória.
+      </p>
+      {members.length === 0 ? (
+        <p className="mt-3 text-sm text-ink-muted">Nenhum usuário vinculado.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-line">
+          {members.map((m) => (
+            <MemberEditRow key={m.userId} tenantId={tenantId} member={m} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function MemberEditRow({
+  tenantId,
+  member,
+}: {
+  tenantId: string;
+  member: TenantMemberRow;
+}) {
+  const [open, setOpen] = useState(false);
+  const [updateState, updateAction, updatePending] = useActionState(
+    platformUpdateTenantMember,
+    initial,
+  );
+  const [removeState, removeAction, removePending] = useActionState(
+    platformRemoveTenantMember,
+    initial,
+  );
+
+  return (
+    <li className="py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium text-ink">
+            {member.fullName?.trim() || member.email || "Sem nome"}
+          </p>
+          <p className="text-xs text-ink-muted">
+            {member.email ?? "—"} · {member.role}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="shrink-0 rounded-lg border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand hover:text-brand"
+        >
+          {open ? "Fechar" : "Editar"}
+        </button>
+      </div>
+
+      {open ? (
+        <div className="mt-3 space-y-3 rounded-xl border border-line bg-paper/60 p-3">
+          <form action={updateAction} className="space-y-3">
+            <input type="hidden" name="tenantId" value={tenantId} />
+            <input type="hidden" name="userId" value={member.userId} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-xs font-medium text-ink-muted">Nome</label>
+                <input
+                  name="fullName"
+                  defaultValue={member.fullName ?? ""}
+                  className={`${field} mt-1`}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-ink-muted">Papel</label>
+                <select
+                  name="role"
+                  defaultValue={member.role}
+                  className={`${field} mt-1`}
+                >
+                  <option value="admin">Administrador</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="agent">Atendente</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-ink-muted">
+                  Nova senha provisória (opcional)
+                </label>
+                <input
+                  name="password"
+                  type="text"
+                  minLength={6}
+                  autoComplete="off"
+                  placeholder="Deixe vazio para não alterar"
+                  className={`${field} mt-1`}
+                />
+                <p className="mt-1 text-[11px] text-ink-muted">
+                  Se preencher, a pessoa troca a senha no próximo login.
+                </p>
+              </div>
+            </div>
+            {updateState.error && (
+              <p className="text-sm text-red-600">{updateState.error}</p>
+            )}
+            {updateState.success && (
+              <p className="text-sm text-brand">{updateState.success}</p>
+            )}
+            <button
+              type="submit"
+              disabled={updatePending}
+              className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+            >
+              {updatePending ? "Salvando…" : "Salvar alterações"}
+            </button>
+          </form>
+
+          <form action={removeAction} className="border-t border-line pt-3">
+            <input type="hidden" name="tenantId" value={tenantId} />
+            <input type="hidden" name="userId" value={member.userId} />
+            {removeState.error && (
+              <p className="mb-2 text-sm text-red-600">{removeState.error}</p>
+            )}
+            {removeState.success && (
+              <p className="mb-2 text-sm text-brand">{removeState.success}</p>
+            )}
+            <button
+              type="submit"
+              disabled={removePending}
+              className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+              onClick={(e) => {
+                if (
+                  !confirm(
+                    `Remover ${member.email ?? "este usuário"} deste cliente?`,
+                  )
+                ) {
+                  e.preventDefault();
+                }
+              }}
+            >
+              {removePending ? "Removendo…" : "Remover deste cliente"}
+            </button>
+          </form>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 function InvitesListSection({
   invites,
 }: {
@@ -596,6 +761,9 @@ function InvitesListSection({
   return (
     <section className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
       <h3 className="text-sm font-semibold text-ink">Convites deste cliente</h3>
+      <p className="mt-0.5 text-xs text-ink-muted">
+        Pendentes ou aceitos — pode excluir a qualquer momento.
+      </p>
       {invites.length === 0 ? (
         <p className="mt-2 text-sm text-ink-muted">Nenhum convite ainda.</p>
       ) : (
@@ -612,9 +780,10 @@ function InvitesListSection({
                   {new Date(inv.created_at).toLocaleDateString("pt-BR")}
                 </p>
               </div>
-              {!inv.accepted_at ? (
-                <CancelInviteInline inviteId={inv.id} />
-              ) : null}
+              <CancelInviteInline
+                inviteId={inv.id}
+                label={inv.accepted_at ? "Excluir acesso" : "Excluir convite"}
+              />
             </li>
           ))}
         </ul>
@@ -623,7 +792,13 @@ function InvitesListSection({
   );
 }
 
-function CancelInviteInline({ inviteId }: { inviteId: string }) {
+function CancelInviteInline({
+  inviteId,
+  label,
+}: {
+  inviteId: string;
+  label: string;
+}) {
   const [state, action, pending] = useActionState(
     platformCancelInvite,
     initial,
@@ -636,12 +811,20 @@ function CancelInviteInline({ inviteId }: { inviteId: string }) {
         type="submit"
         disabled={pending}
         className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+        onClick={(e) => {
+          if (!confirm(`${label}?`)) e.preventDefault();
+        }}
       >
-        {pending ? "Removendo…" : "Cancelar"}
+        {pending ? "Removendo…" : label}
       </button>
       {state.error ? (
-        <p className="max-w-[140px] text-right text-[11px] text-red-600">
+        <p className="max-w-[160px] text-right text-[11px] text-red-600">
           {state.error}
+        </p>
+      ) : null}
+      {state.success ? (
+        <p className="max-w-[160px] text-right text-[11px] text-brand">
+          {state.success}
         </p>
       ) : null}
     </form>
