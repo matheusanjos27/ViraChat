@@ -409,7 +409,15 @@ export function sanitizeCollected(
     }
 
     if (isSetorAttributeKey(key)) {
-      if (/^\d+$/.test(value) || looksLikeDocumentDigits(value)) continue;
+      // Nunca gravar "5" / pedaço de porte em ramo
+      if (
+        /^\d+$/.test(value) ||
+        looksLikeDocumentDigits(value) ||
+        /^\d{1,5}\s*(colabor|funcion|pessoas|vidas)?/i.test(value)
+      ) {
+        continue;
+      }
+      if (value.length < 3) continue;
       out[key] = value.slice(0, 120);
       continue;
     }

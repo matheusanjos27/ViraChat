@@ -157,6 +157,103 @@ export function quoteCatalog(
   };
 }
 
+function normalizeQuoteText(s: string) {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+const WEAK_NAME_TOKENS = new Set([
+  "plano",
+  "para",
+  "com",
+  "ate",
+  "até",
+  "de",
+  "da",
+  "do",
+  "em",
+  "e",
+  "ou",
+  "colaboradores",
+  "colaborador",
+  "mensal",
+  "basico",
+  "básico",
+  "trabalho",
+  "treinamento",
+  "servico",
+  "serviço",
+  "programa",
+]);
+
+/** Itens do catálogo citados no texto (ex.: "quero PGR"). */
+export function matchCatalogIdsFromText(
+  services: ServiceForQuote[],
+  text: string,
+): string[] {
+  const t = normalizeQuoteText(text ?? "");
+  if (!t.trim()) return [];
+
+  const hits: string[] = [];
+  for (const s of services.filter((x) => x.is_active)) {
+    const name = normalizeQuoteText(s.name);
+    if (name.length >= 2 && t.includes(name)) {
+      hits.push(s.id);
+      continue;
+    }
+    const tokens = name
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 3 && !WEAK_NAME_TOKENS.has(w));
+    for (const tok of tokens) {
+      const re = new RegExp(`(?:^|[^a-z0-9])${tok}(?:[^a-z0-9]|$)`, "i");
+      if (re.test(t)) {
+        hits.push(s.id);
+        break;
+      }
+    }
+  }
+  return [...new Set(hits)];
+}
+
+/**
+ * Orça só quando a seleção é clara — evita somar o catálogo inteiro
+ * (ex.: cliente pediu só PGR e o deal ia a R$ 4.850).
+ */
+export function quoteCatalogFocused(
+  services: ServiceForQuote[],
+  units: number,
+  opts?: { selectedIds?: string[]; mentionText?: string },
+): QuoteResult {
+  const active = services.filter((s) => s.is_active);
+  if (active.length === 0 || !(units > 0)) {
+    return { lines: [], total: 0, currency: "BRL" };
+  }
+
+  let ids = (opts?.selectedIds ?? []).filter(Boolean);
+  if (ids.length === 0 && opts?.mentionText) {
+    // Última fala do cliente manda: se citar item, ignore menções antigas.
+    const chunks = opts.mentionText
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const latest = chunks[0] ?? "";
+    const latestHits = matchCatalogIdsFromText(active, latest);
+    ids =
+      latestHits.length > 0
+        ? latestHits
+        : matchCatalogIdsFromText(active, opts.mentionText);
+  }
+  if (ids.length === 0 && active.length === 1) {
+    ids = [active[0].id];
+  }
+  if (ids.length === 0) {
+    return { lines: [], total: 0, currency: "BRL" };
+  }
+  return quoteCatalog(services, units, ids);
+}
+
 /** Serializa o catálogo para o prompt da IA. */
 export function buildCatalogPromptBlock(services: ServiceForQuote[]) {
   const active = services.filter((s) => s.is_active);

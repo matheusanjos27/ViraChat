@@ -38,7 +38,7 @@ import {
 import {
   buildCatalogPromptBlock,
   formatQuoteMessage,
-  quoteCatalog,
+  quoteCatalogFocused,
   type ServiceForQuote,
 } from "@/lib/crm/pricing";
 import {
@@ -536,14 +536,27 @@ CLIENTE PEDIU PARA VER O QUE VENDEM:
   let quotedThisTurn = false;
   let quotedTotal: number | null = null;
   const units = resolveUnits(catalog, currentValues);
+  // Só mensagens do cliente — a listagem da IA traz todos os nomes e
+  // re-orçava o catálogo inteiro (ex.: PGR×16 → R$ 4.850).
+  const mentionForQuote = [
+    latestInbound.body,
+    ...sessionMessages
+      .filter((m) => m.direction === "inbound" && m.body)
+      .slice(-6)
+      .map((m) => String(m.body)),
+  ].join("\n");
   if (units != null && units > 0 && catalog.length > 0) {
-    const quote = quoteCatalog(catalog, units);
+    const quote = quoteCatalogFocused(catalog, units, {
+      mentionText: mentionForQuote,
+    });
     quotedThisTurn = quote.total > 0;
     quotedTotal = quote.total > 0 ? quote.total : null;
-    catalogBlock = truncate(
-      `${catalogBlock}\n\nORÇAMENTO PRÉ-CALCULADO PELO SISTEMA (${units} unidades) — use estes números, não recalcule:\n${formatQuoteMessage(quote, units)}`,
-      AI_LIMITS.catalogBlock,
-    );
+    if (quote.lines.length > 0) {
+      catalogBlock = truncate(
+        `${catalogBlock}\n\nORÇAMENTO PRÉ-CALCULADO PELO SISTEMA (${units} un. — só itens citados/selecionados) — use estes números, não some o catálogo inteiro:\n${formatQuoteMessage(quote, units)}`,
+        AI_LIMITS.catalogBlock,
+      );
+    }
   }
 
   const funnelBlock = buildFunnelPromptBlock(dealStages ?? []);
@@ -705,14 +718,19 @@ CLIENTE PEDIU PARA VER O QUE VENDEM:
     (v) => (v ?? "").trim().length > 0,
   ).length;
 
-  // If quote wasn't ready before collect, recompute with new attrs (e.g. tamanho)
-  if (!quotedThisTurn) {
+  // Recompute after collect (ex.: "quero PGR" + 16 vidas no atributo).
+  // Não mistura a resposta da IA — ela pode repetir o catálogo e inflar o total.
+  {
     const unitsAfter = resolveUnits(catalog, currentValues);
     if (unitsAfter != null && unitsAfter > 0 && catalog.length > 0) {
-      const quote = quoteCatalog(catalog, unitsAfter);
+      const quote = quoteCatalogFocused(catalog, unitsAfter, {
+        mentionText: mentionForQuote,
+      });
       if (quote.total > 0) {
         quotedThisTurn = true;
         quotedTotal = quote.total;
+      } else if (!quotedThisTurn) {
+        quotedTotal = null;
       }
     }
   }
