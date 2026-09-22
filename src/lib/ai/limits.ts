@@ -10,9 +10,19 @@ export const AI_LIMITS = {
   /** Max chars the editor may save (must fit DEFAULT_PLAYBOOK_CONTENT). */
   playbookSaved: 4_500,
   about: 400,
-  catalogBlock: 2_500,
+  /** Max chars of catalog block injected into the model prompt. */
+  catalogBlock: 3_200,
+  /**
+   * Max items with full price detail in the prompt.
+   * Catálogos maiores: prioriza match da mensagem + amostra; o resto fica omitido.
+   */
+  catalogPromptMaxItems: 28,
+  /** Max names on opening outline (sem preços). */
+  catalogOpeningMaxNames: 18,
+  /** Soft cap: IA não deve listar mais que isso numa única mensagem WhatsApp. */
+  catalogReplyMaxItems: 8,
   attributeBlock: 1_400,
-  serviceDescription: 200,
+  serviceDescription: 120,
   messageBody: 1_200,
   /** Default turns of prior chat kept in the prompt when tenant has no override. */
   historyTurns: 24,
@@ -23,8 +33,12 @@ export const AI_LIMITS = {
   defaultMonthlyTokens: 2_000_000,
   /** Wait before running AI so bursts coalesce into one call. */
   debounceMs: 1_500,
-  /** Max completion tokens (provider). Abertura organizada precisa de folga. */
-  maxCompletionTokens: 700,
+  /**
+   * Max completion tokens. WhatsApp = resposta curta; catálogo grande NÃO
+   * se resolve subindo isso — se resolve cortando o que entra no prompt
+   * e proibindo dump na mensagem.
+   */
+  maxCompletionTokens: 500,
 } as const;
 
 const SEP = "\n---\n";

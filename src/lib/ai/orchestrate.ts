@@ -487,23 +487,14 @@ export async function runAiForConversation(conversationId: string) {
     })),
   }));
 
-  // Abertura: nomes só (IA organiza). Preços entram depois / no orçamento.
-  // Formato da mensagem = playbook + prompt, sem template de tenant no código.
+  // Abertura: nomes (amostra). Demais turnos: subset com preço (match primeiro).
+  // Formato da mensagem = playbook + prompt. Catálogo grande NÃO entra inteiro.
   const openingTurn = isOpeningGreetingTurn(
     latestInbound.body,
     history.length,
   );
   const askedCatalogList = wantsCatalogList(latestInbound.body);
 
-  let catalogBlock = openingTurn
-    ? buildOpeningCatalogOutline(catalog)
-    : buildCatalogPromptBlock(catalog);
-
-  let quotedThisTurn = false;
-  let quotedTotal: number | null = null;
-  const units = resolveUnits(catalog, currentValues);
-  // Só mensagens do cliente — respostas da IA listando o catálogo
-  // re-orçavam todos os itens citados nos bastidores.
   const mentionForQuote = [
     latestInbound.body,
     ...sessionMessages
@@ -511,6 +502,16 @@ export async function runAiForConversation(conversationId: string) {
       .slice(-6)
       .map((m) => String(m.body)),
   ].join("\n");
+
+  let catalogBlock = openingTurn
+    ? buildOpeningCatalogOutline(catalog)
+    : buildCatalogPromptBlock(catalog, { mentionText: mentionForQuote });
+
+  let quotedThisTurn = false;
+  let quotedTotal: number | null = null;
+  const units = resolveUnits(catalog, currentValues);
+  // Só mensagens do cliente — respostas da IA listando o catálogo
+  // re-orçavam todos os itens citados nos bastidores.
   if (units != null && units > 0 && catalog.length > 0) {
     const quote = quoteCatalogFocused(catalog, units, {
       mentionText: mentionForQuote,

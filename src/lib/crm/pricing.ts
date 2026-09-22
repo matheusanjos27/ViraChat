@@ -255,8 +255,60 @@ export function quoteCatalogFocused(
 }
 
 /**
+ * Escolhe subset do catálogo para o prompt (match da mensagem primeiro).
+ */
+function pickCatalogSlice(
+  active: ServiceForQuote[],
+  maxItems: number,
+  mentionText?: string,
+): { shown: ServiceForQuote[]; total: number; omitted: number } {
+  const total = active.length;
+  if (total <= maxItems) {
+    return { shown: active, total, omitted: 0 };
+  }
+  const matchedIds = new Set(
+    mentionText ? matchCatalogIdsFromText(active, mentionText) : [],
+  );
+  const matched = active.filter((s) => matchedIds.has(s.id));
+  const rest = active.filter((s) => !matchedIds.has(s.id));
+  const shown = [...matched, ...rest].slice(0, maxItems);
+  return { shown, total, omitted: total - shown.length };
+}
+
+function formatCatalogItemLine(s: ServiceForQuote): string {
+  const kindLabel = s.offer_kind === "service" ? "SERVIÇO" : "PRODUTO";
+  const desc = s.description
+    ? ` — ${truncate(s.description, AI_LIMITS.serviceDescription)}`
+    : "";
+  if (s.billing_type === "fixed") {
+    return `- [${kindLabel}] ${s.name}: valor fixo ${money(Number(s.base_price))}${desc}`;
+  }
+  if (s.billing_type === "per_unit") {
+    const min =
+      s.min_price != null ? `, mínimo ${money(Number(s.min_price))}` : "";
+    return `- [${kindLabel}] ${s.name}: ${money(Number(s.base_price))} por ${s.unit_label}${min}${desc}`;
+  }
+  const tiers = [...s.tiers]
+    .sort((a, b) => a.min_units - b.min_units)
+    .slice(0, 6)
+    .map((t) => {
+      const range =
+        t.max_units == null
+          ? `${t.min_units}+`
+          : `${t.min_units}–${t.max_units}`;
+      const price =
+        t.price_mode === "per_unit"
+          ? `${money(Number(t.price))}/${s.unit_label}`
+          : `${money(Number(t.price))} fixo`;
+      return `  · ${range}: ${price}`;
+    })
+    .join("\n");
+  return `- [${kindLabel}] ${s.name} (por faixas de ${s.unit_label})${desc}:\n${tiers}`;
+}
+
+/**
  * Nomes do catálogo (sem preços) — material para a IA organizar a 1ª mensagem.
- * Preços ficam no CATÁLOGO OFICIAL completo nas demais voltas / orçamento.
+ * Catálogo grande: amostra limitada + aviso (não cabe 200 nomes no prompt).
  */
 export function buildOpeningCatalogOutline(services: ServiceForQuote[]) {
   const active = services.filter((s) => s.is_active);
@@ -268,30 +320,50 @@ NÃO invente produtos. Informe e ofereça handoff.`,
     );
   }
 
+  const maxNames = AI_LIMITS.catalogOpeningMaxNames;
   const fixed = active.filter((s) => s.billing_type === "fixed");
   const tiered = active.filter((s) => s.billing_type === "tiered");
   const perUnit = active.filter((s) => s.billing_type === "per_unit");
+
+  const take = (items: ServiceForQuote[], budget: { left: number }) => {
+    if (budget.left <= 0 || items.length === 0) return [] as ServiceForQuote[];
+    const slice = items.slice(0, budget.left);
+    budget.left -= slice.length;
+    return slice;
+  };
+  const budget = { left: maxNames };
+  const shownFixed = take([...fixed, ...tiered], budget);
+  const shownUnit = take(perUnit, budget);
+  const shownCount = shownFixed.length + shownUnit.length;
+  const omitted = active.length - shownCount;
 
   const line = (items: ServiceForQuote[]) =>
     items.map((s) => `- ${s.name}`).join("\n");
 
   const parts: string[] = [
-    `CATÁLOGO OFICIAL (só NOMES — use para organizar a mensagem; NÃO cole esta lista crua; NÃO invente preços nesta abertura):`,
+    `CATÁLOGO (${active.length} itens ativos). Material INTERNO — organize a mensagem; NÃO cole lista crua; NÃO invente preços na abertura.`,
+    `Na mensagem ao cliente: no máx. ${AI_LIMITS.catalogReplyMaxItems} itens. Se for grande, resuma e pergunte o que busca.`,
   ];
-  if (fixed.length || tiered.length) {
-    parts.push(`Valor fixo / faixas:\n${line([...fixed, ...tiered])}`);
+  if (shownFixed.length) {
+    parts.push(`Valor fixo / faixas (amostra):\n${line(shownFixed)}`);
   }
-  if (perUnit.length) {
-    parts.push(`Por unidade:\n${line(perUnit)}`);
+  if (shownUnit.length) {
+    parts.push(`Por unidade (amostra):\n${line(shownUnit)}`);
   }
-  parts.push(
-    `Siga o ROTEIRO (Abertura). Resposta curta e organizada — sem wall de preços.`,
-  );
+  if (omitted > 0) {
+    parts.push(
+      `+${omitted} itens omitidos do prompt. Não invente os nomes omitidos — pergunte o interesse e, nas próximas mensagens, o sistema traz o subset certo.`,
+    );
+  }
+  parts.push(`Siga o ROTEIRO (Abertura). Resposta curta.`);
   return truncate(parts.join("\n\n"), AI_LIMITS.catalogBlock);
 }
 
-/** Serializa o catálogo para o prompt da IA. */
-export function buildCatalogPromptBlock(services: ServiceForQuote[]) {
+/** Serializa o catálogo para o prompt da IA (com teto de itens). */
+export function buildCatalogPromptBlock(
+  services: ServiceForQuote[],
+  opts?: { mentionText?: string },
+) {
   const active = services.filter((s) => s.is_active);
   if (active.length === 0) {
     return truncate(
@@ -302,41 +374,25 @@ Informe que não há oferta cadastrada e faça handoff para um atendente.`,
     );
   }
 
-  const blocks = active.map((s) => {
-    const kindLabel =
-      s.offer_kind === "service" ? "SERVIÇO" : "PRODUTO";
-    const desc = s.description
-      ? ` — ${truncate(s.description, AI_LIMITS.serviceDescription)}`
-      : "";
-    if (s.billing_type === "fixed") {
-      return `- [${kindLabel}] ${s.name}: valor fixo ${money(Number(s.base_price))}${desc}`;
-    }
-    if (s.billing_type === "per_unit") {
-      const min =
-        s.min_price != null ? `, mínimo ${money(Number(s.min_price))}` : "";
-      return `- [${kindLabel}] ${s.name}: ${money(Number(s.base_price))} por ${s.unit_label}${min}${desc}`;
-    }
-    const tiers = [...s.tiers]
-      .sort((a, b) => a.min_units - b.min_units)
-      .map((t) => {
-        const range =
-          t.max_units == null
-            ? `${t.min_units}+`
-            : `${t.min_units}–${t.max_units}`;
-        const price =
-          t.price_mode === "per_unit"
-            ? `${money(Number(t.price))}/${s.unit_label}`
-            : `${money(Number(t.price))} fixo`;
-        return `  · ${range}: ${price}`;
-      })
-      .join("\n");
-    return `- [${kindLabel}] ${s.name} (por faixas de ${s.unit_label})${desc}:\n${tiers}`;
-  });
+  const { shown, total, omitted } = pickCatalogSlice(
+    active,
+    AI_LIMITS.catalogPromptMaxItems,
+    opts?.mentionText,
+  );
+  const blocks = shown.map(formatCatalogItemLine);
+
+  const header =
+    omitted > 0
+      ? `CATÁLOGO OFICIAL — ${total} itens ativos; mostrando ${shown.length} (prioridade: o que o cliente citou). ${omitted} omitidos.
+NÃO invente os omitidos. NÃO liste os ${total} de uma vez. Na mensagem: no máx. ${AI_LIMITS.catalogReplyMaxItems} itens; se precisar de mais, pergunte filtro/categoria.
+Lista FECHADA abaixo (copie nomes/preços daqui):`
+      : `CATÁLOGO OFICIAL — lista FECHADA (${total} itens; copie nomes/preços daqui; é proibido inventar):
+Na mensagem ao cliente: no máx. ${AI_LIMITS.catalogReplyMaxItems} itens por vez (não despeje o catálogo).`;
 
   return truncate(
-    `CATÁLOGO OFICIAL — lista FECHADA (copie nomes/preços daqui; é proibido inventar item genérico):
+    `${header}
 ${blocks.join("\n")}
-Regras: (1) ao listar o que vende, use SOMENTE estes itens; (2) diga se é PRODUTO ou SERVIÇO conforme a tag; (3) se o cliente pedir algo fora da lista, diga que não tem cadastrado e ofereça o item mais próximo da lista OU handoff; (4) nunca invente nomes que não estejam acima.`,
+Regras: (1) use SOMENTE estes itens; (2) tag [PRODUTO]/[SERVIÇO]; (3) fora da lista → diga que não tem e ofereça o mais próximo OU handoff; (4) nunca invente nomes.`,
     AI_LIMITS.catalogBlock,
   );
 }
