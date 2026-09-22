@@ -140,7 +140,8 @@ export function normalizePlaybookSections(content: string) {
 
 export function buildPlaybookPromptBlock(playbook: Playbook | null) {
   if (!playbook?.is_active || !playbook.content.trim()) return "";
-  const content = truncate(playbook.content.trim(), AI_LIMITS.playbook);
+  // Teto = o que o editor permite salvar (nada do roteiro some na IA).
+  const content = truncate(playbook.content.trim(), AI_LIMITS.playbookSaved);
   return `ROTEIRO ("${playbook.name}"):\n${content}`;
 }
 

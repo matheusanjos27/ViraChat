@@ -164,7 +164,7 @@ export class OpenAiProvider implements AiProvider {
 
     const extras = [
       input.playbookBlock
-        ? truncate(input.playbookBlock, AI_LIMITS.playbook + 200)
+        ? truncate(input.playbookBlock, AI_LIMITS.playbook + 80)
         : "",
       input.attributeBlock
         ? truncate(input.attributeBlock, AI_LIMITS.attributeBlock)

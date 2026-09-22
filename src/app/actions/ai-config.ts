@@ -18,7 +18,10 @@ export async function updateAiConfig(
   const name = String(formData.get("name") ?? "").trim() || "Assistente";
   const presentationRaw = String(formData.get("presentation") ?? "").trim();
   const promptRaw = String(formData.get("instructions") ?? "").trim();
-  const presentation = clampSavedText(presentationRaw, 500).value;
+  const presentation = clampSavedText(
+    presentationRaw,
+    AI_LIMITS.presentation,
+  ).value;
   const promptClamped = clampSavedText(
     promptRaw ||
       "Siga o roteiro de conversa e os dados da empresa.",

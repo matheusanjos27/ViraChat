@@ -11,7 +11,7 @@ const field =
   "w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15";
 
 /** Apresentação WhatsApp — curta de propósito */
-const PRESENTATION_MAX = 500;
+const PRESENTATION_MAX = AI_LIMITS.presentation;
 /** Prompt que a IA usa (cap de instruções do modelo) */
 const PROMPT_MAX = AI_LIMITS.instructions;
 

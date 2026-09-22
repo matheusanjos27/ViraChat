@@ -3,11 +3,16 @@
  */
 
 export const AI_LIMITS = {
-  /** Max chars of model-facing instructions (after stripping preview block). */
+  /** Max chars of prompt inicial (coluna instructions). */
   instructions: 2_000,
-  /** Max chars kept when injecting playbook into the model prompt. */
-  playbook: 2_200,
-  /** Max chars the editor may save (must fit DEFAULT_PLAYBOOK_CONTENT). */
+  /** Max chars of apresentação (coluna presentation). */
+  presentation: 500,
+  /**
+   * Max chars of playbook injected into the model.
+   * Igual ao que o editor salva — o roteiro não pode ser cortado na IA.
+   */
+  playbook: 4_500,
+  /** Max chars the editor may save for playbook. */
   playbookSaved: 4_500,
   about: 400,
   /** Max chars of catalog block injected into the model prompt. */
@@ -84,14 +89,17 @@ export function instructionsForModel(
   const blocks: string[] = [];
   if (presentation) {
     blocks.push(
-      `APRESENTAÇÃO (use ao cumprimentar / na 1ª mensagem):\n${presentation}`,
+      `APRESENTAÇÃO (use ao cumprimentar / na 1ª mensagem):\n${truncate(presentation, AI_LIMITS.presentation)}`,
     );
   }
   if (prompt) {
-    blocks.push(`PROMPT INICIAL / INSTRUÇÕES:\n${prompt}`);
+    blocks.push(
+      `PROMPT INICIAL / INSTRUÇÕES:\n${truncate(prompt, AI_LIMITS.instructions)}`,
+    );
   }
 
-  return truncate(blocks.join("\n\n"), AI_LIMITS.instructions);
+  // Não truncar o conjunto: apresentação e prompt já têm teto próprio.
+  return blocks.join("\n\n");
 }
 
 export function truncate(text: string, max: number): string {
