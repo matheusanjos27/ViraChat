@@ -667,6 +667,8 @@ export type Database = {
           handoff_busy_sent_at: string | null;
           ai_session_started_at: string | null;
           handoff_offer_pending_at: string | null;
+          ai_spam_flags: number;
+          ai_spam_blocked_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -682,6 +684,8 @@ export type Database = {
           handoff_busy_sent_at?: string | null;
           ai_session_started_at?: string | null;
           handoff_offer_pending_at?: string | null;
+          ai_spam_flags?: number;
+          ai_spam_blocked_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -697,6 +701,8 @@ export type Database = {
           handoff_busy_sent_at?: string | null;
           ai_session_started_at?: string | null;
           handoff_offer_pending_at?: string | null;
+          ai_spam_flags?: number;
+          ai_spam_blocked_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -1,4 +1,5 @@
 import { isMonthlyTokenBudgetExceeded } from "@/lib/ai/budget";
+import { AI_SPAM_FLAG_LIMIT, isLikelySpamMessage } from "@/lib/ai/spam";
 import {
   AI_LIMITS,
   affirmsHandoffOffer,
@@ -61,7 +62,7 @@ export async function runAiForConversation(conversationId: string) {
   const { data: conversation, error: convError } = await supabase
     .from("conversations")
     .select(
-      "id, tenant_id, status, channel_id, contact_id, ai_session_started_at, handoff_offer_pending_at, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
+      "id, tenant_id, status, channel_id, contact_id, ai_session_started_at, handoff_offer_pending_at, ai_spam_flags, ai_spam_blocked_at, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
     )
     .eq("id", conversationId)
     .single();
@@ -227,6 +228,74 @@ export async function runAiForConversation(conversationId: string) {
     email: contactEarly?.email,
     company_name: contactEarly?.company_name,
   });
+
+  const convSpam = conversation as {
+    ai_spam_flags?: number | null;
+    ai_spam_blocked_at?: string | null;
+  };
+
+  if (convSpam.ai_spam_blocked_at) {
+    return { skipped: "spam_blocked" as const };
+  }
+
+  const priorInboundBodies = sessionMessages
+    .filter((m) => m.direction === "inbound" && m.body)
+    .map((m) => String(m.body))
+    .slice(0, -1);
+
+  const spamLike = isLikelySpamMessage(latestInbound.body, {
+    recentInboundBodies: priorInboundBodies,
+  });
+
+  if (spamLike) {
+    const nextFlags = Math.min(
+      100,
+      (Number(convSpam.ai_spam_flags) || 0) + 1,
+    );
+    await supabase
+      .from("conversations")
+      .update({ ai_spam_flags: nextFlags })
+      .eq("id", conversationId);
+
+    if (nextFlags >= AI_SPAM_FLAG_LIMIT) {
+      const nowIso = new Date().toISOString();
+      await supabase
+        .from("conversations")
+        .update({ ai_spam_blocked_at: nowIso })
+        .eq("id", conversationId);
+
+      const summary = buildDeterministicHandoffSummary({
+        reason: "spam_bloqueado",
+        latestUserMessage: latestInbound.body,
+        values: currentValues,
+      });
+      return forceHandoffWithoutLlm({
+        supabase,
+        conversation,
+        text: "Vou te transferir para um atendente. Aguarde um momento.",
+        reason: "spam_bloqueado",
+        notifyTitle: "IA bloqueou spam",
+        notifyBody: truncate(
+          `Possível abuso (${nextFlags} flags). ${summary.replace(/\n/g, " · ")}`,
+          220,
+        ),
+        handoffSummary: summary,
+      });
+    }
+
+    // Aviso leve sem gastar o funil; ainda não bloqueou
+    return replyAndStayOnAi({
+      supabase,
+      conversation,
+      text: "Não entendi essa mensagem. Pode reformular com o que você precisa?",
+    });
+  } else if ((Number(convSpam.ai_spam_flags) || 0) > 0) {
+    // Mensagem legítima zera o contador (evita lock por ruído pontual)
+    await supabase
+      .from("conversations")
+      .update({ ai_spam_flags: 0 })
+      .eq("id", conversationId);
+  }
 
   if (wantsHuman(latestInbound.body)) {
     const summary = buildDeterministicHandoffSummary({
@@ -960,6 +1029,9 @@ async function forceHandoffWithoutLlm({
       waiting_human_at: now,
       handoff_busy_sent_at: null,
       handoff_offer_pending_at: null,
+      ...(reason === "spam_bloqueado"
+        ? { ai_spam_blocked_at: now }
+        : {}),
     })
     .eq("id", conversation.id)
     .eq("status", "ai_active");

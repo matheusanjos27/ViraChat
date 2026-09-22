@@ -136,6 +136,8 @@ export async function ingestInboundTextMessage(msg: InboundText) {
           assigned_to: null,
           waiting_human_at: null,
           handoff_busy_sent_at: null,
+          ai_spam_flags: 0,
+          ai_spam_blocked_at: null,
           // Alinha com o timestamp da nova mensagem (evita cortar o inbound).
           ai_session_started_at: createdAt,
           last_message_at: createdAt,
