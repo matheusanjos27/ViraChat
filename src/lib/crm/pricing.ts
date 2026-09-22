@@ -188,7 +188,7 @@ const WEAK_NAME_TOKENS = new Set([
   "programa",
 ]);
 
-/** Itens do catálogo citados no texto (ex.: "quero PGR"). */
+/** Itens do catálogo citados no texto (ex.: "quero o plano X"). */
 export function matchCatalogIdsFromText(
   services: ServiceForQuote[],
   text: string,
@@ -219,7 +219,7 @@ export function matchCatalogIdsFromText(
 
 /**
  * Orça só quando a seleção é clara — evita somar o catálogo inteiro
- * (ex.: cliente pediu só PGR e o deal ia a R$ 4.850).
+ * (ex.: cliente pediu um item e o deal somava o catálogo inteiro).
  */
 export function quoteCatalogFocused(
   services: ServiceForQuote[],
@@ -300,7 +300,7 @@ Informe que não há oferta cadastrada e faça handoff para um atendente.`,
   return truncate(
     `CATÁLOGO OFICIAL — lista FECHADA (copie nomes/preços daqui; é proibido inventar item genérico):
 ${blocks.join("\n")}
-Regras: (1) ao listar o que vende, use SOMENTE estes itens; (2) diga se é PRODUTO ou SERVIÇO conforme a tag; (3) se o cliente pedir algo fora da lista, diga que não tem cadastrado e ofereça o item mais próximo da lista OU handoff; (4) nunca invente "Shampoo Hidratante/Anti-queda/Sem Sulfato" nem qualquer nome que não esteja acima.`,
+Regras: (1) ao listar o que vende, use SOMENTE estes itens; (2) diga se é PRODUTO ou SERVIÇO conforme a tag; (3) se o cliente pedir algo fora da lista, diga que não tem cadastrado e ofereça o item mais próximo da lista OU handoff; (4) nunca invente nomes que não estejam acima.`,
     AI_LIMITS.catalogBlock,
   );
 }

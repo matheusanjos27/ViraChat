@@ -182,9 +182,9 @@ export function AiIdentityPanel({
             Como ela se apresenta
           </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Só a frase que o cliente lê no cumprimento (ex.: “Olá! Sou a Sofia
-            da KM SAFETY…”). Não escreva ordens tipo “MOSTRE O CATÁLOGO” — isso
-            vaza no WhatsApp. O sistema manda o catálogo pra IA organizar.
+            Frase de cumprimento (ex.: “Olá! Sou a Ana da sua empresa…”).
+            Evite ordens internas (“MOSTRE O CATÁLOGO”) — isso vaza no
+            WhatsApp. Catálogo e roteiro vêm nas outras abas.
           </p>
           <textarea
             id="presentation"
@@ -196,7 +196,7 @@ export function AiIdentityPanel({
             rows={3}
             maxLength={PRESENTATION_MAX}
             className={`${field} mt-2`}
-            placeholder={`Olá! Eu sou ${assistantName || "o Assistente"} da KM SAFETY. Como posso ajudar?`}
+            placeholder={`Olá! Eu sou ${assistantName || "o Assistente"}. Como posso ajudar?`}
           />
           <CharCount value={presentation} max={PRESENTATION_MAX} />
         </div>
@@ -206,9 +206,8 @@ export function AiIdentityPanel({
             Prompt inicial
           </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Tom e regras. Na abertura a IA usa *negrito*, emojis e bullets
-            (estilo WhatsApp), sem despejar preços. Produtos ficam na aba
-            Produtos.
+            Tom e regras de negócio. Abertura e formato ficam no roteiro
+            (playbook). Produtos/preços ficam na aba Produtos.
           </p>
           <textarea
             id="instructions"
@@ -261,8 +260,8 @@ export function AiIdentityPanel({
           </div>
         </div>
         <p className="mt-3 text-xs text-ink-muted">
-          Preview só da apresentação. No WhatsApp a IA usa o catálogo nos
-          bastidores e responde de forma resumida na 1ª mensagem.
+          Preview só da apresentação. No WhatsApp entram também o roteiro e o
+          catálogo cadastrados pelo cliente.
         </p>
       </aside>
     </div>

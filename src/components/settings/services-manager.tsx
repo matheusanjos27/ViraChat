@@ -314,7 +314,7 @@ function ServiceForm({
             required
             defaultValue={service?.name}
             className={`${field} mt-1`}
-            placeholder="Ex: Shampoo cabelo cacheado"
+            placeholder="Ex: Plano mensal, Consultoria, Produto X"
           />
         </div>
         <div className="sm:col-span-2">
@@ -355,7 +355,7 @@ function ServiceForm({
             name="unitLabel"
             defaultValue={service?.unit_label ?? "unidade"}
             className={`${field} mt-1`}
-            placeholder="vida, colaborador, sessão…"
+            placeholder="unidade, sessão, licença…"
           />
         </div>
         <div>
