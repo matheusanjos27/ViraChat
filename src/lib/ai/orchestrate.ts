@@ -6,6 +6,7 @@ import {
   buildHandoffOfferText,
   declinesHandoffOffer,
   isLightContextTurn,
+  isOpeningGreetingTurn,
   isShortContinuation,
   offersHandoffConfirmation,
   truncate,
@@ -490,6 +491,22 @@ export async function runAiForConversation(conversationId: string) {
       supabase,
       conversation,
       text: formatCatalogListMessage(catalog),
+    });
+  }
+
+  // Abertura (oi / boa tarde): apresentação + catálogo oficial (sem LLM).
+  // Evita a IA só se apresentar OU inventar menu; lista vem do cadastro.
+  if (
+    isOpeningGreetingTurn(latestInbound.body, history.length) &&
+    catalog.some((s) => s.is_active)
+  ) {
+    const intro =
+      (aiConfig.presentation ?? "").trim() ||
+      `Olá! Eu sou ${aiConfig.name}. Como posso ajudar você hoje?`;
+    return replyAndStayOnAi({
+      supabase,
+      conversation,
+      text: `${intro}\n\n${formatCatalogListMessage(catalog)}`,
     });
   }
 

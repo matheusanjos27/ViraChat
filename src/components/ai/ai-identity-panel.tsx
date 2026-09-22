@@ -182,8 +182,9 @@ export function AiIdentityPanel({
             Como ela se apresenta
           </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Só a frase de cumprimento no WhatsApp (preview ao lado). Fica
-            separada do prompt — o sistema junta na hora de chamar a IA.
+            Frase de cumprimento no WhatsApp. Na 1ª mensagem (oi / boa tarde) o
+            sistema junta automaticamente o catálogo cadastrado depois desta
+            frase.
           </p>
           <textarea
             id="presentation"
@@ -195,7 +196,7 @@ export function AiIdentityPanel({
             rows={3}
             maxLength={PRESENTATION_MAX}
             className={`${field} mt-2`}
-            placeholder={`Olá! Eu sou ${assistantName || "o Assistente"}. Como posso ajudar?`}
+            placeholder={`Olá! Eu sou ${assistantName || "o Assistente"} da KM SAFETY. Como posso ajudar?`}
           />
           <CharCount value={presentation} max={PRESENTATION_MAX} />
         </div>
@@ -205,8 +206,9 @@ export function AiIdentityPanel({
             Prompt inicial
           </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Notas, tom, horários, restrições — o “cérebro”. Não misture com a
-            frase de apresentação.
+            Tom, horários, restrições — o “cérebro”. Não cole a lista de
+            produtos aqui: use a aba Produtos. O catálogo na abertura já é
+            automático.
           </p>
           <textarea
             id="instructions"
@@ -259,8 +261,8 @@ export function AiIdentityPanel({
           </div>
         </div>
         <p className="mt-3 text-xs text-ink-muted">
-          Só a apresentação aparece aqui. O prompt inicial vai junto só na
-          chamada da IA.
+          Preview da apresentação. No WhatsApp real, na 1ª mensagem o catálogo
+          ativo entra automaticamente depois desta frase.
         </p>
       </aside>
     </div>

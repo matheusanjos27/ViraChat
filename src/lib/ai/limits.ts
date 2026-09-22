@@ -167,8 +167,7 @@ export function buildHandoffOfferText(priorText?: string | null): string {
 }
 
 /**
- * Early/short turns (ex.: "bom dia") — skip catalog, fields and funnel
- * so fixed overhead doesn't burn ~1k tokens on a greeting.
+ * Early/short turns (ex.: "bom dia") — skip heavy blocks when calling the model.
  */
 export function isLightContextTurn(
   latestUserMessage: string,
@@ -178,13 +177,7 @@ export function isLightContextTurn(
   const msg = latestUserMessage.trim();
   if (!msg || msg.length > 48) return false;
 
-  if (
-    /^(oi|ol[aá]|oie|opa|eai|e\s*a[ií]|hey|hi|hello|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem\??|td\s*bem\??)[\s!.?]*$/i.test(
-      msg,
-    )
-  ) {
-    return true;
-  }
+  if (isPureGreeting(msg)) return true;
 
   // "ok/beleza/sim" NÃO são light no meio do funil — só cumprimentos reais.
   if (
@@ -204,6 +197,26 @@ export function isLightContextTurn(
   }
 
   return false;
+}
+
+/** Cumprimento puro (oi / boa tarde) — abertura sem intenção de compra. */
+export function isPureGreeting(text: string): boolean {
+  const msg = (text ?? "").trim();
+  if (!msg || msg.length > 48) return false;
+  return /^(oi|ol[aá]|oie|opa|eai|e\s*a[ií]|hey|hi|hello|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem\??|td\s*bem\??)[\s!.?]*$/i.test(
+    msg,
+  );
+}
+
+/**
+ * Abertura da conversa: cumprimento + ainda não houve reply da IA nesta sessão.
+ * Usado para apresentar o catálogo oficial sem gastar token / sem inventar lista.
+ */
+export function isOpeningGreetingTurn(
+  latestUserMessage: string,
+  priorHistoryTurns: number,
+): boolean {
+  return priorHistoryTurns === 0 && isPureGreeting(latestUserMessage);
 }
 
 /** Cliente pediu para ver o que a empresa vende / listar catálogo. */
