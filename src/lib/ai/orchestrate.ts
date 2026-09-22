@@ -716,6 +716,7 @@ export async function runAiForConversation(conversationId: string) {
   const shouldCloseSale =
     result.action === "reply" &&
     !awaitingHandoffConfirm &&
+    dataReady &&
     (buyIntent ||
       (!resumedAfterHuman &&
         justBecameReady &&
@@ -727,14 +728,32 @@ export async function runAiForConversation(conversationId: string) {
   const CALLBACK_CLOSE_TEXT =
     "Perfeito! Registrei suas informações e o interesse no orçamento. Nossa equipe vai entrar em contato em breve para dar continuidade. Obrigado!";
 
-  // Modelo já perguntou sim/não → só marca pendente (modo handoff).
+  // Modelo já perguntou sim/não → só marca pendente se dados obrigatórios ok.
   if (
     closeMode === "handoff" &&
     result.action === "reply" &&
     !awaitingHandoffConfirm &&
     offersHandoffConfirmation(result.text ?? "")
   ) {
-    markHandoffOfferPending = true;
+    if (dataReady) {
+      markHandoffOfferPending = true;
+    } else {
+      // Pediu humano cedo demais — tira o sim/não e deixa coletar campos.
+      const cleaned = (result.text ?? "")
+        .replace(
+          /\n*\s*Posso te passar para um atendente humano agora\?[^\n]*/gi,
+          "",
+        )
+        .replace(/\n*\s*Responde \*sim\* ou \*não\*\.?/gi, "")
+        .trim();
+      result = {
+        ...result,
+        action: "reply",
+        text:
+          cleaned ||
+          "Antes de seguir, preciso de alguns dados da empresa. Qual o nome da empresa?",
+      };
+    }
   } else if (confirmedOffer && result.action === "reply") {
     result = {
       action: "handoff",
