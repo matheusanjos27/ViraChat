@@ -130,8 +130,10 @@ O motor do ViraChat orça pelos itens ativos + quantidade em `colaboradores`. O 
 
 ## 4. Roteiro / Playbook (`tab: Roteiro`)
 
-O editor do ViraChat só tem estes blocos: **Objetivo, Tom de voz, Abertura, Diagnóstico, Orçamento, Objeções, Fechamento, Transferência, Limites**.  
+O editor do ViraChat tem estes blocos: **Objetivo, Tom de voz, Abertura, Coleta de dados, Diagnóstico, Orçamento, Objeções, Fechamento, Transferência, Limites**.  
 Cole cada texto no bloco correspondente (ou cole o markdown inteiro de uma vez — os `#` batem com os campos).
+
+**LGPD (motor):** depois da abertura, se faltarem campos obrigatórios e o contato ainda não autorizou, o sistema pergunta o ok LGPD (*sim*/*não*) **antes** de coletar dados. O *sim* fica gravado no contato. Sem ok → não grava campos.
 
 - **Nome:** `KM SAFETY — Orçamento SST`
 - **Trigger:** novo contato
@@ -141,12 +143,12 @@ Cole cada texto no bloco correspondente (ou cole o markdown inteiro de uma vez �
 
 **Objetivo**
 ```
-Qualificar, descobrir porte (colaboradores), orçar pelo CATÁLOGO (plano fixo OU por vida) e só então encaminhar a humano. Nunca abandonar o lead sem proposta quando der para orçar.
+Qualificar, obter ok LGPD, coletar dados, orçar pelo CATÁLOGO (plano fixo OU por vida) e só então, se o cliente aceitar, encaminhar a humano.
 ```
 
 **Tom de voz**
 ```
-WhatsApp, PT-BR, curto, humano. Uma pergunta por vez.
+WhatsApp, PT-BR, curto, humano.
 Use *negrito*, quebras de linha e poucos emojis. Evite parágrafo único corrido.
 ```
 
@@ -160,14 +162,32 @@ Formato visual (WhatsApp), não texto linear:
    • *Treinamentos NR* — sob demanda
 3) Pergunta final em linha separada (quantos colaboradores? plano / exame / laudo / treinamento?)
 NÃO despeje preços nem catálogo inteiro na 1ª mensagem.
+NÃO peça dados na abertura — o sistema cuida do LGPD depois.
+```
+
+**Coleta de dados**
+```
+O sistema pede o ok LGPD antes desta etapa. Depois do *sim*:
+
+Liste de uma vez só o que estiver em "SÓ PERGUNTE ESTES":
+1️⃣ Nome do responsável
+2️⃣ Empresa
+3️⃣ CNPJ
+4️⃣ E-mail
+5️⃣ Ramo de atividade
+6️⃣ Nº de colaboradores
+
+Peça resposta numa mensagem. Sem preços enquanto faltar obrigatório.
+Opcionais só se a conversa pedir: endereço, telefone fixo.
+NÃO peça CPF nem Inscrição Estadual via IA.
 ```
 
 **Diagnóstico**
 ```
-Quando souber o nº de colaboradores, grave em collected (chave colaboradores).
-Use só CAMPOS pendentes do sistema. Ordem típica depois do porte: empresa → CNPJ → e-mail → ramo (e nome se faltar). Nunca peça de novo o que está em DADOS JÁ NA BASE.
+Quando souber o nº de colaboradores, grave em collected (chave do sistema).
+Use só CAMPOS pendentes. Ordem típica: responsável → empresa → CNPJ → e-mail → ramo → colaboradores.
+Nunca peça de novo o que está em DADOS JÁ NA BASE.
 Se ainda não souber o escopo: no máx. 1–3 perguntas (altura? eletricidade? já tem PGR/PCMSO?). Não interrogue antes do primeiro preço.
-Em "quero orçamento" / "faz um orçamento": se já tem colaboradores, ORCE na hora.
 ```
 
 **Orçamento** *(aqui fica a regra de plano vs por vida)*

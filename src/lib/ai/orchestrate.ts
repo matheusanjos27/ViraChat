@@ -15,7 +15,7 @@ import {
 } from "@/lib/ai/limits";
 import { getDefaultAiProvider } from "@/lib/ai/providers/openai";
 import type { AiChatMessage, AiReplyResult } from "@/lib/ai/types";
-import { buildAttributePromptBlock, hydrateAttributeValuesFromContact } from "@/lib/crm/attributes";
+import { buildAttributePromptBlock, hydrateAttributeValuesFromContact, hasPendingRequiredAiFields } from "@/lib/crm/attributes";
 import {
   AI_CNPJ_ATTEMPT_LIMIT,
   CNPJ_SKIPPED_VALUE,
@@ -30,6 +30,13 @@ import {
   sanitizeCollected,
   wantsToCloseSale,
 } from "@/lib/crm/extract-attributes";
+import {
+  AI_LGPD_CONSENT_ASK,
+  AI_LGPD_CONSENT_DECLINED,
+  AI_LGPD_CONSENT_VERSION,
+  affirmsLgpdConsent,
+  declinesLgpdConsent,
+} from "@/lib/crm/lgpd-consent";
 import {
   buildPlaybookPromptBlock,
   pickActivePlaybook,
@@ -72,7 +79,7 @@ export async function runAiForConversation(conversationId: string) {
   const { data: conversation, error: convError } = await supabase
     .from("conversations")
     .select(
-      "id, tenant_id, status, channel_id, contact_id, ai_session_started_at, handoff_offer_pending_at, ai_spam_flags, ai_spam_blocked_at, ai_cnpj_attempts, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
+      "id, tenant_id, status, channel_id, contact_id, ai_session_started_at, handoff_offer_pending_at, ai_spam_flags, ai_spam_blocked_at, ai_cnpj_attempts, contacts(phone_e164, external_id, display_name, email, company_name, lgpd_consent, lgpd_consent_at, lgpd_consent_version), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
     )
     .eq("id", conversationId)
     .single();
@@ -231,6 +238,7 @@ export async function runAiForConversation(conversationId: string) {
     display_name: string | null;
     email: string | null;
     company_name: string | null;
+    lgpd_consent?: boolean | null;
   } | null;
 
   hydrateAttributeValuesFromContact(attrList, currentValues, {
@@ -238,6 +246,59 @@ export async function runAiForConversation(conversationId: string) {
     email: contactEarly?.email,
     company_name: contactEarly?.company_name,
   });
+
+  let lgpdConsentOk = Boolean(contactEarly?.lgpd_consent);
+  let justGrantedLgpd = false;
+  const needsLgpdBeforeCollect =
+    hasPendingRequiredAiFields(attrList, currentValues) && !lgpdConsentOk;
+
+  // Abertura pura: ainda não força LGPD. Demais turnos: ok antes de qualquer coleta.
+  const openingTurnEarly = isOpeningGreetingTurn(
+    latestInbound.body,
+    history.length,
+  );
+  const handoffOfferPendingEarly = Boolean(
+    (conversation as { handoff_offer_pending_at?: string | null })
+      .handoff_offer_pending_at,
+  );
+
+  if (
+    needsLgpdBeforeCollect &&
+    !openingTurnEarly &&
+    !handoffOfferPendingEarly
+  ) {
+    if (declinesLgpdConsent(latestInbound.body)) {
+      return replyAndStayOnAi({
+        supabase,
+        conversation,
+        text: AI_LGPD_CONSENT_DECLINED,
+      });
+    }
+
+    if (affirmsLgpdConsent(latestInbound.body)) {
+      const now = new Date().toISOString();
+      await supabase
+        .from("contacts")
+        .update({
+          lgpd_consent: true,
+          lgpd_consent_at: now,
+          lgpd_consent_version: AI_LGPD_CONSENT_VERSION,
+        })
+        .eq("id", conversation.contact_id);
+      lgpdConsentOk = true;
+      justGrantedLgpd = true;
+    } else {
+      // Ainda sem ok — não coleta nem chama LLM para inventar campos.
+      return replyAndStayOnAi({
+        supabase,
+        conversation,
+        text: AI_LGPD_CONSENT_ASK,
+      });
+    }
+  }
+
+  const awaitingLgpdConsent =
+    hasPendingRequiredAiFields(attrList, currentValues) && !lgpdConsentOk;
 
   const convSpam = conversation as {
     ai_spam_flags?: number | null;
@@ -308,9 +369,11 @@ export async function runAiForConversation(conversationId: string) {
   }
 
   // CNPJ: valida em código (dígitos verificadores) — sem gastar token.
-  const cnpjAttr = attrList.find(
-    (a) => a.collect_via_ai && /cnpj/i.test(a.key),
-  );
+  // Sem LGPD: não interpreta mensagem como CNPJ.
+  const cnpjAttr =
+    awaitingLgpdConsent
+      ? undefined
+      : attrList.find((a) => a.collect_via_ai && /cnpj/i.test(a.key));
   const cnpjEmpty = cnpjAttr
     ? !(currentValues[cnpjAttr.key] ?? "").trim()
     : false;
@@ -448,14 +511,19 @@ export async function runAiForConversation(conversationId: string) {
     });
   }
 
-  const attributeBlock = buildAttributePromptBlock(attrList, currentValues, {
-    name: contactEarly?.display_name,
-    phone:
-      contactEarly?.phone_e164 ||
-      (contactEarly?.external_id ? `+${contactEarly.external_id}` : null),
-    email: contactEarly?.email,
-    company: contactEarly?.company_name,
-  });
+  const attributeBlock = buildAttributePromptBlock(
+    attrList,
+    currentValues,
+    {
+      name: contactEarly?.display_name,
+      phone:
+        contactEarly?.phone_e164 ||
+        (contactEarly?.external_id ? `+${contactEarly.external_id}` : null),
+      email: contactEarly?.email,
+      company: contactEarly?.company_name,
+    },
+    { holdPendingForLgpd: awaitingLgpdConsent },
+  );
 
   const tiersByService = new Map<string, NonNullable<typeof tiers>>();
   for (const t of tiers ?? []) {
@@ -533,12 +601,22 @@ export async function runAiForConversation(conversationId: string) {
         AI_LIMITS.catalogBlock,
       );
     }
+  } else if (!openingTurn && awaitingLgpdConsent) {
+    catalogBlock = truncate(
+      `${catalogBlock}
+
+CONSENTIMENTO LGPD PENDENTE:
+- Ainda NÃO peça empresa, e-mail, CNPJ nem outros campos.
+- Explique o uso dos dados para orçamento e peça *sim* ou *não*.
+- Sem preços / orçamento agora.`,
+      AI_LIMITS.catalogBlock,
+    );
   } else if (!openingTurn && !dataReadyBeforeReply) {
     catalogBlock = truncate(
       `${catalogBlock}
 
 COLETA OBRIGATÓRIA EM ANDAMENTO:
-- Há campos obrigatórios pendentes em "SÓ PERGUNTE ESTES".
+- Consentimento LGPD já ok. Há campos obrigatórios pendentes em "SÓ PERGUNTE ESTES".
 - NÃO mostre preços, totais, tabelas R$ nem orçamento agora.
 - Siga a seção "Coleta de dados" do ROTEIRO (lista de uma vez, uma a uma, etc.).
 - Se o roteiro pedir lista numerada, use só os pendentes atuais — não reinvente campos.
@@ -614,11 +692,19 @@ MODO DE FECHAMENTO: handoff.
 - NÃO ofereça atendente só por um "ok" — só se ele pedir contratar/comprar/fechar.`
       : "";
 
+  const lgpdJustOkBlock = justGrantedLgpd
+    ? `CONSENTIMENTO LGPD: o cliente acabou de autorizar (*sim*).
+- NÃO peça o ok de novo.
+- Agora colete os campos pendentes em "SÓ PERGUNTE ESTES" (formato do ROTEIRO / lista de uma vez).
+- Ainda NÃO mostre preços.`
+    : "";
+
   const light =
     !openingTurn &&
     !askedCatalogList &&
     !awaitingHandoffConfirm &&
     !continueBlock &&
+    !justGrantedLgpd &&
     isLightContextTurn(latestInbound.body, history.length);
 
   let result: AiReplyResult = await provider.generateReply({
@@ -634,6 +720,7 @@ MODO DE FECHAMENTO: handoff.
           resumeBlock,
           offerPendingBlock,
           continueBlock,
+          lgpdJustOkBlock,
           playbookBlock,
         ]
           .filter(Boolean)
@@ -644,6 +731,7 @@ MODO DE FECHAMENTO: handoff.
           resumeBlock,
           offerPendingBlock,
           continueBlock,
+          lgpdJustOkBlock,
           playbookBlock,
           funnelBlock,
         ]
@@ -686,11 +774,13 @@ MODO DE FECHAMENTO: handoff.
     })),
     latestInbound.body,
   );
-  // Extractor wins over model (avoids CNPJ fragment → ramo/colaboradores).
-  const collected = sanitizeCollected(
-    attrList,
-    mergeCollected(result.collected, extracted),
-  );
+  // Sem LGPD: não grava campos coletados (mesmo se o modelo tentar).
+  const collected = awaitingLgpdConsent
+    ? {}
+    : sanitizeCollected(
+        attrList,
+        mergeCollected(result.collected, extracted),
+      );
 
   // Snapshot antes de persistir collected neste turno.
   if (Object.keys(collected).length > 0) {

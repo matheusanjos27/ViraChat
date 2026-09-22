@@ -348,6 +348,9 @@ export type Database = {
           email: string | null;
           company_name: string | null;
           notes: string | null;
+          lgpd_consent: boolean;
+          lgpd_consent_at: string | null;
+          lgpd_consent_version: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -362,6 +365,9 @@ export type Database = {
           email?: string | null;
           company_name?: string | null;
           notes?: string | null;
+          lgpd_consent?: boolean;
+          lgpd_consent_at?: string | null;
+          lgpd_consent_version?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -376,6 +382,9 @@ export type Database = {
           email?: string | null;
           company_name?: string | null;
           notes?: string | null;
+          lgpd_consent?: boolean;
+          lgpd_consent_at?: string | null;
+          lgpd_consent_version?: string | null;
           created_at?: string;
           updated_at?: string;
         };

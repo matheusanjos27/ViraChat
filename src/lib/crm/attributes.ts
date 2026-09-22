@@ -27,6 +27,10 @@ export function buildAttributePromptBlock(
     email?: string | null;
     company?: string | null;
   },
+  opts?: {
+    /** Sem consentimento LGPD: não lista campos pendentes (só o que já está na base). */
+    holdPendingForLgpd?: boolean;
+  },
 ) {
   const collectable = attributes.filter((a) => a.collect_via_ai);
 
@@ -74,7 +78,11 @@ export function buildAttributePromptBlock(
 
   if (collectable.length === 0 && parts.length === 0) return "";
 
-  if (pendingLines.length === 0) {
+  if (opts?.holdPendingForLgpd && pendingLines.length > 0) {
+    parts.push(
+      "CAMPOS: há dados pendentes, mas o consentimento LGPD ainda NÃO foi dado. NÃO peça empresa, e-mail, CNPJ nem outros campos agora — só peça o ok LGPD (sim/não).",
+    );
+  } else if (pendingLines.length === 0) {
     parts.push(
       "CAMPOS: nenhum pendente. NÃO peça nome, e-mail, empresa nem outros dados. Continue o atendimento com o que já sabe.",
     );
@@ -85,6 +93,19 @@ export function buildAttributePromptBlock(
   }
 
   return truncate(parts.join("\n\n"), AI_LIMITS.attributeBlock);
+}
+
+/** Há campo obrigatório coletável pela IA ainda vazio. */
+export function hasPendingRequiredAiFields(
+  attributes: ContactAttribute[],
+  currentValues: Record<string, string | null>,
+) {
+  return attributes.some(
+    (a) =>
+      a.collect_via_ai &&
+      a.required &&
+      !(currentValues[a.key] ?? "").trim(),
+  );
 }
 
 /** Preenche currentValues a partir das colunas do contato quando o atributo ainda está vazio. */
