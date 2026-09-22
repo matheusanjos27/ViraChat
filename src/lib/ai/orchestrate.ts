@@ -5,6 +5,7 @@ import {
   buildHandoffOfferText,
   declinesHandoffOffer,
   isLightContextTurn,
+  isShortContinuation,
   offersHandoffConfirmation,
   resolveHistoryTurns,
   truncate,
@@ -249,7 +250,21 @@ export async function runAiForConversation(conversationId: string) {
       .handoff_offer_pending_at,
   );
 
-  if (offerPending && affirmsHandoffOffer(latestInbound.body)) {
+  const lastAiBody = [...sessionMessages]
+    .reverse()
+    .find(
+      (m) =>
+        m.direction === "outbound" &&
+        m.sender_type === "ai" &&
+        typeof m.body === "string" &&
+        m.body.trim(),
+    )?.body as string | undefined;
+
+  const awaitingHandoffConfirm =
+    offerPending ||
+    Boolean(lastAiBody && offersHandoffConfirmation(lastAiBody));
+
+  if (awaitingHandoffConfirm && affirmsHandoffOffer(latestInbound.body)) {
     const summary = buildDeterministicHandoffSummary({
       reason: "cliente_confirmou_atendente",
       latestUserMessage: latestInbound.body,
@@ -266,7 +281,7 @@ export async function runAiForConversation(conversationId: string) {
     });
   }
 
-  if (offerPending && declinesHandoffOffer(latestInbound.body)) {
+  if (awaitingHandoffConfirm && declinesHandoffOffer(latestInbound.body)) {
     return replyAndStayOnAi({
       supabase,
       conversation,
@@ -369,15 +384,27 @@ export async function runAiForConversation(conversationId: string) {
 - Cumprimente de forma breve e pergunte como pode ajudar hoje.`
     : "";
 
-  const offerPendingBlock = offerPending
-    ? `OFERTA DE ATENDENTE PENDENTE: você já perguntou se o cliente quer falar com um humano.
-- Se confirmar (sim/quero/pode), use action=handoff.
+  const offerPendingBlock = awaitingHandoffConfirm
+    ? `OFERTA DE ATENDENTE PENDENTE: você já perguntou se o cliente quer falar com um humano/consultor.
+- Se confirmar (sim/ok/quero/pode), use action=handoff.
 - Se recusar (não), use action=reply e continue ajudando.
-- Se a mensagem for outro assunto, use action=reply e ajude no assunto (sem transferir).`
+- Se a mensagem for outro assunto, use action=reply e ajude no assunto (sem transferir).
+- NÃO reinicie a conversa nem cumprimente de novo.`
     : "";
 
+  const continueBlock =
+    !resumedAfterHuman &&
+    history.length > 2 &&
+    isShortContinuation(latestInbound.body)
+      ? `CONVERSA EM ANDAMENTO: o cliente só confirmou/cutucou ("${truncate(latestInbound.body, 40)}").
+- NÃO cumprimente de novo. NÃO reapresente a empresa. NÃO reinicie o funil.
+- Continue exatamente de onde parou (orçamento, dados pendentes ou próximo passo).
+- Se o orçamento já foi combinado e falta só fechar, confirme e ofereça atendente (sim/não) se ainda não ofereceu.`
+      : "";
+
   const light =
-    !offerPending &&
+    !awaitingHandoffConfirm &&
+    !continueBlock &&
     isLightContextTurn(latestInbound.body, history.length);
 
   let result: AiReplyResult = await provider.generateReply({
@@ -386,13 +413,14 @@ export async function runAiForConversation(conversationId: string) {
     history,
     latestUserMessage: latestInbound.body,
     playbookBlock: light
-      ? [companyBlock, resumeBlock, offerPendingBlock, playbookBlock]
+      ? [companyBlock, resumeBlock, offerPendingBlock, continueBlock, playbookBlock]
           .filter(Boolean)
           .join("\n\n")
       : [
           companyBlock,
           resumeBlock,
           offerPendingBlock,
+          continueBlock,
           playbookBlock,
           funnelBlock,
         ]
@@ -479,12 +507,12 @@ export async function runAiForConversation(conversationId: string) {
   const buyIntent = wantsToCloseSale(latestInbound.body);
   const askedForHuman = wantsHuman(latestInbound.body);
   const confirmedOffer =
-    offerPending && affirmsHandoffOffer(latestInbound.body);
+    awaitingHandoffConfirm && affirmsHandoffOffer(latestInbound.body);
 
   // Em vez de transferir direto: oferece atendente e espera sim/não.
   const shouldOfferHandoff =
     result.action === "reply" &&
-    !offerPending &&
+    !awaitingHandoffConfirm &&
     (buyIntent ||
       (!resumedAfterHuman &&
         justBecameReady &&
@@ -495,7 +523,7 @@ export async function runAiForConversation(conversationId: string) {
   // Modelo já perguntou sim/não → só marca pendente, sem repetir a pergunta.
   if (
     result.action === "reply" &&
-    !offerPending &&
+    !awaitingHandoffConfirm &&
     offersHandoffConfirmation(result.text ?? "")
   ) {
     markHandoffOfferPending = true;

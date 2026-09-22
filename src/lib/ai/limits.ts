@@ -49,7 +49,7 @@ export function truncate(text: string, max: number): string {
 }
 
 export function wantsHuman(text: string): boolean {
-  return /(atendente|humano|pessoa\s+real|falar\s+com\s+(algu[eé]m|voc[eê]s)|operador|suporte\s+humano)/i.test(
+  return /(atendente|humano|consultor|vendedor|pessoa\s+real|falar\s+com\s+(algu[eé]m|voc[eê]s)|operador|suporte\s+humano)/i.test(
     text,
   );
 }
@@ -59,13 +59,13 @@ export function affirmsHandoffOffer(text: string): boolean {
   const t = (text ?? "").trim();
   if (!t) return false;
   if (
-    /^(sim|s+|quero|pode|pode\s+ser|claro|ok+|okay|beleza|isso|afirmativo|por\s+favor|pfv|manda|vai|transfer[ea]|pode\s+transfer)[\s!.?]*$/i.test(
+    /^(sim|s+|quero|pode|pode\s+ser|claro|ok+|okay|beleza|isso|afirmativo|por\s+favor|pfv|manda|vai|transfer[ea]|pode\s+transfer|fechamos|pode\s+ser|bora|vamos)[\s!.?]*$/i.test(
       t,
     )
   ) {
     return true;
   }
-  return /(^|\b)(sim[,.]?\s*(quero|pode|por\s+favor)?|quero\s+(sim|falar|atendente|humano)|pode\s+(sim|transfer|passar)|pode\s+passar\s+pro?\s+atendente)(\b|$)/i.test(
+  return /(^|\b)(sim[,.]?\s*(quero|pode|por\s+favor)?|quero\s+(sim|falar|atendente|humano|consultor)|pode\s+(sim|transfer|passar)|pode\s+passar\s+pro?\s+(atendente|consultor))(\b|$)/i.test(
     t,
   );
 }
@@ -90,7 +90,16 @@ export function declinesHandoffOffer(text: string): boolean {
 export function offersHandoffConfirmation(text: string): boolean {
   const t = (text ?? "").trim();
   if (!t) return false;
-  return /(deseja|quer(e)?|posso|pode|gostaria).{0,40}(atendente|humano|especialista|equipe|algu[eé]m)|(falar|passar|transfer).{0,30}(atendente|humano)|(sim\s*ou\s*n[aã]o|responde\s*\*?sim)/i.test(
+  return /(deseja|quer(e)?|posso|pode|gostaria).{0,60}(atendente|humano|consultor|vendedor|especialista|equipe|algu[eé]m)|(falar|passar|transfer).{0,40}(atendente|humano|consultor|vendedor)|(sim\s*ou\s*n[aã]o|responde\s*\*?sim)/i.test(
+    t,
+  );
+}
+
+/** Mensagens curtas de “continua / confirma” no meio da venda — nunca reiniciar. */
+export function isShortContinuation(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t || t.length > 40) return false;
+  return /^(ok+|okay|beleza|certo|isso|uhum|ahm|al+[oô]u?|e\s*a[ií]|t[aá]\s*a[ií]\??|ainda\s*a[ií]\??|oi+\??|hola\??|fechado|pode\s+ser|vamos|bora|obrigad[oa]|valeu)[\s!.?]*$/i.test(
     t,
   );
 }
@@ -132,9 +141,17 @@ export function isLightContextTurn(
   if (!msg || msg.length > 48) return false;
 
   if (
-    /^(oi|ol[aá]|oie|opa|eai|e\s*a[ií]|hey|hi|hello|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem\??|td\s*bem\??|obrigad[oa]|valeu|ok+|beleza|sim|nao|não)[\s!.?]*$/i.test(
+    /^(oi|ol[aá]|oie|opa|eai|e\s*a[ií]|hey|hi|hello|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem\??|td\s*bem\??)[\s!.?]*$/i.test(
       msg,
     )
+  ) {
+    return true;
+  }
+
+  // "ok/beleza/sim" NÃO são light no meio do funil — só cumprimentos reais.
+  if (
+    priorHistoryTurns === 0 &&
+    /^(obrigad[oa]|valeu|ok+|beleza|sim|nao|não)[\s!.?]*$/i.test(msg)
   ) {
     return true;
   }
