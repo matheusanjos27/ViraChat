@@ -14,8 +14,11 @@ export const AI_LIMITS = {
   attributeBlock: 1_400,
   serviceDescription: 200,
   messageBody: 1_200,
-  /** Turns of prior chat kept in the prompt (was 4 — caused re-asks). */
-  historyTurns: 12,
+  /** Default turns of prior chat kept in the prompt when tenant has no override. */
+  historyTurns: 24,
+  /** Clamp for platform/tenant ai_history_turns. */
+  historyTurnsMin: 4,
+  historyTurnsMax: 40,
   /** Default monthly token budget when tenant has no override. */
   defaultMonthlyTokens: 2_000_000,
   /** Wait before running AI so bursts coalesce into one call. */
@@ -163,4 +166,14 @@ export function clampSavedText(
 ): { value: string; truncated: boolean } {
   if (value.length <= max) return { value, truncated: false };
   return { value: truncate(value, max), truncated: true };
+}
+
+/** Resolve history window for a tenant (platform-configurable). */
+export function resolveHistoryTurns(tenantValue?: number | null): number {
+  const n = Number(tenantValue);
+  if (!Number.isFinite(n)) return AI_LIMITS.historyTurns;
+  return Math.min(
+    AI_LIMITS.historyTurnsMax,
+    Math.max(AI_LIMITS.historyTurnsMin, Math.round(n)),
+  );
 }

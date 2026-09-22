@@ -6,6 +6,7 @@ import {
   declinesHandoffOffer,
   isLightContextTurn,
   offersHandoffConfirmation,
+  resolveHistoryTurns,
   truncate,
   wantsCatalogList,
   wantsHuman,
@@ -86,7 +87,7 @@ export async function runAiForConversation(conversationId: string) {
   const { data: tenantProfile } = await supabase
     .from("tenants")
     .select(
-      "name, about, phone, website, billing_status, monthly_ai_token_limit",
+      "name, about, phone, website, billing_status, monthly_ai_token_limit, ai_history_turns",
     )
     .eq("id", conversation.tenant_id)
     .maybeSingle();
@@ -117,6 +118,11 @@ export async function runAiForConversation(conversationId: string) {
     return { skipped: "monthly_token_budget" as const };
   }
 
+  const historyTurns = resolveHistoryTurns(
+    (tenantProfile as { ai_history_turns?: number | null } | null)
+      ?.ai_history_turns,
+  );
+
   const [
     { data: messages },
     { data: attributes },
@@ -131,7 +137,7 @@ export async function runAiForConversation(conversationId: string) {
       .select("body, direction, sender_type, created_at")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true })
-      .limit(40),
+      .limit(Math.max(40, historyTurns + 8)),
     supabase
       .from("contact_attributes")
       .select(
@@ -189,7 +195,7 @@ export async function runAiForConversation(conversationId: string) {
   const history: AiChatMessage[] = sessionMessages
     .filter((m) => m.body)
     .slice(0, -1)
-    .slice(-AI_LIMITS.historyTurns)
+    .slice(-historyTurns)
     .map((m) => ({
       role:
         m.direction === "inbound"

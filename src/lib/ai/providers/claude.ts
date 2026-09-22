@@ -41,7 +41,7 @@ export class ClaudeAiProvider implements AiProvider {
     const client = new Anthropic({ apiKey });
     const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
 
-    const history = input.history.slice(-12).map((m) => ({
+    const history = input.history.slice(-AI_LIMITS.historyTurnsMax).map((m) => ({
       role: m.role,
       content: m.content,
     }));

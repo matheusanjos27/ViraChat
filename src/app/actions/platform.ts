@@ -198,23 +198,32 @@ export async function platformUpdateTenantAiBudget(
       ? 0
       : Math.round(millions * 1_000_000);
 
+  const historyRaw = Number.parseInt(
+    String(formData.get("aiHistoryTurns") ?? "24"),
+    10,
+  );
+  const ai_history_turns = !Number.isFinite(historyRaw)
+    ? 24
+    : Math.min(40, Math.max(4, historyRaw));
+
   if (!tenantId) return { error: "Tenant inválido." };
 
   const admin = createServiceClient();
   const { error } = await admin
     .from("tenants")
-    .update({ monthly_ai_token_limit })
+    .update({ monthly_ai_token_limit, ai_history_turns })
     .eq("id", tenantId);
 
   if (error) return { error: error.message };
   revalidatePath("/platform");
   revalidatePath("/platform/tenants");
   revalidatePath("/platform/usage");
+  const cota =
+    monthly_ai_token_limit === 0
+      ? "ilimitada"
+      : `${(monthly_ai_token_limit / 1_000_000).toFixed(1)}M tokens/mês`;
   return {
-    success:
-      monthly_ai_token_limit === 0
-        ? "Cota de IA: ilimitada."
-        : `Cota de IA: ${(monthly_ai_token_limit / 1_000_000).toFixed(1)}M tokens/mês.`,
+    success: `IA salva: cota ${cota}; histórico ${ai_history_turns} msgs.`,
   };
 }
 

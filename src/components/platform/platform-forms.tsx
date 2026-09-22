@@ -236,6 +236,7 @@ export function TenantAiBudgetForm({
     id: string;
     name: string;
     monthly_ai_token_limit: number;
+    ai_history_turns?: number;
   }[];
 }) {
   const [state, action, pending] = useActionState(
@@ -261,6 +262,8 @@ export function TenantAiBudgetForm({
                 {t.monthly_ai_token_limit === 0
                   ? "Ilimitado"
                   : `${(t.monthly_ai_token_limit / 1_000_000).toFixed(1)}M tokens/mês`}
+                {" · "}
+                {t.ai_history_turns ?? 24} msgs histórico
               </p>
             </div>
             <div className="flex flex-col gap-1">
@@ -279,6 +282,19 @@ export function TenantAiBudgetForm({
                 }
                 className="w-28 rounded-lg border border-line bg-white px-2 py-1.5 text-sm"
                 title="0 = ilimitado"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-ink-muted">
+                Histórico
+              </label>
+              <input
+                name="aiHistoryTurns"
+                type="number"
+                min={4}
+                max={40}
+                defaultValue={t.ai_history_turns ?? 24}
+                className="w-20 rounded-lg border border-line bg-white px-2 py-1.5 text-sm"
               />
             </div>
             <button

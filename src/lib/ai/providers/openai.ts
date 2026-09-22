@@ -113,7 +113,7 @@ export class OpenAiProvider implements AiProvider {
     const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
     const history = input.history
-      .slice(-AI_LIMITS.historyTurns)
+      .slice(-AI_LIMITS.historyTurnsMax)
       .map((m) => ({
         role: m.role as "user" | "assistant",
         content: truncate(m.content, AI_LIMITS.messageBody),

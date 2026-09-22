@@ -25,6 +25,7 @@ export type Database = {
           monthly_fee_cents: number;
           billing_status: "trial" | "active" | "past_due" | "canceled";
           monthly_ai_token_limit: number;
+          ai_history_turns: number;
           plan_id: string | null;
           custom_max_members: number | null;
           custom_max_channels: number | null;
@@ -43,6 +44,7 @@ export type Database = {
           monthly_fee_cents?: number;
           billing_status?: "trial" | "active" | "past_due" | "canceled";
           monthly_ai_token_limit?: number;
+          ai_history_turns?: number;
           plan_id?: string | null;
           custom_max_members?: number | null;
           custom_max_channels?: number | null;
@@ -61,6 +63,7 @@ export type Database = {
           monthly_fee_cents?: number;
           billing_status?: "trial" | "active" | "past_due" | "canceled";
           monthly_ai_token_limit?: number;
+          ai_history_turns?: number;
           plan_id?: string | null;
           custom_max_members?: number | null;
           custom_max_channels?: number | null;

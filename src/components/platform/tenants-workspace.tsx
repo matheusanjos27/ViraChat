@@ -38,6 +38,7 @@ export type TenantClientRow = {
   monthly_fee_cents: number;
   billing_status: string;
   monthly_ai_token_limit: number;
+  ai_history_turns: number;
   custom_max_members: number | null;
   custom_max_channels: number | null;
   custom_max_ai_replies_month: number | null;
@@ -459,26 +460,45 @@ function AiBudgetSection({ tenant }: { tenant: TenantClientRow }) {
   return (
     <form action={action} className="rounded-xl border border-line bg-surface p-4">
       <input type="hidden" name="tenantId" value={tenant.id} />
-      <h3 className="text-sm font-semibold text-ink">Cota de tokens IA</h3>
+      <h3 className="text-sm font-semibold text-ink">Configuração da IA</h3>
       <p className="mt-0.5 text-xs text-ink-muted">
-        0 = ilimitado. Ao estourar, handoff humano sem chamar OpenAI.
+        Cota de tokens e quantas mensagens a IA lembra na conversa.
       </p>
-      <div className="mt-3 max-w-xs">
-        <label className="text-xs font-medium text-ink-muted">
-          Milhões / mês
-        </label>
-        <input
-          name="tokenLimitMillions"
-          type="number"
-          min={0}
-          step={0.5}
-          defaultValue={
-            tenant.monthly_ai_token_limit === 0
-              ? 0
-              : tenant.monthly_ai_token_limit / 1_000_000
-          }
-          className={`${field} mt-1`}
-        />
+      <div className="mt-3 grid max-w-lg gap-3 sm:grid-cols-2">
+        <div>
+          <label className="text-xs font-medium text-ink-muted">
+            Cota (milhões / mês)
+          </label>
+          <input
+            name="tokenLimitMillions"
+            type="number"
+            min={0}
+            step={0.5}
+            defaultValue={
+              tenant.monthly_ai_token_limit === 0
+                ? 0
+                : tenant.monthly_ai_token_limit / 1_000_000
+            }
+            className={`${field} mt-1`}
+            title="0 = ilimitado"
+          />
+          <p className="mt-1 text-[11px] text-ink-muted">0 = ilimitado</p>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-ink-muted">
+            Histórico (mensagens)
+          </label>
+          <input
+            name="aiHistoryTurns"
+            type="number"
+            min={4}
+            max={40}
+            step={1}
+            defaultValue={tenant.ai_history_turns ?? 24}
+            className={`${field} mt-1`}
+          />
+          <p className="mt-1 text-[11px] text-ink-muted">Entre 4 e 40 (padrão 24)</p>
+        </div>
       </div>
       {state.error && <p className="mt-2 text-sm text-red-600">{state.error}</p>}
       {state.success && (
@@ -489,7 +509,7 @@ function AiBudgetSection({ tenant }: { tenant: TenantClientRow }) {
         disabled={pending}
         className="mt-3 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
       >
-        {pending ? "Salvando…" : "Salvar cota"}
+        {pending ? "Salvando…" : "Salvar IA"}
       </button>
     </form>
   );
