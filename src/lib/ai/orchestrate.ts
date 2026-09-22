@@ -693,11 +693,18 @@ export async function runAiForConversation(conversationId: string) {
     return { skipped: "missing_channel_or_contact" as const };
   }
 
-  const outboundText =
+  const outboundTextRaw =
     result.action === "handoff"
       ? result.text ||
         "Vou te transferir para um atendente humano. Aguarde um momento."
       : result.text;
+
+  const outboundText =
+    outboundTextRaw &&
+    /^[\s]*[\{\[]/.test(outboundTextRaw) &&
+    /[\}\]][\s]*$/.test(outboundTextRaw)
+      ? "Recebi sua mensagem. Pode me confirmar o dado que pedi?"
+      : outboundTextRaw;
 
   let providerMessageId: string | null = null;
   try {

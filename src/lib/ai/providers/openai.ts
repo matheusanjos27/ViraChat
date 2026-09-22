@@ -33,8 +33,26 @@ Se a conversa já está em andamento e o cliente manda "ok", "beleza", "alô", "
 Pedido explícito de humano/atendente → action=handoff. Confirmação (sim) após oferta pendente → action=handoff. Recusa (não) → action=reply e continue. Senão action=reply.
 Se o cliente der um CAMPO A COLETAR, inclua "collected". Se avançar no funil, "deal_stage" (nome exato; nunca "Fechado" sozinho — use Qualificado/Orçamento/Proposta).
 No handoff, preencha "handoff_summary" (3–6 linhas, PT-BR) só para o atendente: o que a pessoa quer, dados relevantes, objeções e próximo passo. NÃO coloque esse resumo no "text" (text é só a mensagem ao cliente).
-Só JSON: {"action":"reply","text":"...","collected":{},"deal_stage":"..."}
+Só JSON válido com action "reply" ou "handoff".
+action=reply SEMPRE com "text" não vazio (mensagem ao cliente).
+Nunca use action "collected" sozinho — use action=reply + "collected" + "text".
+Ex.: {"action":"reply","text":"Obrigado! Qual o e-mail?","collected":{"cnpj":"12.345.678/0001-90"},"deal_stage":"Qualificado"}
 ou {"action":"handoff","reason":"...","text":"...","handoff_summary":"..."}`;
+
+function looksLikeJsonBlob(text: string): boolean {
+  const t = text.trim();
+  return (
+    (t.startsWith("{") && t.endsWith("}")) ||
+    (t.startsWith("[") && t.endsWith("]"))
+  );
+}
+
+function fallbackClientText(latestUserMessage: string): string {
+  if (wantsHuman(latestUserMessage)) {
+    return "Claro — vou te transferir para um atendente.";
+  }
+  return "Recebi sua mensagem. Pode me confirmar ou complementar o dado que pedi?";
+}
 
 function parseAiJson(raw: string): AiReplyResult | null {
   const match = raw.match(/\{[\s\S]*\}/);
@@ -53,15 +71,22 @@ function parseAiJson(raw: string): AiReplyResult | null {
         ? Object.fromEntries(
             Object.entries(data.collected)
               .filter(([, v]) => typeof v === "string" && v.trim())
-              .map(([k, v]) => [k, String(v).trim()]),
+              .map(([k, v]) => {
+                const key =
+                  k === "e_mail" || k === "e-mail" ? "email" : k;
+                return [key, String(v).trim()];
+              }),
           )
         : undefined;
+
+    const text =
+      typeof data.text === "string" ? data.text.trim() : "";
 
     if (data.action === "handoff") {
       return {
         action: "handoff",
         reason: data.reason || "handoff",
-        text: data.text,
+        text: text || undefined,
         handoff_summary:
           typeof data.handoff_summary === "string"
             ? data.handoff_summary.trim()
@@ -69,10 +94,18 @@ function parseAiJson(raw: string): AiReplyResult | null {
         collected,
       };
     }
-    if (data.action === "reply" && data.text) {
+
+    // reply | collected | missing action — nunca devolver JSON vazio ao cliente
+    if (
+      data.action === "reply" ||
+      data.action === "collected" ||
+      collected ||
+      text
+    ) {
+      if (!text) return null; // deixa o caller montar texto seguro + collected
       return {
         action: "reply",
-        text: data.text,
+        text,
         collected,
         deal_stage: data.deal_stage,
       };
@@ -165,18 +198,45 @@ export class OpenAiProvider implements AiProvider {
     const parsed = parseAiJson(raw);
     if (parsed) return { ...parsed, usage };
 
+    // Modelo devolveu JSON inválido / action=collected sem text / {}
+    let collectedFromRaw: Record<string, string> | undefined;
+    try {
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) {
+        const data = JSON.parse(m[0]) as {
+          collected?: Record<string, string>;
+        };
+        if (data.collected && typeof data.collected === "object") {
+          collectedFromRaw = Object.fromEntries(
+            Object.entries(data.collected)
+              .filter(([, v]) => typeof v === "string" && v.trim())
+              .map(([k, v]) => [k, String(v).trim()]),
+          );
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
     if (wantsHuman(latest)) {
       return {
         action: "handoff",
         reason: "Pedido explícito de humano",
         text: "Claro — vou te transferir para um atendente.",
+        collected: collectedFromRaw,
         usage,
       };
     }
 
+    const safeText =
+      raw && !looksLikeJsonBlob(raw)
+        ? raw
+        : fallbackClientText(latest);
+
     return {
       action: "reply",
-      text: raw || "Desculpe, não entendi. Pode repetir?",
+      text: safeText,
+      collected: collectedFromRaw,
       usage,
     };
   }

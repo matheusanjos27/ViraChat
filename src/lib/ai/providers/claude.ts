@@ -76,7 +76,11 @@ export class ClaudeAiProvider implements AiProvider {
       };
     }
 
-    return { action: "reply", text: raw || "Desculpe, não entendi. Pode repetir?" };
+    const safe =
+      raw && !(raw.trim().startsWith("{") && raw.trim().endsWith("}"))
+        ? raw
+        : "Recebi sua mensagem. Pode me confirmar ou complementar o dado que pedi?";
+    return { action: "reply", text: safe };
   }
 }
 
@@ -89,15 +93,19 @@ function parseAiJson(raw: string): AiReplyResult | null {
       text?: string;
       reason?: string;
     };
+    const text = typeof data.text === "string" ? data.text.trim() : "";
     if (data.action === "handoff") {
       return {
         action: "handoff",
         reason: data.reason || "handoff",
-        text: data.text,
+        text: text || undefined,
       };
     }
-    if (data.action === "reply" && data.text) {
-      return { action: "reply", text: data.text };
+    if (
+      (data.action === "reply" || data.action === "collected" || text) &&
+      text
+    ) {
+      return { action: "reply", text };
     }
   } catch {
     return null;
