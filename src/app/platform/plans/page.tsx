@@ -30,13 +30,8 @@ export default async function PlatformPlansPage() {
         </p>
       </header>
 
-      <section className="mt-8 max-w-3xl rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
-        <h2 className="text-lg font-semibold">Planos disponíveis</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          Quantos planos quiser. Cada um tem nome, equipe, WhatsApps e teto de
-          IA. O plano “Personalizado” ainda permite overrides por cliente.
-        </p>
-        <div className="mt-4">
+      <section className="mt-8 max-w-5xl rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
+        <div className="mt-0">
           <PlansEditor plans={plans ?? []} />
         </div>
       </section>
