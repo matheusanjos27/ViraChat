@@ -540,7 +540,8 @@ export async function runAiForConversation(conversationId: string) {
 COLETA OBRIGATÓRIA EM ANDAMENTO:
 - Há campos obrigatórios pendentes em "SÓ PERGUNTE ESTES".
 - NÃO mostre preços, totais, tabelas R$ nem orçamento agora.
-- NÃO liste menu numerado de campos. Peça SÓ o próximo pendente (1 pergunta).
+- Siga a seção "Coleta de dados" do ROTEIRO (lista de uma vez, uma a uma, etc.).
+- Se o roteiro pedir lista numerada, use só os pendentes atuais — não reinvente campos.
 - NÃO ofereça atendente/humano ainda.`,
       AI_LIMITS.catalogBlock,
     );
@@ -573,12 +574,19 @@ COLETA OBRIGATÓRIA EM ANDAMENTO:
 
   const closeModeBlock =
     closeMode === "callback"
-      ? `MODO DE FECHAMENTO: callback.
-- NÃO ofereça transferir para atendente ao final do orçamento.
-- Quando a proposta estiver pronta, agradeça e diga que a equipe entrará em contato.
-- Só use action=handoff se o cliente pedir atendente/humano/consultor EXPLICITAMENTE.`
-      : `MODO DE FECHAMENTO: handoff.
-- Quando for fechar, o sistema pergunta se deseja atendente (não invente transferência sozinho).`;
+      ? `FUNIL: conversar → coletar → orçar → cliente decide → equipe liga (se aceitar) ou encerrar (se recusar).
+MODO DE FECHAMENTO: callback.
+- NÃO ofereça transferir ao terminar coleta nem ao mostrar orçamento.
+- Se aceitar contratar/comprar: agradeça e diga que a equipe entrará em contato.
+- Se recusar: agradeça e encerre sem insistir.
+- Só use action=handoff se pedir atendente/humano EXPLICITAMENTE.`
+      : `FUNIL: conversar → coletar → orçar → cliente decide → atendente (se aceitar) ou encerrar (se recusar).
+MODO DE FECHAMENTO: handoff.
+- NÃO ofereça atendente só porque coletou dados ou mostrou preço.
+- Depois do orçamento, pergunte se faz sentido — espere a decisão.
+- Se aceitar ("quero contratar", "quero comprar", "vou querer", "aceito", "fechamos"): action=reply — o sistema pergunta sim/não de atendente.
+- Se recusar / só pesquisando: agradeça e encerre — SEM atendente.
+- Só use action=handoff se pedir atendente/humano EXPLICITAMENTE.`;
 
   const resumeBlock = resumedAfterHuman
     ? `SESSÃO NOVA (após atendimento humano/encerramento):
@@ -603,7 +611,7 @@ COLETA OBRIGATÓRIA EM ANDAMENTO:
       ? `CONVERSA EM ANDAMENTO: o cliente só confirmou/cutucou ("${truncate(latestInbound.body, 40)}").
 - NÃO cumprimente de novo. NÃO reapresente a empresa. NÃO reinicie o funil.
 - Continue exatamente de onde parou (orçamento, dados pendentes ou próximo passo).
-- Se o orçamento já foi combinado e falta só fechar, confirme e ofereça atendente (sim/não) se ainda não ofereceu.`
+- NÃO ofereça atendente só por um "ok" — só se ele pedir contratar/comprar/fechar.`
       : "";
 
   const light =
@@ -684,10 +692,7 @@ COLETA OBRIGATÓRIA EM ANDAMENTO:
     mergeCollected(result.collected, extracted),
   );
 
-  // Snapshot: se os dados já estavam completos antes deste turno, NÃO forçar handoff
-  // (bug: segunda conversa com lead já preenchido era jogada pra humano à toa).
-  const wasReadyBefore = requiredAttributesFilled(attrList, currentValues);
-
+  // Snapshot antes de persistir collected neste turno.
   if (Object.keys(collected).length > 0) {
     await persistCollectedAttributes({
       supabase,
@@ -735,14 +740,13 @@ COLETA OBRIGATÓRIA EM ANDAMENTO:
     /r\$\s*\d|valor\s+total|or[cç]amento/i.test(result.text ?? "");
 
   const dataReady = requiredAttributesFilled(attrList, currentValues);
-  const justBecameReady = dataReady && !wasReadyBefore;
   const buyIntent = wantsToCloseSale(latestInbound.body);
   const askedForHuman = wantsHuman(latestInbound.body);
   const confirmedOffer =
     awaitingHandoffConfirm && affirmsHandoffOffer(latestInbound.body);
 
-  // Só oferece humano se o cliente pediu fechar/contratar E os dados estão ok.
-  // NÃO dispara ao completar o último campo (bug: CNPJ → sim/não no meio da coleta).
+  // Só oferece humano se o cliente pediu fechar/contratar/comprar E os dados estão ok.
+  // NÃO dispara ao completar o último campo nem só porque mostrou orçamento.
   const shouldCloseSale =
     result.action === "reply" &&
     !awaitingHandoffConfirm &&
@@ -755,30 +759,40 @@ COLETA OBRIGATÓRIA EM ANDAMENTO:
   const CALLBACK_CLOSE_TEXT =
     "Perfeito! Registrei suas informações e o interesse no orçamento. Nossa equipe vai entrar em contato em breve para dar continuidade. Obrigado!";
 
-  // Modelo já perguntou sim/não → só marca pendente se dados obrigatórios ok.
+  const stripPrematureHandoffOffer = (text: string | null | undefined) => {
+    const cleaned = (text ?? "")
+      .replace(
+        /\n*\s*Posso te passar para um atendente humano agora\?[^\n]*/gi,
+        "",
+      )
+      .replace(/\n*\s*Responde \*sim\* ou \*não\*\.?/gi, "")
+      .replace(
+        /\n*\s*(Posso|Quer|Deseja|Gostaria).{0,80}(atendente|humano|consultor).{0,40}\??/gi,
+        "",
+      )
+      .trim();
+    return (
+      cleaned ||
+      (dataReady
+        ? "Pronto — dados registrados. Qualquer ajuste no orçamento ou se quiser contratar, é só falar."
+        : "Antes de seguir, preciso de alguns dados. Qual o nome da empresa?")
+    );
+  };
+
+  // Modelo já perguntou sim/não → só marca pendente se intenção de compra + dados ok.
   if (
     closeMode === "handoff" &&
     result.action === "reply" &&
     !awaitingHandoffConfirm &&
     offersHandoffConfirmation(result.text ?? "")
   ) {
-    if (dataReady) {
+    if (dataReady && buyIntent) {
       markHandoffOfferPending = true;
     } else {
-      // Pediu humano cedo demais — tira o sim/não e deixa coletar campos.
-      const cleaned = (result.text ?? "")
-        .replace(
-          /\n*\s*Posso te passar para um atendente humano agora\?[^\n]*/gi,
-          "",
-        )
-        .replace(/\n*\s*Responde \*sim\* ou \*não\*\.?/gi, "")
-        .trim();
       result = {
         ...result,
         action: "reply",
-        text:
-          cleaned ||
-          "Antes de seguir, preciso de alguns dados da empresa. Qual o nome da empresa?",
+        text: stripPrematureHandoffOffer(result.text),
       };
     }
   } else if (confirmedOffer && result.action === "reply") {
@@ -827,37 +841,38 @@ COLETA OBRIGATÓRIA EM ANDAMENTO:
       markHandoffOfferPending = true;
     }
   } else if (result.action === "handoff" && !askedForHuman && !confirmedOffer) {
-    const spurious =
-      resumedAfterHuman || (dataReady && !justBecameReady);
-    if (spurious) {
-      result = {
-        action: "reply",
-        text:
-          (result.text && !/transfer|atendente humano/i.test(result.text)
-            ? result.text
-            : null) ||
-          (resumedAfterHuman
-            ? "Oi! Em que posso te ajudar agora?"
-            : "Claro — me conta como posso ajudar."),
-        collected: result.collected,
-        usage: result.usage,
-      };
-    } else if (closeMode === "callback") {
-      result = {
-        action: "reply",
-        text: CALLBACK_CLOSE_TEXT,
-        collected: result.collected,
-        usage: result.usage,
-      };
-      markCallbackClose = true;
+    // Handoff da IA sem pedido explícito de humano: só vira oferta se há intenção de compra.
+    if (buyIntent && dataReady && !resumedAfterHuman) {
+      if (closeMode === "callback") {
+        result = {
+          action: "reply",
+          text: CALLBACK_CLOSE_TEXT,
+          collected: result.collected,
+          usage: result.usage,
+        };
+        markCallbackClose = true;
+      } else {
+        result = {
+          action: "reply",
+          text: buildHandoffOfferText(result.text),
+          collected: result.collected,
+          usage: result.usage,
+        };
+        markHandoffOfferPending = true;
+      }
     } else {
       result = {
         action: "reply",
-        text: buildHandoffOfferText(result.text),
+        text: stripPrematureHandoffOffer(
+          result.text && !/transfer|atendente humano/i.test(result.text)
+            ? result.text
+            : resumedAfterHuman
+              ? "Oi! Em que posso te ajudar agora?"
+              : null,
+        ),
         collected: result.collected,
         usage: result.usage,
       };
-      markHandoffOfferPending = true;
     }
   }
 

@@ -440,9 +440,31 @@ export function requiredAttributesFilled(
   return check.every((a) => (currentValues[a.key] ?? "").trim().length > 0);
 }
 
+/** Cliente quer fechar / comprar / contratar o que foi oferecido (não só pedir orçamento). */
 export function wantsToCloseSale(text: string) {
-  return /(quero\s+(contratar|comprar|fechar|fechar\s+a\s+compra)|pode\s+(fechar|contratar|seguir)|vamos\s+fechar|aceito(\s+a\s+proposta)?|pode\s+enviar\s+o\s+contrato|quero\s+esse|fechamos)/i.test(
-    text,
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  if (declinesPurchase(t)) return false;
+  // Pedido de preço/info sem fechar — não conta como compra.
+  if (
+    /(or[cç]amento|pre[cç]o|valor|quanto\s+custa|me\s+passa|saber\s+mais|informa[cç][aã]o|d[uú]vida)/i.test(
+      t,
+    ) &&
+    !/(contratar|comprar|fechar|aceito|contrato|vou\s+querer)/i.test(t)
+  ) {
+    return false;
+  }
+  return /\b((quero|vamos|vou|bora|pode)\s+(contratar|comprar|fechar)|quero\s+(esse|isso|a\s+proposta|o\s+servi[cç]o|o\s+pacote)|vou\s+querer|(vamos|bora)\s+(fechar|seguir|em\s+frente|com\s+(isso|a\s+proposta))|pode\s+(seguir|fechar|contratar|enviar\s+o\s+contrato|mandar\s+o\s+contrato)|(aceito|fechamos|topa)|(manda|envia|enviar)\s+(o\s+)?contrato|fechar\s+(a\s+)?compra|(contratar|comprar)\s+(agora|isso|esse|com\s+voc)|quero\s+fechar\s+(a\s+compra|com\s+voc))\b/i.test(
+    t,
+  );
+}
+
+/** Cliente recusou o orçamento / não quer seguir agora. */
+export function declinesPurchase(text: string) {
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  return /(n[aã]o\s+(quero|vou|preciso|tenho\s+interesse)|agora\s+n[aã]o|depois\s+(eu\s+)?(vejo|volto|decido)|s[oó]\s+pesquisando|vou\s+pensar|deixa\s+pra\s+l[aá]|obrigad[oa],?\s*(mas\s+)?n[aã]o|n[aã]o\s+rola|fica\s+pra\s+(outra|depois))/i.test(
+    t,
   );
 }
 
