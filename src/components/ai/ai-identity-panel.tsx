@@ -206,8 +206,8 @@ export function AiIdentityPanel({
             Prompt inicial
           </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Tom e regras. Na abertura a IA resume o portfólio (sem despejar
-            preços); detalha conforme a conversa. Produtos ficam na aba
+            Tom e regras. Na abertura a IA usa *negrito*, emojis e bullets
+            (estilo WhatsApp), sem despejar preços. Produtos ficam na aba
             Produtos.
           </p>
           <textarea
