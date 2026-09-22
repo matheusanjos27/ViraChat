@@ -206,8 +206,9 @@ export function AiIdentityPanel({
             Prompt inicial
           </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Tom e regras de negócio. Abertura e formato ficam no roteiro
-            (playbook). Produtos/preços ficam na aba Produtos.
+            Tom e regras. A IA já resume o portfólio e aprofunda conforme a
+            conversa (direta/proativa). Abertura fina fica no roteiro;
+            produtos na aba Produtos.
           </p>
           <textarea
             id="instructions"

@@ -341,21 +341,23 @@ NÃO invente produtos. Informe e ofereça handoff.`,
     items.map((s) => `- ${s.name}`).join("\n");
 
   const parts: string[] = [
-    `CATÁLOGO (${active.length} itens ativos). Material INTERNO — organize a mensagem; NÃO cole lista crua; NÃO invente preços na abertura.`,
-    `Na mensagem ao cliente: no máx. ${AI_LIMITS.catalogReplyMaxItems} itens. Se for grande, resuma e pergunte o que busca.`,
+    `CATÁLOGO INTERNO (${active.length} itens: ${fixed.length + tiered.length} fixo/faixa, ${perUnit.length} por unidade).`,
+    `Abertura / visão geral: RESUMO do portfólio (grupos), SEM lista longa e SEM preços. Detalhe conforme a conversa.`,
+    `Seja direto e proativo: 1 pergunta que avance (necessidade / porte / o que busca).`,
+    `Na mensagem: no máx. ${AI_LIMITS.catalogReplyMaxItems} itens se for listar algo; preferir resumo a inventário.`,
   ];
   if (shownFixed.length) {
-    parts.push(`Valor fixo / faixas (amostra):\n${line(shownFixed)}`);
+    parts.push(`Amostra fixo/faixa (não despejar):\n${line(shownFixed)}`);
   }
   if (shownUnit.length) {
-    parts.push(`Por unidade (amostra):\n${line(shownUnit)}`);
+    parts.push(`Amostra por unidade (não despejar):\n${line(shownUnit)}`);
   }
   if (omitted > 0) {
     parts.push(
-      `+${omitted} itens omitidos do prompt. Não invente os nomes omitidos — pergunte o interesse e, nas próximas mensagens, o sistema traz o subset certo.`,
+      `+${omitted} itens omitidos do prompt. Não invente nomes omitidos — aprofunde quando o cliente disser o que quer.`,
     );
   }
-  parts.push(`Siga o ROTEIRO (Abertura). Resposta curta.`);
+  parts.push(`Siga o ROTEIRO. Resposta curta.`);
   return truncate(parts.join("\n\n"), AI_LIMITS.catalogBlock);
 }
 
