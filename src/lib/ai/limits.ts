@@ -150,7 +150,11 @@ export function declinesHandoffOffer(text: string): boolean {
 export function offersHandoffConfirmation(text: string): boolean {
   const t = (text ?? "").trim();
   if (!t) return false;
-  return /(deseja|quer(e)?|posso|pode|gostaria).{0,60}(atendente|humano|consultor|vendedor|especialista|equipe|algu[eé]m)|(falar|passar|transfer).{0,40}(atendente|humano|consultor|vendedor)|(sim\s*ou\s*n[aã]o|responde\s*\*?sim)/i.test(
+  // Pedido de ok LGPD / dados NÃO é oferta de atendente (bug: "responde sim" transferia).
+  if (/\blgpd\b/i.test(t) || /autorizo|pedir\s+os\s+dados|consentimento/i.test(t)) {
+    return false;
+  }
+  return /(deseja|quer(e)?|posso|pode|gostaria).{0,60}(atendente|humano|consultor|vendedor|especialista|equipe|algu[eé]m)|(falar|passar|transfer).{0,40}(atendente|humano|consultor|vendedor)|(atendente|humano|consultor).{0,50}(sim\s*ou\s*n[aã]o|responde\s*\*?sim)/i.test(
     t,
   );
 }

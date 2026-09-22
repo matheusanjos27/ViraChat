@@ -1,8 +1,8 @@
 /** Versão do texto — atualize se mudar a redação apresentada ao lead. */
-export const AI_LGPD_CONSENT_VERSION = "v1";
+export const AI_LGPD_CONSENT_VERSION = "v2";
 
 export const AI_LGPD_CONSENT_ASK =
-  "Antes de eu pedir os dados para montar o orçamento, preciso do seu ok (LGPD):\n\nVou tratar nome, empresa, e-mail, CNPJ e demais informações que você enviar *somente* para elaborar a proposta e o atendimento comercial. Você pode pedir a exclusão depois.\n\nPode me autorizar? Responde *sim* ou *não*.";
+  "Antes de eu pedir os dados para montar o orçamento, preciso do seu ok (LGPD):\n\nVou usar nome, empresa, e-mail, CNPJ e demais informações que você enviar *somente* para elaborar a proposta e o atendimento comercial da empresa.\n\nPode me autorizar? Responde *autorizo* ou *não*.";
 
 export const AI_LGPD_CONSENT_DECLINED =
   "Tudo bem — sem a autorização eu não posso coletar esses dados. Se mudar de ideia ou preferir falar com um atendente, é só chamar.";
@@ -28,7 +28,7 @@ export function declinesLgpdConsent(text: string): boolean {
   const t = (text ?? "").trim();
   if (!t) return false;
   if (
-    /^(n[aã]o|nao|n+|negativo|agora\s+n[aã]o|melhor\s+n[aã]o)[\s!.?]*$/i.test(
+    /^(n[aã]o|nao|n+|negativo|agora\s+n[aã]o|melhor\s+n[aã]o|n[aã]o\s+autorizo)[\s!.?]*$/i.test(
       t,
     )
   ) {
@@ -39,11 +39,12 @@ export function declinesLgpdConsent(text: string): boolean {
   );
 }
 
-/** A IA já pediu o ok LGPD (evita repetir a cada mensagem). */
+/** A IA já pediu o ok LGPD (evita confundir com oferta de atendente). */
 export function offersLgpdConsentAsk(text: string): boolean {
   const t = (text ?? "").trim();
   if (!t) return false;
-  return /(lgpd|autorizar|autoriza[cç][aã]o).{0,80}(dados|or[cç]amento|sim\s*ou\s*n[aã]o)|(pode\s+me\s+autorizar|antes\s+de\s+(eu\s+)?pedir\s+os\s+dados)/i.test(
-    t,
-  );
+  return /\blgpd\b/i.test(t) ||
+    /(autorizar|autoriza[cç][aã]o).{0,80}(dados|or[cç]amento)|pode\s+me\s+autorizar|antes\s+de\s+(eu\s+)?pedir\s+os\s+dados|responde\s*\*?autorizo/i.test(
+      t,
+    );
 }

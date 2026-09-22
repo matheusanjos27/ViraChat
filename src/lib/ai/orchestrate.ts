@@ -36,6 +36,7 @@ import {
   AI_LGPD_CONSENT_VERSION,
   affirmsLgpdConsent,
   declinesLgpdConsent,
+  offersLgpdConsentAsk,
 } from "@/lib/crm/lgpd-consent";
 import {
   buildPlaybookPromptBlock,
@@ -481,9 +482,16 @@ export async function runAiForConversation(conversationId: string) {
         m.body.trim(),
     )?.body as string | undefined;
 
+  const lastAiWasLgpdAsk = Boolean(
+    lastAiBody && offersLgpdConsentAsk(lastAiBody),
+  );
+
+  // Nunca trate pedido de LGPD como "quer atendente?".
   const awaitingHandoffConfirm =
-    offerPending ||
-    Boolean(lastAiBody && offersHandoffConfirmation(lastAiBody));
+    !justGrantedLgpd &&
+    !lastAiWasLgpdAsk &&
+    (offerPending ||
+      Boolean(lastAiBody && offersHandoffConfirmation(lastAiBody)));
 
   if (awaitingHandoffConfirm && affirmsHandoffOffer(latestInbound.body)) {
     const summary = buildDeterministicHandoffSummary({
