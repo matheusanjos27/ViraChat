@@ -182,9 +182,9 @@ export function AiIdentityPanel({
             Como ela se apresenta
           </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Frase de cumprimento no WhatsApp. Na 1ª mensagem (oi / boa tarde) o
-            sistema junta automaticamente o catálogo cadastrado depois desta
-            frase.
+            Só a frase que o cliente lê no cumprimento (ex.: “Olá! Sou a Sofia
+            da KM SAFETY…”). Não escreva ordens tipo “MOSTRE O CATÁLOGO” — isso
+            vaza no WhatsApp. O sistema manda o catálogo pra IA organizar.
           </p>
           <textarea
             id="presentation"
@@ -206,9 +206,9 @@ export function AiIdentityPanel({
             Prompt inicial
           </label>
           <p className="mt-1 text-xs text-ink-muted">
-            Tom, horários, restrições — o “cérebro”. Não cole a lista de
-            produtos aqui: use a aba Produtos. O catálogo na abertura já é
-            automático.
+            Tom e regras. Na abertura a IA resume o portfólio (sem despejar
+            preços); detalha conforme a conversa. Produtos ficam na aba
+            Produtos.
           </p>
           <textarea
             id="instructions"
@@ -261,8 +261,8 @@ export function AiIdentityPanel({
           </div>
         </div>
         <p className="mt-3 text-xs text-ink-muted">
-          Preview da apresentação. No WhatsApp real, na 1ª mensagem o catálogo
-          ativo entra automaticamente depois desta frase.
+          Preview só da apresentação. No WhatsApp a IA usa o catálogo nos
+          bastidores e responde de forma resumida na 1ª mensagem.
         </p>
       </aside>
     </div>
