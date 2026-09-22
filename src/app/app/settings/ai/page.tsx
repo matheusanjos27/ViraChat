@@ -46,7 +46,7 @@ export default async function AiSettingsPage() {
   ] = await Promise.all([
     supabase
       .from("ai_configs")
-      .select("name, instructions, is_enabled")
+      .select("name, instructions, is_enabled, close_mode")
       .eq("tenant_id", membership.tenant_id)
       .maybeSingle(),
     supabase
@@ -127,6 +127,9 @@ export default async function AiSettingsPage() {
               assistantName={config?.name ?? "Assistente"}
               assistantNotes={config?.instructions ?? ""}
               isEnabled={enabled}
+              closeMode={
+                config?.close_mode === "callback" ? "callback" : "handoff"
+              }
               hasOpenAiKey={Boolean(process.env.OPENAI_API_KEY)}
               playbooks={(playbookRows ?? []) as Playbook[]}
               attributes={attributes ?? []}

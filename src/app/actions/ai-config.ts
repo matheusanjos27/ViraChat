@@ -22,6 +22,9 @@ export async function updateAiConfig(
   const clamped = clampSavedText(rawInstructions, AI_LIMITS.instructions * 2);
   const instructions = clamped.value;
   const isEnabled = formData.get("isEnabled") === "on";
+  const closeModeRaw = String(formData.get("closeMode") ?? "handoff");
+  const close_mode =
+    closeModeRaw === "callback" ? ("callback" as const) : ("handoff" as const);
 
   if (!tenantId) return { error: "Tenant inválido." };
 
@@ -55,6 +58,7 @@ export async function updateAiConfig(
       name,
       instructions,
       is_enabled: isEnabled,
+      close_mode,
     })
     .eq("tenant_id", tenantId);
 

@@ -59,12 +59,38 @@ function sizeFrom(text: string) {
   if (!m) return null;
   // Prefer explicit employee wording; still accept bare numbers in short messages
   if (
-    /funcion|pessoas|colabor|equipe|time|porte|tamanho/i.test(text) ||
+    /funcion|pessoas|colabor|equipe|time|porte|tamanho|vidas?/i.test(text) ||
     text.trim().length < 12
   ) {
     return m[1];
   }
   return null;
+}
+
+const SIZE_KEYS = [
+  "colaboradores",
+  "funcionarios",
+  "funcionario",
+  "colabs",
+  "tamanho",
+  "porte",
+  "vidas",
+  "qtd_colaboradores",
+  "numero_colaboradores",
+] as const;
+
+function isSizeAttributeKey(key: string) {
+  const k = key.toLowerCase();
+  return (
+    SIZE_KEYS.includes(k as (typeof SIZE_KEYS)[number]) ||
+    /colabor|funcion|porte|tamanho|vidas?/.test(k)
+  );
+}
+
+function looksLikeHeadcountQuestion(body: string) {
+  return /colabor|funcion|pessoas|porte|tamanho|equipe|quant(os|as)\s+(s[aã]o\s+)?(os\s+)?(colabor|funcion|pessoas)|n[uú]mero\s+de\s+(colabor|funcion)|quantos\s+colabor/i.test(
+    body,
+  );
 }
 
 function looksLikePersonName(text: string) {
@@ -100,20 +126,22 @@ function lastAiAskedFor(
       return key;
     }
     if (
-      (key === "responsavel" || key === "nome") &&
+      (key === "responsavel" ||
+        key === "nome" ||
+        key === "nome_responsavel") &&
       /respons[aá]vel|seu\s+nome|nome\s+completo|como\s+voc[eê]\s+se\s+chama/.test(
         body,
       )
     ) {
       return key;
     }
-    if (
-      (key === "tamanho" || key === "porte") &&
-      /funcion|pessoas|porte|tamanho|equipe|quantas\s+pessoas/.test(body)
-    ) {
+    if (isSizeAttributeKey(key) && looksLikeHeadcountQuestion(body)) {
       return key;
     }
-    if (key === "setor" && /setor|ramo|segmento|área|area/.test(body)) {
+    if (
+      (key === "setor" || key === "ramo") &&
+      /setor|ramo|segmento|área|area|atividade/.test(body)
+    ) {
       return key;
     }
   }
@@ -173,18 +201,36 @@ export function extractCollectedFromMessages(
     }
   }
 
-  const sizeAttr = byKey.get("tamanho") ?? byKey.get("porte");
+  const sizeAttr =
+    pending.find((a) => isSizeAttributeKey(a.key)) ??
+    pending.find((a) => a.type === "number" && /colabor|funcion|porte|tamanho|qtd|quantidade|vidas?/.test(a.key + a.label));
   if (sizeAttr) {
-    for (const text of inboundTexts) {
-      const size = sizeFrom(text);
-      if (size) {
-        out[sizeAttr.key] = size;
-        break;
+    const askedSize = lastAiAskedFor(messages, [
+      sizeAttr.key,
+      ...SIZE_KEYS,
+    ]);
+    // Resposta curta "10" logo após a IA perguntar quantos colaboradores
+    if (askedSize) {
+      const bare = latestUserMessage.trim().match(/^(\d{1,5})$/);
+      if (bare) {
+        out[sizeAttr.key] = bare[1];
+      }
+    }
+    if (!out[sizeAttr.key]) {
+      for (const text of inboundTexts) {
+        const size = sizeFrom(text);
+        if (size) {
+          out[sizeAttr.key] = size;
+          break;
+        }
       }
     }
   }
 
-  const nameAttr = byKey.get("responsavel") ?? byKey.get("nome");
+  const nameAttr =
+    byKey.get("responsavel") ??
+    byKey.get("nome_responsavel") ??
+    byKey.get("nome");
   if (nameAttr && !out[nameAttr.key]) {
     const asked = lastAiAskedFor(messages, [nameAttr.key]);
     if (asked === nameAttr.key && looksLikePersonName(latestUserMessage)) {
@@ -192,10 +238,10 @@ export function extractCollectedFromMessages(
     }
   }
 
-  const setorAttr = byKey.get("setor");
+  const setorAttr = byKey.get("setor") ?? byKey.get("ramo");
   if (setorAttr && !out[setorAttr.key]) {
-    const asked = lastAiAskedFor(messages, ["setor"]);
-    if (asked === "setor" && latestUserMessage.trim().length >= 2) {
+    const asked = lastAiAskedFor(messages, [setorAttr.key, "setor", "ramo"]);
+    if (asked && latestUserMessage.trim().length >= 2) {
       const t = latestUserMessage.trim();
       if (!emailFrom(t) && !/^\d+$/.test(t)) {
         out[setorAttr.key] = t.slice(0, 120);

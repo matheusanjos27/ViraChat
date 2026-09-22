@@ -7,7 +7,7 @@ export default async function PlatformTenantsPage() {
     supabase
       .from("tenants")
       .select(
-        "id, name, slug, created_at, max_members, monthly_fee_cents, billing_status, monthly_ai_token_limit, ai_history_turns, plan_id, custom_max_channels, custom_max_members, custom_max_ai_replies_month, plans(id, name, max_channels, max_members, is_custom)",
+        "id, name, slug, created_at, max_members, monthly_fee_cents, billing_status, monthly_ai_token_limit, plan_id, custom_max_channels, custom_max_members, custom_max_ai_replies_month, plans(id, name, max_channels, max_members, is_custom)",
       )
       .order("created_at", { ascending: false }),
     supabase
@@ -80,7 +80,6 @@ export default async function PlatformTenantsPage() {
       monthly_fee_cents: t.monthly_fee_cents ?? 0,
       billing_status: t.billing_status ?? "trial",
       monthly_ai_token_limit: t.monthly_ai_token_limit ?? 2_000_000,
-      ai_history_turns: t.ai_history_turns ?? 24,
       custom_max_members: t.custom_max_members,
       custom_max_channels: t.custom_max_channels,
       custom_max_ai_replies_month: t.custom_max_ai_replies_month,

@@ -41,7 +41,6 @@ export function previewMembershipRow() {
       name: PREVIEW_TENANT_NAME,
       max_members: 10,
       monthly_ai_token_limit: 2_000_000,
-      ai_history_turns: 24,
     },
   };
 }

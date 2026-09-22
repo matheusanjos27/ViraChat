@@ -862,6 +862,7 @@ export type Database = {
           name: string;
           instructions: string;
           is_enabled: boolean;
+          close_mode: "handoff" | "callback";
           created_at: string;
           updated_at: string;
         };
@@ -871,6 +872,7 @@ export type Database = {
           name?: string;
           instructions?: string;
           is_enabled?: boolean;
+          close_mode?: "handoff" | "callback";
           created_at?: string;
           updated_at?: string;
         };
@@ -880,7 +882,26 @@ export type Database = {
           name?: string;
           instructions?: string;
           is_enabled?: boolean;
+          close_mode?: "handoff" | "callback";
           created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      platform_settings: {
+        Row: {
+          id: number;
+          ai_history_turns: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          ai_history_turns?: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          ai_history_turns?: number;
           updated_at?: string;
         };
         Relationships: [];
@@ -987,6 +1008,7 @@ export type Database = {
       lead_temperature: "hot" | "warm" | "cold";
       billing_type: "fixed" | "per_unit" | "tiered";
       offer_kind: "product" | "service";
+      ai_close_mode: "handoff" | "callback";
       tier_price_mode: "flat" | "per_unit";
       playbook_trigger: "new_contact" | "keyword" | "manual";
     };

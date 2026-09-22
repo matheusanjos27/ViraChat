@@ -36,6 +36,7 @@ export function AiSettingsWorkspace({
   assistantName,
   assistantNotes,
   isEnabled,
+  closeMode = "handoff",
   hasOpenAiKey,
   playbooks,
   attributes,
@@ -50,6 +51,7 @@ export function AiSettingsWorkspace({
   assistantName: string;
   assistantNotes: string;
   isEnabled: boolean;
+  closeMode?: "handoff" | "callback";
   hasOpenAiKey: boolean;
   playbooks: Playbook[];
   attributes: Attr[];
@@ -268,6 +270,7 @@ export function AiSettingsWorkspace({
           name={assistantName}
           notes={assistantNotes}
           isEnabled={isEnabled}
+          closeMode={closeMode}
           quotaLocked={aiQuotaLocked}
         />
       ) : null}

@@ -7,7 +7,6 @@ import {
   isLightContextTurn,
   isShortContinuation,
   offersHandoffConfirmation,
-  resolveHistoryTurns,
   truncate,
   wantsCatalogList,
   wantsHuman,
@@ -52,6 +51,7 @@ import {
   recordAiReplyEvent,
 } from "@/lib/plans/limits";
 import { recordAiUsage } from "@/lib/platform/usage";
+import { getPlatformAiHistoryTurns } from "@/lib/platform/settings";
 import { sendOutboundText } from "@/lib/whatsapp/send";
 import { createServiceClient } from "@/lib/supabase/admin";
 
@@ -77,7 +77,7 @@ export async function runAiForConversation(conversationId: string) {
 
   const { data: aiConfig } = await supabase
     .from("ai_configs")
-    .select("name, instructions, is_enabled")
+    .select("name, instructions, is_enabled, close_mode")
     .eq("tenant_id", conversation.tenant_id)
     .maybeSingle();
 
@@ -85,10 +85,13 @@ export async function runAiForConversation(conversationId: string) {
     return { skipped: "ai_disabled" as const };
   }
 
+  const closeMode =
+    aiConfig.close_mode === "callback" ? "callback" : "handoff";
+
   const { data: tenantProfile } = await supabase
     .from("tenants")
     .select(
-      "name, about, phone, website, billing_status, monthly_ai_token_limit, ai_history_turns",
+      "name, about, phone, website, billing_status, monthly_ai_token_limit",
     )
     .eq("id", conversation.tenant_id)
     .maybeSingle();
@@ -119,10 +122,7 @@ export async function runAiForConversation(conversationId: string) {
     return { skipped: "monthly_token_budget" as const };
   }
 
-  const historyTurns = resolveHistoryTurns(
-    (tenantProfile as { ai_history_turns?: number | null } | null)
-      ?.ai_history_turns,
-  );
+  const historyTurns = await getPlatformAiHistoryTurns();
 
   const [
     { data: messages },
@@ -376,6 +376,15 @@ export async function runAiForConversation(conversationId: string) {
         .join("\n")
     : "";
 
+  const closeModeBlock =
+    closeMode === "callback"
+      ? `MODO DE FECHAMENTO: callback.
+- NÃO ofereça transferir para atendente ao final do orçamento.
+- Quando a proposta estiver pronta, agradeça e diga que a equipe entrará em contato.
+- Só use action=handoff se o cliente pedir atendente/humano/consultor EXPLICITAMENTE.`
+      : `MODO DE FECHAMENTO: handoff.
+- Quando for fechar, o sistema pergunta se deseja atendente (não invente transferência sozinho).`;
+
   const resumeBlock = resumedAfterHuman
     ? `SESSÃO NOVA (após atendimento humano/encerramento):
 - Ignore o histórico antigo da venda — esta é uma conversa retomada.
@@ -413,11 +422,19 @@ export async function runAiForConversation(conversationId: string) {
     history,
     latestUserMessage: latestInbound.body,
     playbookBlock: light
-      ? [companyBlock, resumeBlock, offerPendingBlock, continueBlock, playbookBlock]
+      ? [
+          companyBlock,
+          closeModeBlock,
+          resumeBlock,
+          offerPendingBlock,
+          continueBlock,
+          playbookBlock,
+        ]
           .filter(Boolean)
           .join("\n\n")
       : [
           companyBlock,
+          closeModeBlock,
           resumeBlock,
           offerPendingBlock,
           continueBlock,
@@ -509,8 +526,7 @@ export async function runAiForConversation(conversationId: string) {
   const confirmedOffer =
     awaitingHandoffConfirm && affirmsHandoffOffer(latestInbound.body);
 
-  // Em vez de transferir direto: oferece atendente e espera sim/não.
-  const shouldOfferHandoff =
+  const shouldCloseSale =
     result.action === "reply" &&
     !awaitingHandoffConfirm &&
     (buyIntent ||
@@ -519,9 +535,14 @@ export async function runAiForConversation(conversationId: string) {
         (quotedThisTurn || aiSaidQuote || catalog.length === 0)));
 
   let markHandoffOfferPending = false;
+  let markCallbackClose = false;
 
-  // Modelo já perguntou sim/não → só marca pendente, sem repetir a pergunta.
+  const CALLBACK_CLOSE_TEXT =
+    "Perfeito! Registrei suas informações e o interesse no orçamento. Nossa equipe vai entrar em contato em breve para dar continuidade. Obrigado!";
+
+  // Modelo já perguntou sim/não → só marca pendente (modo handoff).
   if (
+    closeMode === "handoff" &&
     result.action === "reply" &&
     !awaitingHandoffConfirm &&
     offersHandoffConfirmation(result.text ?? "")
@@ -541,17 +562,37 @@ export async function runAiForConversation(conversationId: string) {
       collected: result.collected,
       usage: result.usage,
     };
-  } else if (shouldOfferHandoff) {
-    const dealStage =
-      result.action === "reply" ? result.deal_stage : undefined;
-    result = {
-      action: "reply",
-      text: buildHandoffOfferText(result.text),
-      collected: result.collected,
-      usage: result.usage,
-      deal_stage: dealStage,
-    };
-    markHandoffOfferPending = true;
+  } else if (shouldCloseSale) {
+    if (closeMode === "callback") {
+      const prior =
+        (result.text ?? "").trim() &&
+        !/entrar em contato|equipe vai|atendente|transfer/i.test(
+          result.text ?? "",
+        )
+          ? `${result.text!.trim()}\n\n`
+          : "";
+      const dealStage =
+        result.action === "reply" ? result.deal_stage : undefined;
+      result = {
+        action: "reply",
+        text: `${prior}${CALLBACK_CLOSE_TEXT}`,
+        collected: result.collected,
+        usage: result.usage,
+        deal_stage: dealStage,
+      };
+      markCallbackClose = true;
+    } else {
+      const dealStage =
+        result.action === "reply" ? result.deal_stage : undefined;
+      result = {
+        action: "reply",
+        text: buildHandoffOfferText(result.text),
+        collected: result.collected,
+        usage: result.usage,
+        deal_stage: dealStage,
+      };
+      markHandoffOfferPending = true;
+    }
   } else if (result.action === "handoff" && !askedForHuman && !confirmedOffer) {
     const spurious =
       resumedAfterHuman || (dataReady && !justBecameReady);
@@ -568,6 +609,14 @@ export async function runAiForConversation(conversationId: string) {
         collected: result.collected,
         usage: result.usage,
       };
+    } else if (closeMode === "callback") {
+      result = {
+        action: "reply",
+        text: CALLBACK_CLOSE_TEXT,
+        collected: result.collected,
+        usage: result.usage,
+      };
+      markCallbackClose = true;
     } else {
       result = {
         action: "reply",
@@ -718,6 +767,46 @@ export async function runAiForConversation(conversationId: string) {
       body: `${contactLabel}: ${truncate(summary.replace(/\n/g, " · "), 220)}`,
       conversationId,
     });
+  } else if (markCallbackClose) {
+    const summary = buildDeterministicHandoffSummary({
+      reason: "callback_agendado",
+      latestUserMessage: latestInbound.body,
+      values: currentValues,
+      quotedTotal,
+    });
+
+    await supabase
+      .from("conversations")
+      .update({
+        status: "resolved",
+        last_message_at: now,
+        waiting_human_at: null,
+        handoff_busy_sent_at: null,
+        handoff_offer_pending_at: null,
+        assigned_to: null,
+      })
+      .eq("id", conversationId)
+      .eq("status", "ai_active");
+
+    await persistHandoffNoteOnContact({
+      supabase,
+      contactId: conversation.contact_id,
+      summary,
+    });
+
+    const contactLabel =
+      contact?.display_name ||
+      contact?.phone_e164 ||
+      contact?.external_id ||
+      "Contato";
+
+    await createAppNotification({
+      tenantId: conversation.tenant_id,
+      type: "handoff",
+      title: "Lead pronto — retornar depois",
+      body: `${contactLabel}: ${truncate(summary.replace(/\n/g, " · "), 220)}`,
+      conversationId,
+    });
   } else {
     await supabase
       .from("conversations")
@@ -737,7 +826,7 @@ export async function runAiForConversation(conversationId: string) {
     conversationId,
     contactName: contact?.display_name ?? null,
     stageHint:
-      result.action === "handoff"
+      result.action === "handoff" || markCallbackClose
         ? buyIntent
           ? "Negociação"
           : quotedThisTurn || aiSaidQuote

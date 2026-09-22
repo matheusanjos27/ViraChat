@@ -41,12 +41,14 @@ export function AiIdentityPanel({
   name,
   notes,
   isEnabled,
+  closeMode = "handoff",
   quotaLocked = false,
 }: {
   tenantId: string;
   name: string;
   notes: string;
   isEnabled: boolean;
+  closeMode?: "handoff" | "callback";
   quotaLocked?: boolean;
 }) {
   const split = splitAiInstructions(notes);
@@ -54,6 +56,7 @@ export function AiIdentityPanel({
   const [assistantName, setAssistantName] = useState(name);
   const [presentation, setPresentation] = useState(split.presentation);
   const [prompt, setPrompt] = useState(split.prompt);
+  const [mode, setMode] = useState<"handoff" | "callback">(closeMode);
   const [state, action, pending] = useActionState(updateAiConfig, initial);
 
   const previewText = useMemo(() => {
@@ -68,13 +71,15 @@ export function AiIdentityPanel({
     const next = splitAiInstructions(notes);
     setPresentation(next.presentation);
     setPrompt(next.prompt);
-  }, [isEnabled, name, notes]);
+    setMode(closeMode);
+  }, [isEnabled, name, notes, closeMode]);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
       <form action={action} className="space-y-4">
         <input type="hidden" name="tenantId" value={tenantId} />
         <input type="hidden" name="isEnabled" value={enabled ? "on" : ""} />
+        <input type="hidden" name="closeMode" value={mode} />
         <input
           type="hidden"
           name="instructions"
@@ -150,6 +155,51 @@ export function AiIdentityPanel({
             required
             placeholder="Ex: Ana"
           />
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
+          <p className="text-sm font-medium text-ink">Após o orçamento</p>
+          <p className="mt-1 text-xs text-ink-muted">
+            O que a IA faz quando a venda está pronta (sem o cliente pedir
+            humano).
+          </p>
+          <div className="mt-3 space-y-2">
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-paper px-3 py-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft/30">
+              <input
+                type="radio"
+                name="closeModeRadio"
+                className="mt-1 accent-[var(--brand)]"
+                checked={mode === "handoff"}
+                onChange={() => setMode("handoff")}
+              />
+              <span>
+                <span className="block text-sm font-semibold text-ink">
+                  Oferecer atendente
+                </span>
+                <span className="mt-0.5 block text-xs text-ink-muted">
+                  Pergunta se quer falar com um humano e, se sim, entra na fila.
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-paper px-3 py-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft/30">
+              <input
+                type="radio"
+                name="closeModeRadio"
+                className="mt-1 accent-[var(--brand)]"
+                checked={mode === "callback"}
+                onChange={() => setMode("callback")}
+              />
+              <span>
+                <span className="block text-sm font-semibold text-ink">
+                  Encerrar e retornar depois
+                </span>
+                <span className="mt-0.5 block text-xs text-ink-muted">
+                  Agradece, diz que a equipe entra em contato e finaliza a
+                  conversa (sem transferir agora).
+                </span>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
