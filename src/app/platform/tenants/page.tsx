@@ -1,4 +1,5 @@
-import { TenantsWorkspace } from "@/components/platform/tenants-workspace";
+import { TenantsListWorkspace } from "@/components/platform/tenants-workspace";
+import { getTenantsMonthUsageMap } from "@/lib/platform/tenant-summary";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PlatformTenantsPage() {
@@ -21,9 +22,10 @@ export default async function PlatformTenantsPage() {
   const tenantIds = (tenants ?? []).map((t) => t.id);
   const memberCounts = new Map<string, number>();
   const channelCounts = new Map<string, number>();
+  let usageMap = new Map<string, { replies: number; tokens: number }>();
 
   if (tenantIds.length > 0) {
-    const [{ data: roles }, { data: accounts }] = await Promise.all([
+    const [{ data: roles }, { data: accounts }, usage] = await Promise.all([
       supabase
         .from("user_tenant_roles")
         .select("tenant_id")
@@ -32,7 +34,9 @@ export default async function PlatformTenantsPage() {
         .from("whatsapp_accounts")
         .select("tenant_id")
         .in("tenant_id", tenantIds),
+      getTenantsMonthUsageMap(tenantIds),
     ]);
+    usageMap = usage;
     for (const r of roles ?? []) {
       memberCounts.set(r.tenant_id, (memberCounts.get(r.tenant_id) ?? 0) + 1);
     }
@@ -64,6 +68,7 @@ export default async function PlatformTenantsPage() {
       plan?.max_members ??
       t.max_members ??
       2;
+    const usage = usageMap.get(t.id);
 
     return {
       id: t.id,
@@ -83,6 +88,8 @@ export default async function PlatformTenantsPage() {
       custom_max_members: t.custom_max_members,
       custom_max_channels: t.custom_max_channels,
       custom_max_ai_replies_month: t.custom_max_ai_replies_month,
+      replies_month: usage?.replies ?? 0,
+      tokens_month: usage?.tokens ?? 0,
     };
   });
 
@@ -94,12 +101,12 @@ export default async function PlatformTenantsPage() {
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Clientes</h1>
         <p className="mt-2 max-w-2xl text-ink-muted">
-          Crie a empresa, defina o plano, convide o admin e exclua quando
-          precisar — tudo aqui. A tela Planos só edita o catálogo.
+          Lista de empresas. Abra <strong>Gerenciar</strong> para plano,
+          convites, cobrança e resumo de uso da IA.
         </p>
       </header>
 
-      <TenantsWorkspace tenants={rows} plans={plans ?? []} />
+      <TenantsListWorkspace tenants={rows} plans={plans ?? []} />
     </div>
   );
 }

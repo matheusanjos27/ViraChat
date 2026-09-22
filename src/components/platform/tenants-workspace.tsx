@@ -1,8 +1,11 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import Link from "next/link";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   platformAssignTenantPlan,
+  platformCancelInvite,
   platformCreateTenant,
   platformDeleteTenant,
   platformInviteTenantUser,
@@ -11,6 +14,8 @@ import {
   type PlatformState,
 } from "@/app/actions/platform";
 import type { PlanRow } from "@/components/platform/plans-forms";
+import type { TenantUsageSummary } from "@/lib/platform/tenant-summary";
+import { formatTokenCount } from "@/lib/platform/usage";
 
 const initial: PlatformState = {};
 const field =
@@ -41,6 +46,8 @@ export type TenantClientRow = {
   custom_max_members: number | null;
   custom_max_channels: number | null;
   custom_max_ai_replies_month: number | null;
+  replies_month?: number;
+  tokens_month?: number;
 };
 
 const statusLabel: Record<string, string> = {
@@ -50,185 +57,361 @@ const statusLabel: Record<string, string> = {
   canceled: "Cancelado",
 };
 
-export function TenantsWorkspace({
+const statusTone: Record<string, string> = {
+  trial: "bg-amber-50 text-amber-800",
+  active: "bg-emerald-50 text-emerald-800",
+  past_due: "bg-red-50 text-red-700",
+  canceled: "bg-zinc-100 text-zinc-600",
+};
+
+export function TenantsListWorkspace({
   tenants,
   plans,
 }: {
   tenants: TenantClientRow[];
   plans: PlanRow[];
 }) {
-  const [openId, setOpenId] = useState<string | null>(
-    tenants[0]?.id ?? null,
-  );
+  const [createOpen, setCreateOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return tenants;
+    return tenants.filter(
+      (t) =>
+        t.name.toLowerCase().includes(needle) ||
+        t.slug.toLowerCase().includes(needle) ||
+        t.plan_name.toLowerCase().includes(needle),
+    );
+  }, [tenants, q]);
 
   return (
-    <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
-      <section className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow)]">
-        <h2 className="text-lg font-semibold">Novo cliente</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          Cria a empresa já com plano. Depois convide o admin na ficha.
-        </p>
-        <div className="mt-4">
-          <CreateTenantForm plans={plans} />
+    <div className="mt-8 space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative min-w-0 flex-1 sm:max-w-sm">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar cliente…"
+            className={field}
+          />
         </div>
-      </section>
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
+        >
+          Adicionar cliente
+        </button>
+      </div>
 
-      <section className="space-y-3">
-        <div className="rounded-2xl border border-line bg-surface px-5 py-4 shadow-[var(--shadow)]">
-          <h2 className="text-lg font-semibold">Clientes</h2>
-          <p className="mt-1 text-sm text-ink-muted">
-            Plano, convite, cobrança e exclusão — tudo na ficha do cliente.
-          </p>
-        </div>
-
-        {tenants.length === 0 ? (
-          <p className="rounded-2xl border border-line bg-surface px-5 py-8 text-sm text-ink-muted shadow-[var(--shadow)]">
-            Nenhum cliente ainda.
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow)]">
+        {filtered.length === 0 ? (
+          <p className="px-5 py-10 text-center text-sm text-ink-muted">
+            {tenants.length === 0
+              ? "Nenhum cliente ainda. Clique em Adicionar cliente."
+              : "Nenhum resultado para a busca."}
           </p>
         ) : (
-          tenants.map((t) => (
-            <TenantCard
-              key={t.id}
-              tenant={t}
-              plans={plans}
-              open={openId === t.id}
-              onToggle={() =>
-                setOpenId((cur) => (cur === t.id ? null : t.id))
-              }
-            />
-          ))
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-line bg-paper/70 text-xs uppercase tracking-wide text-ink-muted">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Cliente</th>
+                  <th className="px-4 py-3 font-medium">Plano</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Equipe</th>
+                  <th className="px-4 py-3 font-medium">WhatsApp</th>
+                  <th className="px-4 py-3 font-medium">IA / mês</th>
+                  <th className="px-4 py-3 font-medium" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {filtered.map((t) => (
+                  <tr key={t.id} className="hover:bg-paper/50">
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-ink">{t.name}</p>
+                      <p className="text-xs text-ink-muted">{t.slug}</p>
+                    </td>
+                    <td className="px-4 py-3 text-ink-body">{t.plan_name}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                          statusTone[t.billing_status] ??
+                          "bg-zinc-100 text-zinc-700"
+                        }`}
+                      >
+                        {statusLabel[t.billing_status] ?? t.billing_status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-ink-body">
+                      {t.member_count}/{t.max_members}
+                    </td>
+                    <td className="px-4 py-3 text-ink-body">
+                      {t.channel_count}/{t.max_channels}
+                    </td>
+                    <td className="px-4 py-3 text-ink-body">
+                      <p>{t.replies_month ?? 0} resp.</p>
+                      <p className="text-xs text-ink-muted">
+                        {formatTokenCount(t.tokens_month ?? 0)} tokens
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        href={`/platform/tenants/${t.id}`}
+                        className="inline-flex rounded-lg border border-line bg-paper px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand hover:text-brand"
+                      >
+                        Gerenciar
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </section>
+      </div>
+
+      {createOpen ? (
+        <CreateTenantModal
+          plans={plans}
+          onClose={() => setCreateOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function CreateTenantForm({ plans }: { plans: PlanRow[] }) {
+function CreateTenantModal({
+  plans,
+  onClose,
+}: {
+  plans: PlanRow[];
+  onClose: () => void;
+}) {
   const [state, action, pending] = useActionState(platformCreateTenant, initial);
   const defaultPlan =
     plans.find((p) => p.slug === "basico")?.id ?? plans[0]?.id ?? "";
 
   return (
-    <form action={action} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" htmlFor="name">
-          Nome da empresa
-        </label>
-        <input id="name" name="name" required className={field} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" htmlFor="slug">
-          Slug (opcional)
-        </label>
-        <input id="slug" name="slug" className={field} placeholder="acme" />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" htmlFor="planId">
-          Plano inicial
-        </label>
-        <select
-          id="planId"
-          name="planId"
-          defaultValue={defaultPlan}
-          className={field}
-        >
-          {plans.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-              {p.is_custom ? " (personalizado)" : ""}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" htmlFor="monthlyFee">
-          Mensalidade (R$)
-        </label>
-        <input
-          id="monthlyFee"
-          name="monthlyFee"
-          type="number"
-          min={0}
-          step="0.01"
-          defaultValue={0}
-          className={field}
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" htmlFor="billingStatus">
-          Status cobrança
-        </label>
-        <select
-          id="billingStatus"
-          name="billingStatus"
-          defaultValue="trial"
-          className={field}
-        >
-          <option value="trial">Trial</option>
-          <option value="active">Ativo</option>
-          <option value="past_due">Inadimplente</option>
-          <option value="canceled">Cancelado</option>
-        </select>
-      </div>
-      <input type="hidden" name="maxMembers" value={2} />
-      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state.success && <p className="text-sm text-brand">{state.success}</p>}
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
       <button
-        type="submit"
-        disabled={pending}
-        className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
-      >
-        {pending ? "Criando…" : "Criar cliente"}
-      </button>
-    </form>
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="Fechar"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-line bg-surface p-6 shadow-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Novo cliente</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Cria a empresa com plano. Depois gerencie convites e limites na
+              ficha.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-2 py-1 text-sm text-ink-muted hover:bg-paper"
+          >
+            Fechar
+          </button>
+        </div>
+        <form action={action} className="mt-4 flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="name">
+              Nome da empresa
+            </label>
+            <input id="name" name="name" required className={field} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="slug">
+              Slug (opcional)
+            </label>
+            <input id="slug" name="slug" className={field} placeholder="acme" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="planId">
+              Plano inicial
+            </label>
+            <select
+              id="planId"
+              name="planId"
+              defaultValue={defaultPlan}
+              className={field}
+            >
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {p.is_custom ? " (personalizado)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="monthlyFee">
+                Mensalidade (R$)
+              </label>
+              <input
+                id="monthlyFee"
+                name="monthlyFee"
+                type="number"
+                min={0}
+                step="0.01"
+                defaultValue={0}
+                className={field}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="billingStatus">
+                Status cobrança
+              </label>
+              <select
+                id="billingStatus"
+                name="billingStatus"
+                defaultValue="trial"
+                className={field}
+              >
+                <option value="trial">Trial</option>
+                <option value="active">Ativo</option>
+                <option value="past_due">Inadimplente</option>
+                <option value="canceled">Cancelado</option>
+              </select>
+            </div>
+          </div>
+          <input type="hidden" name="maxMembers" value={2} />
+          {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state.success && (
+            <p className="text-sm text-brand">{state.success}</p>
+          )}
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+          >
+            {pending ? "Criando…" : "Criar cliente"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 
-function TenantCard({
+export function TenantManagePanel({
   tenant,
   plans,
-  open,
-  onToggle,
+  summary,
+  invites,
 }: {
   tenant: TenantClientRow;
   plans: PlanRow[];
-  open: boolean;
-  onToggle: () => void;
+  summary: TenantUsageSummary;
+  invites: {
+    id: string;
+    email: string;
+    role: string;
+    accepted_at: string | null;
+    created_at: string;
+  }[];
 }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow)]">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left hover:bg-paper/60"
-      >
-        <div className="min-w-0">
-          <p className="font-semibold text-ink">{tenant.name}</p>
-          <p className="mt-0.5 text-xs text-ink-muted">
-            {tenant.slug} · {tenant.plan_name} ·{" "}
-            {statusLabel[tenant.billing_status] ?? tenant.billing_status}
-          </p>
-          <p className="mt-2 text-xs text-ink-body">
-            {tenant.member_count}/{tenant.max_members} assentos ·{" "}
-            {tenant.channel_count}/{tenant.max_channels} WhatsApps ·{" "}
-            {formatBrlFromCents(tenant.monthly_fee_cents)}/mês
-          </p>
-        </div>
-        <span className="shrink-0 text-sm text-ink-muted">
-          {open ? "Fechar" : "Gerenciar"}
-        </span>
-      </button>
+    <div className="mt-8 space-y-6">
+      <SummaryGrid summary={summary} tenant={tenant} />
 
-      {open ? (
-        <div className="space-y-5 border-t border-line bg-paper/40 px-5 py-5">
-          <PlanSection tenant={tenant} plans={plans} />
-          <InviteSection tenantId={tenant.id} tenantName={tenant.name} />
-          <BillingSection tenant={tenant} />
-          <AiBudgetSection tenant={tenant} />
-          <DeleteSection tenant={tenant} />
-        </div>
-      ) : null}
-    </article>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <PlanSection tenant={tenant} plans={plans} />
+        <BillingSection tenant={tenant} />
+        <AiBudgetSection tenant={tenant} />
+        <InviteSection tenantId={tenant.id} tenantName={tenant.name} />
+      </div>
+
+      <InvitesListSection invites={invites} />
+      <DeleteSection tenant={tenant} />
+    </div>
+  );
+}
+
+function SummaryGrid({
+  summary,
+  tenant,
+}: {
+  summary: TenantUsageSummary;
+  tenant: TenantClientRow;
+}) {
+  const cards = [
+    {
+      label: "Respostas IA (mês)",
+      value: String(summary.repliesMonth),
+      hint: `${summary.repliesAll} no total`,
+    },
+    {
+      label: "Tokens (mês)",
+      value: formatTokenCount(summary.tokensMonth),
+      hint: `${formatTokenCount(summary.tokensAll)} no total`,
+    },
+    {
+      label: "Média tokens / resposta",
+      value:
+        summary.avgTokensPerReplyMonth > 0
+          ? formatTokenCount(summary.avgTokensPerReplyMonth)
+          : "—",
+      hint: "mês atual",
+    },
+    {
+      label: "Custo est. IA (mês)",
+      value: `US$ ${summary.estimatedUsdMonth.toFixed(2)}`,
+      hint: "estimativa gpt-4o-mini",
+    },
+    {
+      label: "Msgs IA enviadas (mês)",
+      value: String(summary.aiOutboundMessagesMonth),
+      hint: `${summary.inboundMessagesMonth} inbound`,
+    },
+    {
+      label: "Conversas",
+      value: String(summary.conversationsOpen),
+      hint: `${summary.conversationsAll} no total · ${summary.contacts} leads`,
+    },
+    {
+      label: "Mensalidade",
+      value: formatBrlFromCents(tenant.monthly_fee_cents),
+      hint: statusLabel[tenant.billing_status] ?? tenant.billing_status,
+    },
+    {
+      label: "Cota tokens",
+      value:
+        tenant.monthly_ai_token_limit === 0
+          ? "Ilimitado"
+          : formatTokenCount(tenant.monthly_ai_token_limit),
+      hint: "limite mensal",
+    },
+  ];
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold">Resumo</h2>
+      <p className="mt-1 text-sm text-ink-muted">
+        Uso deste cliente no mês atual e totais acumulados.
+      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((c) => (
+          <div
+            key={c.label}
+            className="rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow)]"
+          >
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+              {c.label}
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-ink">
+              {c.value}
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">{c.hint}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -253,11 +436,11 @@ function PlanSection({
   const isCustom = planId === customPlanId;
 
   return (
-    <form action={action} className="rounded-xl border border-line bg-surface p-4">
+    <form action={action} className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
       <input type="hidden" name="tenantId" value={tenant.id} />
       <h3 className="text-sm font-semibold text-ink">Plano</h3>
       <p className="mt-0.5 text-xs text-ink-muted">
-        Troca o teto deste cliente. O catálogo de planos fica em Planos.
+        Troca o teto deste cliente. O catálogo fica em Planos.
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className={isCustom ? "" : "sm:col-span-2"}>
@@ -342,7 +525,7 @@ function InviteSection({
   );
 
   return (
-    <form action={action} className="rounded-xl border border-line bg-surface p-4">
+    <form action={action} className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
       <input type="hidden" name="tenantId" value={tenantId} />
       <h3 className="text-sm font-semibold text-ink">Convidar usuário</h3>
       <p className="mt-0.5 text-xs text-ink-muted">
@@ -399,6 +582,72 @@ function InviteSection({
   );
 }
 
+function InvitesListSection({
+  invites,
+}: {
+  invites: {
+    id: string;
+    email: string;
+    role: string;
+    accepted_at: string | null;
+    created_at: string;
+  }[];
+}) {
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
+      <h3 className="text-sm font-semibold text-ink">Convites deste cliente</h3>
+      {invites.length === 0 ? (
+        <p className="mt-2 text-sm text-ink-muted">Nenhum convite ainda.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-line">
+          {invites.map((inv) => (
+            <li
+              key={inv.id}
+              className="flex items-center justify-between gap-3 py-3 text-sm"
+            >
+              <div className="min-w-0">
+                <p className="font-medium">{inv.email}</p>
+                <p className="text-xs text-ink-muted">
+                  {inv.role} · {inv.accepted_at ? "Aceito" : "Pendente"} ·{" "}
+                  {new Date(inv.created_at).toLocaleDateString("pt-BR")}
+                </p>
+              </div>
+              {!inv.accepted_at ? (
+                <CancelInviteInline inviteId={inv.id} />
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function CancelInviteInline({ inviteId }: { inviteId: string }) {
+  const [state, action, pending] = useActionState(
+    platformCancelInvite,
+    initial,
+  );
+
+  return (
+    <form action={action} className="flex flex-col items-end gap-1">
+      <input type="hidden" name="inviteId" value={inviteId} />
+      <button
+        type="submit"
+        disabled={pending}
+        className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+      >
+        {pending ? "Removendo…" : "Cancelar"}
+      </button>
+      {state.error ? (
+        <p className="max-w-[140px] text-right text-[11px] text-red-600">
+          {state.error}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
 function BillingSection({ tenant }: { tenant: TenantClientRow }) {
   const [state, action, pending] = useActionState(
     platformUpdateTenantBilling,
@@ -406,7 +655,7 @@ function BillingSection({ tenant }: { tenant: TenantClientRow }) {
   );
 
   return (
-    <form action={action} className="rounded-xl border border-line bg-surface p-4">
+    <form action={action} className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
       <input type="hidden" name="tenantId" value={tenant.id} />
       <h3 className="text-sm font-semibold text-ink">Cobrança</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -457,7 +706,7 @@ function AiBudgetSection({ tenant }: { tenant: TenantClientRow }) {
   );
 
   return (
-    <form action={action} className="rounded-xl border border-line bg-surface p-4">
+    <form action={action} className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow)]">
       <input type="hidden" name="tenantId" value={tenant.id} />
       <h3 className="text-sm font-semibold text-ink">Cota de tokens IA</h3>
       <p className="mt-0.5 text-xs text-ink-muted">
@@ -497,14 +746,22 @@ function AiBudgetSection({ tenant }: { tenant: TenantClientRow }) {
 }
 
 function DeleteSection({ tenant }: { tenant: TenantClientRow }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(
     platformDeleteTenant,
     initial,
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  useEffect(() => {
+    if (state.success) {
+      router.push("/platform/tenants");
+      router.refresh();
+    }
+  }, [state.success, router]);
+
   return (
-    <div className="rounded-xl border border-danger/30 bg-red-50/50 p-4">
+    <div className="rounded-2xl border border-danger/30 bg-red-50/50 p-5">
       <h3 className="text-sm font-semibold text-danger">Zona de perigo</h3>
       <p className="mt-1 text-xs text-ink-muted">
         Apaga a empresa e <strong>todos</strong> os dados: conversas, leads,
@@ -536,9 +793,6 @@ function DeleteSection({ tenant }: { tenant: TenantClientRow }) {
           </div>
           {state.error && (
             <p className="text-sm text-red-600">{state.error}</p>
-          )}
-          {state.success && (
-            <p className="text-sm text-brand">{state.success}</p>
           )}
           <div className="flex flex-wrap gap-2">
             <button

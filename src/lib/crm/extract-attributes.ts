@@ -1,4 +1,10 @@
 import type { ContactAttribute } from "@/lib/crm/attributes";
+import {
+  digitsOnlyCnpj,
+  formatCnpj,
+  isValidCnpj,
+  looksLikeCnpjQuestion,
+} from "@/lib/crm/cnpj";
 
 type ChatLine = {
   direction: "inbound" | "outbound";
@@ -52,19 +58,43 @@ function companyFrom(text: string) {
   return null;
 }
 
-function sizeFrom(text: string) {
+/** Headcount only when the message explicitly mentions employees — never bare digit runs. */
+function sizeFromExplicit(text: string) {
   const m = text.match(
-    /(\d{1,5})\s*(?:funcion[aá]rios|pessoas|colaboradores|colabs|funcionarios)?/i,
+    /(\d{1,5})\s*(?:funcion[aá]rios|pessoas|colaboradores|colabs|funcionarios|vidas)\b/i,
   );
   if (!m) return null;
-  // Prefer explicit employee wording; still accept bare numbers in short messages
-  if (
-    /funcion|pessoas|colabor|equipe|time|porte|tamanho|vidas?/i.test(text) ||
-    text.trim().length < 12
-  ) {
-    return m[1];
-  }
-  return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0 || n > 50000) return null;
+  return String(n);
+}
+
+function bareHeadcount(text: string) {
+  const m = text.trim().match(/^(\d{1,5})$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0 || n > 50000) return null;
+  // Reject zero-padded junk like "00045" (CNPJ fragment)
+  if (/^0{2,}/.test(m[1])) return null;
+  return String(n);
+}
+
+function cnpjFrom(text: string) {
+  const d = digitsOnlyCnpj(text);
+  if (d.length === 14 && isValidCnpj(d)) return formatCnpj(d);
+  const m = text.match(
+    /\b(\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})\b/,
+  );
+  if (!m) return null;
+  const fromFmt = digitsOnlyCnpj(m[1]);
+  return fromFmt.length === 14 && isValidCnpj(fromFmt)
+    ? formatCnpj(fromFmt)
+    : null;
+}
+
+function looksLikeDocumentDigits(text: string) {
+  const d = digitsOnlyCnpj(text.trim());
+  return d.length >= 8 && d.length <= 14;
 }
 
 const SIZE_KEYS = [
@@ -85,6 +115,15 @@ function isSizeAttributeKey(key: string) {
     SIZE_KEYS.includes(k as (typeof SIZE_KEYS)[number]) ||
     /colabor|funcion|porte|tamanho|vidas?/.test(k)
   );
+}
+
+function isCnpjAttributeKey(key: string) {
+  return /cnpj/.test(key.toLowerCase());
+}
+
+function isSetorAttributeKey(key: string) {
+  const k = key.toLowerCase();
+  return k === "setor" || k === "ramo" || /ramo|setor|segmento|atividade/.test(k);
 }
 
 function looksLikeHeadcountQuestion(body: string) {
@@ -138,14 +177,24 @@ function lastAiAskedFor(
     if (isSizeAttributeKey(key) && looksLikeHeadcountQuestion(body)) {
       return key;
     }
+    if (isCnpjAttributeKey(key) && looksLikeCnpjQuestion(body)) {
+      return key;
+    }
     if (
-      (key === "setor" || key === "ramo") &&
+      isSetorAttributeKey(key) &&
       /setor|ramo|segmento|área|area|atividade/.test(body)
     ) {
       return key;
     }
   }
   return null;
+}
+
+function findAttr(
+  attributes: ContactAttribute[],
+  pred: (a: ContactAttribute) => boolean,
+) {
+  return attributes.find((a) => a.collect_via_ai && pred(a));
 }
 
 /**
@@ -158,10 +207,11 @@ export function extractCollectedFromMessages(
   messages: ChatLine[],
   latestUserMessage: string,
 ): Record<string, string> {
-  const pending = pendingKeys(attributes, currentValues);
-  if (pending.length === 0) return {};
+  const collectable = attributes.filter((a) => a.collect_via_ai);
+  if (collectable.length === 0) return {};
 
-  const byKey = new Map(pending.map((a) => [a.key, a]));
+  const pending = pendingKeys(attributes, currentValues);
+  const byKey = new Map(collectable.map((a) => [a.key, a]));
   const out: Record<string, string> = {};
 
   const inboundTexts = [
@@ -174,7 +224,7 @@ export function extractCollectedFromMessages(
 
   const emailAttr =
     byKey.get("email") ?? pending.find((a) => a.type === "email");
-  if (emailAttr) {
+  if (emailAttr && !(currentValues[emailAttr.key] ?? "").trim()) {
     const email = emailFrom(blob);
     if (email) {
       out[emailAttr.key] = email;
@@ -192,33 +242,82 @@ export function extractCollectedFromMessages(
     byKey.get("company") ??
     byKey.get("company_name");
   if (companyAttr) {
-    for (const text of inboundTexts) {
-      const company = companyFrom(text);
-      if (company) {
-        out[companyAttr.key] = company;
-        break;
+    const empty = !(currentValues[companyAttr.key] ?? "").trim();
+    if (empty) {
+      for (const text of inboundTexts) {
+        const company = companyFrom(text);
+        if (company) {
+          out[companyAttr.key] = company;
+          break;
+        }
+      }
+    }
+    if (!out[companyAttr.key]) {
+      const asked = lastAiAskedFor(messages, [
+        companyAttr.key,
+        "empresa",
+        "company",
+        "company_name",
+      ]);
+      if (asked) {
+        const t = latestUserMessage.trim();
+        if (
+          t.length >= 2 &&
+          t.length <= 120 &&
+          !emailFrom(t) &&
+          !/^\d+$/.test(t) &&
+          !looksLikeDocumentDigits(t)
+        ) {
+          out[companyAttr.key] = t.replace(/\s+/g, " ");
+        }
+      }
+    }
+  }
+
+  const cnpjAttr =
+    findAttr(collectable, (a) => isCnpjAttributeKey(a.key)) ??
+    byKey.get("cnpj");
+  if (cnpjAttr) {
+    const askedCnpj = lastAiAskedFor(messages, [cnpjAttr.key, "cnpj"]);
+    // Allow overwrite when AI re-asks (correction after incomplete CNPJ)
+    if (askedCnpj) {
+      const fromLatest = cnpjFrom(latestUserMessage);
+      if (fromLatest) out[cnpjAttr.key] = fromLatest;
+    } else if (!(currentValues[cnpjAttr.key] ?? "").trim()) {
+      for (const text of inboundTexts) {
+        const cnpj = cnpjFrom(text);
+        if (cnpj) {
+          out[cnpjAttr.key] = cnpj;
+          break;
+        }
       }
     }
   }
 
   const sizeAttr =
     pending.find((a) => isSizeAttributeKey(a.key)) ??
-    pending.find((a) => a.type === "number" && /colabor|funcion|porte|tamanho|qtd|quantidade|vidas?/.test(a.key + a.label));
+    findAttr(collectable, (a) => isSizeAttributeKey(a.key)) ??
+    findAttr(
+      collectable,
+      (a) =>
+        a.type === "number" &&
+        /colabor|funcion|porte|tamanho|qtd|quantidade|vidas?/.test(
+          a.key + a.label,
+        ),
+    );
   if (sizeAttr) {
     const askedSize = lastAiAskedFor(messages, [
       sizeAttr.key,
       ...SIZE_KEYS,
     ]);
-    // Resposta curta "10" logo após a IA perguntar quantos colaboradores
+    // Bare "10" only right after the IA asked for headcount (allows correcting junk)
     if (askedSize) {
-      const bare = latestUserMessage.trim().match(/^(\d{1,5})$/);
-      if (bare) {
-        out[sizeAttr.key] = bare[1];
-      }
+      const bare = bareHeadcount(latestUserMessage);
+      if (bare) out[sizeAttr.key] = bare;
     }
-    if (!out[sizeAttr.key]) {
+    if (!out[sizeAttr.key] && !(currentValues[sizeAttr.key] ?? "").trim()) {
       for (const text of inboundTexts) {
-        const size = sizeFrom(text);
+        const size = sizeFromExplicit(text);
         if (size) {
           out[sizeAttr.key] = size;
           break;
@@ -231,22 +330,91 @@ export function extractCollectedFromMessages(
     byKey.get("responsavel") ??
     byKey.get("nome_responsavel") ??
     byKey.get("nome");
-  if (nameAttr && !out[nameAttr.key]) {
+  if (nameAttr && !out[nameAttr.key] && !(currentValues[nameAttr.key] ?? "").trim()) {
     const asked = lastAiAskedFor(messages, [nameAttr.key]);
     if (asked === nameAttr.key && looksLikePersonName(latestUserMessage)) {
       out[nameAttr.key] = latestUserMessage.trim();
     }
   }
 
-  const setorAttr = byKey.get("setor") ?? byKey.get("ramo");
-  if (setorAttr && !out[setorAttr.key]) {
-    const asked = lastAiAskedFor(messages, [setorAttr.key, "setor", "ramo"]);
+  const setorAttr =
+    byKey.get("setor") ??
+    byKey.get("ramo") ??
+    findAttr(collectable, (a) => isSetorAttributeKey(a.key));
+  if (
+    setorAttr &&
+    !out[setorAttr.key] &&
+    !(currentValues[setorAttr.key] ?? "").trim()
+  ) {
+    const asked = lastAiAskedFor(messages, [
+      setorAttr.key,
+      "setor",
+      "ramo",
+    ]);
     if (asked && latestUserMessage.trim().length >= 2) {
       const t = latestUserMessage.trim();
-      if (!emailFrom(t) && !/^\d+$/.test(t)) {
+      if (
+        !emailFrom(t) &&
+        !/^\d+$/.test(t) &&
+        !looksLikeDocumentDigits(t) &&
+        !cnpjFrom(t)
+      ) {
         out[setorAttr.key] = t.slice(0, 120);
       }
     }
+  }
+
+  return out;
+}
+
+/** Last AI outbound asked for CNPJ (for code-side validation gate). */
+export function lastOutboundAskedCnpj(messages: ChatLine[]) {
+  const lastAi = [...messages]
+    .reverse()
+    .find((m) => m.direction === "outbound" && m.body);
+  return Boolean(lastAi?.body && looksLikeCnpjQuestion(lastAi.body));
+}
+
+/**
+ * Drop model hallucinations (CNPJ fragment → ramo/colaboradores, incomplete docs).
+ */
+export function sanitizeCollected(
+  attributes: ContactAttribute[],
+  collected: Record<string, string>,
+): Record<string, string> {
+  const byKey = new Map(attributes.map((a) => [a.key, a]));
+  const out: Record<string, string> = {};
+
+  for (const [key, raw] of Object.entries(collected)) {
+    if (!byKey.has(key)) continue;
+    const value = raw.trim();
+    if (!value) continue;
+
+    if (isCnpjAttributeKey(key)) {
+      if (value.toLowerCase() === "não informado" || value.toLowerCase() === "nao informado") {
+        out[key] = "não informado";
+        continue;
+      }
+      const d = digitsOnlyCnpj(value);
+      if (!isValidCnpj(d)) continue;
+      out[key] = formatCnpj(d);
+      continue;
+    }
+
+    if (isSizeAttributeKey(key)) {
+      const bare = bareHeadcount(value) ?? sizeFromExplicit(value);
+      if (!bare) continue;
+      out[key] = bare;
+      continue;
+    }
+
+    if (isSetorAttributeKey(key)) {
+      if (/^\d+$/.test(value) || looksLikeDocumentDigits(value)) continue;
+      out[key] = value.slice(0, 120);
+      continue;
+    }
+
+    out[key] = value;
   }
 
   return out;

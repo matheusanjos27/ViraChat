@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isCurrentUserPlatformAdmin } from "@/lib/platform/admin";
 import { inviteUserToTenant, type InviteRole } from "@/lib/team/invite";
@@ -111,6 +112,16 @@ export async function platformCreateTenant(
   revalidatePath("/platform");
   revalidatePath("/platform/tenants");
   revalidatePath("/platform/finance");
+
+  const admin = createServiceClient();
+  const { data: created } = await admin
+    .from("tenants")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (created?.id) {
+    redirect(`/platform/tenants/${created.id}`);
+  }
   return { success: `Tenant “${name}” criado (${maxMembers} assentos).` };
 }
 

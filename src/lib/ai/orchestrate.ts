@@ -16,9 +16,17 @@ import { getDefaultAiProvider } from "@/lib/ai/providers/openai";
 import type { AiChatMessage, AiReplyResult } from "@/lib/ai/types";
 import { buildAttributePromptBlock, hydrateAttributeValuesFromContact } from "@/lib/crm/attributes";
 import {
+  AI_CNPJ_ATTEMPT_LIMIT,
+  CNPJ_SKIPPED_VALUE,
+  classifyCnpjAttempt,
+  cnpjRetryText,
+} from "@/lib/crm/cnpj";
+import {
   extractCollectedFromMessages,
+  lastOutboundAskedCnpj,
   mergeCollected,
   requiredAttributesFilled,
+  sanitizeCollected,
   wantsToCloseSale,
 } from "@/lib/crm/extract-attributes";
 import {
@@ -62,7 +70,7 @@ export async function runAiForConversation(conversationId: string) {
   const { data: conversation, error: convError } = await supabase
     .from("conversations")
     .select(
-      "id, tenant_id, status, channel_id, contact_id, ai_session_started_at, handoff_offer_pending_at, ai_spam_flags, ai_spam_blocked_at, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
+      "id, tenant_id, status, channel_id, contact_id, ai_session_started_at, handoff_offer_pending_at, ai_spam_flags, ai_spam_blocked_at, ai_cnpj_attempts, contacts(phone_e164, external_id, display_name, email, company_name), channels(id, whatsapp_accounts(phone_number_id, access_token_encrypted, onboard_source))",
     )
     .eq("id", conversationId)
     .single();
@@ -295,6 +303,85 @@ export async function runAiForConversation(conversationId: string) {
       .from("conversations")
       .update({ ai_spam_flags: 0 })
       .eq("id", conversationId);
+  }
+
+  // CNPJ: valida em código (dígitos verificadores) — sem gastar token.
+  const cnpjAttr = attrList.find(
+    (a) => a.collect_via_ai && /cnpj/i.test(a.key),
+  );
+  const cnpjEmpty = cnpjAttr
+    ? !(currentValues[cnpjAttr.key] ?? "").trim()
+    : false;
+  if (
+    cnpjAttr &&
+    cnpjEmpty &&
+    lastOutboundAskedCnpj(
+      sessionMessages.map((m) => ({
+        direction: m.direction as "inbound" | "outbound",
+        body: m.body,
+      })),
+    )
+  ) {
+    const convCnpj = conversation as { ai_cnpj_attempts?: number | null };
+    const attempts = Number(convCnpj.ai_cnpj_attempts) || 0;
+    const status = classifyCnpjAttempt(latestInbound.body);
+    const skipIntent =
+      /\b(n[aã]o\s+(tenho|sei|informo)|depois|pular|sem\s+cnpj|agora\s+n[aã]o)\b/i.test(
+        latestInbound.body,
+      );
+
+    if (status === "valid") {
+      if (attempts > 0) {
+        await supabase
+          .from("conversations")
+          .update({ ai_cnpj_attempts: 0 })
+          .eq("id", conversationId);
+      }
+      // Extrator + sanitize gravam o CNPJ válido no fluxo normal.
+    } else if (status === "incomplete" || status === "invalid") {
+      const nextAttempts = Math.min(20, attempts + 1);
+      await supabase
+        .from("conversations")
+        .update({ ai_cnpj_attempts: nextAttempts })
+        .eq("id", conversationId);
+
+      if (nextAttempts < AI_CNPJ_ATTEMPT_LIMIT) {
+        return replyAndStayOnAi({
+          supabase,
+          conversation,
+          text: cnpjRetryText(status, nextAttempts),
+        });
+      }
+
+      // Esgotou tentativas: marca como não informado e segue o funil (1 LLM).
+      await persistCollectedAttributes({
+        supabase,
+        tenantId: conversation.tenant_id,
+        contactId: conversation.contact_id,
+        attributes: attrList,
+        collected: { [cnpjAttr.key]: CNPJ_SKIPPED_VALUE },
+      });
+      currentValues[cnpjAttr.key] = CNPJ_SKIPPED_VALUE;
+      await supabase
+        .from("conversations")
+        .update({ ai_cnpj_attempts: 0 })
+        .eq("id", conversationId);
+    } else if (skipIntent) {
+      await persistCollectedAttributes({
+        supabase,
+        tenantId: conversation.tenant_id,
+        contactId: conversation.contact_id,
+        attributes: attrList,
+        collected: { [cnpjAttr.key]: CNPJ_SKIPPED_VALUE },
+      });
+      currentValues[cnpjAttr.key] = CNPJ_SKIPPED_VALUE;
+      if (attempts > 0) {
+        await supabase
+          .from("conversations")
+          .update({ ai_cnpj_attempts: 0 })
+          .eq("id", conversationId);
+      }
+    }
   }
 
   if (wantsHuman(latestInbound.body)) {
@@ -549,7 +636,11 @@ export async function runAiForConversation(conversationId: string) {
     })),
     latestInbound.body,
   );
-  const collected = mergeCollected(extracted, result.collected);
+  // Extractor wins over model (avoids CNPJ fragment → ramo/colaboradores).
+  const collected = sanitizeCollected(
+    attrList,
+    mergeCollected(result.collected, extracted),
+  );
 
   // Snapshot: se os dados já estavam completos antes deste turno, NÃO forçar handoff
   // (bug: segunda conversa com lead já preenchido era jogada pra humano à toa).

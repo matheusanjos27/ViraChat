@@ -669,6 +669,7 @@ export type Database = {
           handoff_offer_pending_at: string | null;
           ai_spam_flags: number;
           ai_spam_blocked_at: string | null;
+          ai_cnpj_attempts: number;
           created_at: string;
           updated_at: string;
         };
@@ -686,6 +687,7 @@ export type Database = {
           handoff_offer_pending_at?: string | null;
           ai_spam_flags?: number;
           ai_spam_blocked_at?: string | null;
+          ai_cnpj_attempts?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -703,6 +705,7 @@ export type Database = {
           handoff_offer_pending_at?: string | null;
           ai_spam_flags?: number;
           ai_spam_blocked_at?: string | null;
+          ai_cnpj_attempts?: number;
           created_at?: string;
           updated_at?: string;
         };

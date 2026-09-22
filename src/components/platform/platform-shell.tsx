@@ -12,7 +12,6 @@ const nav = [
   { href: "/platform/usage", label: "Uso de IA" },
   { href: "/platform/finance", label: "Finanças" },
   { href: "/platform/settings", label: "Configurações" },
-  { href: "/platform/invites", label: "Convites" },
 ] as const;
 
 export function PlatformShell({
