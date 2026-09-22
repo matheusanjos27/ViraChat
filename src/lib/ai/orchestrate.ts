@@ -507,12 +507,21 @@ export async function runAiForConversation(conversationId: string) {
     ? buildOpeningCatalogOutline(catalog)
     : buildCatalogPromptBlock(catalog, { mentionText: mentionForQuote });
 
+  const dataReadyBeforeReply = requiredAttributesFilled(
+    attrList,
+    currentValues,
+  );
+
   let quotedThisTurn = false;
   let quotedTotal: number | null = null;
   const units = resolveUnits(catalog, currentValues);
-  // Só mensagens do cliente — respostas da IA listando o catálogo
-  // re-orçavam todos os itens citados nos bastidores.
-  if (units != null && units > 0 && catalog.length > 0) {
+  // Só orça de verdade com dados obrigatórios ok — senão a IA despeja R$ cedo.
+  if (
+    dataReadyBeforeReply &&
+    units != null &&
+    units > 0 &&
+    catalog.length > 0
+  ) {
     const quote = quoteCatalogFocused(catalog, units, {
       mentionText: mentionForQuote,
     });
@@ -524,6 +533,17 @@ export async function runAiForConversation(conversationId: string) {
         AI_LIMITS.catalogBlock,
       );
     }
+  } else if (!openingTurn && !dataReadyBeforeReply) {
+    catalogBlock = truncate(
+      `${catalogBlock}
+
+COLETA OBRIGATÓRIA EM ANDAMENTO:
+- Há campos obrigatórios pendentes em "SÓ PERGUNTE ESTES".
+- NÃO mostre preços, totais, tabelas R$ nem orçamento agora.
+- NÃO liste menu numerado de campos. Peça SÓ o próximo pendente (1 pergunta).
+- NÃO ofereça atendente/humano ainda.`,
+      AI_LIMITS.catalogBlock,
+    );
   }
 
   const funnelBlock = buildFunnelPromptBlock(dealStages ?? []);
@@ -685,11 +705,16 @@ export async function runAiForConversation(conversationId: string) {
     (v) => (v ?? "").trim().length > 0,
   ).length;
 
-  // Recompute after collect (ex.: citou um item + qty no atributo).
-  // Não mistura a resposta da IA — ela pode repetir o catálogo e inflar o total.
+  // Recompute after collect — só com obrigatórios preenchidos.
   {
     const unitsAfter = resolveUnits(catalog, currentValues);
-    if (unitsAfter != null && unitsAfter > 0 && catalog.length > 0) {
+    const readyAfter = requiredAttributesFilled(attrList, currentValues);
+    if (
+      readyAfter &&
+      unitsAfter != null &&
+      unitsAfter > 0 &&
+      catalog.length > 0
+    ) {
       const quote = quoteCatalogFocused(catalog, unitsAfter, {
         mentionText: mentionForQuote,
       });
@@ -699,6 +724,9 @@ export async function runAiForConversation(conversationId: string) {
       } else if (!quotedThisTurn) {
         quotedTotal = null;
       }
+    } else if (!readyAfter) {
+      quotedThisTurn = false;
+      quotedTotal = null;
     }
   }
 
@@ -713,14 +741,13 @@ export async function runAiForConversation(conversationId: string) {
   const confirmedOffer =
     awaitingHandoffConfirm && affirmsHandoffOffer(latestInbound.body);
 
+  // Só oferece humano se o cliente pediu fechar/contratar E os dados estão ok.
+  // NÃO dispara ao completar o último campo (bug: CNPJ → sim/não no meio da coleta).
   const shouldCloseSale =
     result.action === "reply" &&
     !awaitingHandoffConfirm &&
     dataReady &&
-    (buyIntent ||
-      (!resumedAfterHuman &&
-        justBecameReady &&
-        (quotedThisTurn || aiSaidQuote || catalog.length === 0)));
+    buyIntent;
 
   let markHandoffOfferPending = false;
   let markCallbackClose = false;
