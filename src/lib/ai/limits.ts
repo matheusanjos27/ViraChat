@@ -1,34 +1,37 @@
 /**
  * Caps and guards to keep OpenAI token spend bounded per tenant.
+ *
+ * IMPORTANTE: o que o tenant salva (prompt / playbook / catálogo) deve
+ * chegar INTEIRO no modelo — tetos altos = blindagem contra corte silencioso.
  */
 
 export const AI_LIMITS = {
   /** Max chars of prompt inicial (coluna instructions). */
-  instructions: 2_000,
+  instructions: 12_000,
   /** Max chars of apresentação (coluna presentation). */
-  presentation: 500,
+  presentation: 2_000,
   /**
    * Max chars of playbook injected into the model.
    * Igual ao que o editor salva — o roteiro não pode ser cortado na IA.
    */
-  playbook: 4_500,
+  playbook: 16_000,
   /** Max chars the editor may save for playbook. */
-  playbookSaved: 4_500,
-  about: 400,
+  playbookSaved: 16_000,
+  about: 2_000,
   /** Max chars of catalog block injected into the model prompt. */
-  catalogBlock: 3_200,
+  catalogBlock: 24_000,
   /**
    * Max items with full price detail in the prompt.
-   * Catálogos maiores: prioriza match da mensagem + amostra; o resto fica omitido.
+   * Alto o bastante para catálogos reais irem completos (sem “omitidos”).
    */
-  catalogPromptMaxItems: 28,
+  catalogPromptMaxItems: 200,
   /** Max names on opening outline (sem preços). */
-  catalogOpeningMaxNames: 18,
+  catalogOpeningMaxNames: 80,
   /** Soft cap: IA não deve listar mais que isso numa única mensagem WhatsApp. */
   catalogReplyMaxItems: 8,
-  attributeBlock: 1_400,
-  serviceDescription: 120,
-  messageBody: 1_200,
+  attributeBlock: 6_000,
+  serviceDescription: 400,
+  messageBody: 2_000,
   /** Default turns of prior chat kept in the prompt when tenant has no override. */
   historyTurns: 24,
   /** Clamp for platform/tenant ai_history_turns. */

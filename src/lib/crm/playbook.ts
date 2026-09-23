@@ -1,5 +1,3 @@
-import { AI_LIMITS, truncate } from "@/lib/ai/limits";
-
 /** Template padrão — genérico para qualquer B2B. */
 export const DEFAULT_PLAYBOOK_CONTENT = `# Objetivo
 Atender como consultor comercial humano. Funil: conversar → coletar dados → orçar → cliente decide → humano (se aceitar) ou encerrar (se recusar).
@@ -149,8 +147,8 @@ export function normalizePlaybookSections(content: string) {
 
 export function buildPlaybookPromptBlock(playbook: Playbook | null) {
   if (!playbook?.is_active || !playbook.content.trim()) return "";
-  // Teto = o que o editor permite salvar (nada do roteiro some na IA).
-  const content = truncate(playbook.content.trim(), AI_LIMITS.playbookSaved);
+  // Sem segundo corte: o editor já limita em playbookSaved.
+  const content = playbook.content.trim();
   return `ROTEIRO ("${playbook.name}"):\n${content}`;
 }
 

@@ -183,15 +183,9 @@ export class OpenAiProvider implements AiProvider {
       }));
 
     const extras = [
-      input.playbookBlock
-        ? truncate(input.playbookBlock, AI_LIMITS.playbook + 80)
-        : "",
-      input.attributeBlock
-        ? truncate(input.attributeBlock, AI_LIMITS.attributeBlock)
-        : "",
-      input.catalogBlock
-        ? truncate(input.catalogBlock, AI_LIMITS.catalogBlock)
-        : "",
+      input.playbookBlock?.trim() ?? "",
+      input.attributeBlock?.trim() ?? "",
+      input.catalogBlock?.trim() ?? "",
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -200,6 +194,7 @@ export class OpenAiProvider implements AiProvider {
       input.instructions,
       input.presentation,
     );
+    // Mensagem do usuário: teto alto; não cortar o prompt/roteiro de novo aqui.
     const latest = truncate(input.latestUserMessage, AI_LIMITS.messageBody);
 
     const response = await client.chat.completions.create({
