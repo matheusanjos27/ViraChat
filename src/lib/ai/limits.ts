@@ -42,8 +42,11 @@ export const AI_LIMITS = {
    * Max completion tokens. WhatsApp = resposta curta; catálogo grande NÃO
    * se resolve subindo isso — se resolve cortando o que entra no prompt
    * e proibindo dump na mensagem.
+   * 700: evita JSON/texto cortado no meio ("Você…") que parece alucinação.
    */
-  maxCompletionTokens: 500,
+  maxCompletionTokens: 700,
+  /** Baixa criatividade = menos invenção de preço/prazo/documento. */
+  temperature: 0.2,
 } as const;
 
 const SEP = "\n---\n";
@@ -111,6 +114,18 @@ export function truncate(text: string, max: number): string {
 export function wantsHuman(text: string): boolean {
   return /(atendente|humano|consultor|vendedor|pessoa\s+real|falar\s+com\s+(algu[eé]m|voc[eê]s)|operador|suporte\s+humano)/i.test(
     text,
+  );
+}
+
+/**
+ * Pergunta de contrato/jurídico que o motor NÃO deve inventar
+ * (docs, vigência, multa, etc.) — manda pra humano.
+ */
+export function isOffScriptLegalQuestion(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  return /(documentos?\s+(para|do|pra|precisa).{0,40}contrato|o\s+que\s+(eu\s+)?preciso\s+para\s+(o\s+)?contrato|prazo\s+(de\s+)?vig[eê]ncia|vig[eê]ncia\s+do\s+contrato|contrato\s+de\s+\d+\s+anos|quero\s+(um\s+)?contrato\s+de\s+\d+|renova[cç][aã]o\s+autom|aviso\s+pr[eé]vio|multa\s+(rescis|contrat)|cl[aá]usula|contrato\s+social|comprovante\s+de\s+endere[cç]o)/i.test(
+    t,
   );
 }
 

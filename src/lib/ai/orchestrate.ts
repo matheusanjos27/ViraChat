@@ -7,6 +7,7 @@ import {
   declinesHandoffOffer,
   isLightContextTurn,
   isOpeningGreetingTurn,
+  isOffScriptLegalQuestion,
   isShortContinuation,
   offersHandoffConfirmation,
   truncate,
@@ -518,6 +519,16 @@ export async function runAiForConversation(conversationId: string) {
       notifyTitle: "Atendimento humano solicitado",
       notifyBody: truncate(summary.replace(/\n/g, " · "), 220),
       handoffSummary: summary,
+    });
+  }
+
+  // Contrato/docs/prazo: NÃO deixa o modelo inventar — oferece humano.
+  if (isOffScriptLegalQuestion(latestInbound.body)) {
+    return replyAndStayOnAi({
+      supabase,
+      conversation,
+      text: "Essa parte de *documentos, prazo ou condições de contrato* eu não fecho sozinha — um atendente da equipe confirma certinho pra você.\n\nPosso te passar para um atendente agora? Responde *sim* ou *não*.",
+      markHandoffOfferPending: true,
     });
   }
 
@@ -1406,11 +1417,13 @@ async function replyAndStayOnAi({
   conversation,
   text,
   clearHandoffOffer,
+  markHandoffOfferPending,
 }: {
   supabase: ReturnType<typeof createServiceClient>;
   conversation: ConvRow;
   text: string;
   clearHandoffOffer?: boolean;
+  markHandoffOfferPending?: boolean;
 }) {
   const contact = conversation.contacts as {
     phone_e164: string | null;
@@ -1474,6 +1487,7 @@ async function replyAndStayOnAi({
     .update({
       last_message_at: now,
       ...(clearHandoffOffer ? { handoff_offer_pending_at: null } : {}),
+      ...(markHandoffOfferPending ? { handoff_offer_pending_at: now } : {}),
     })
     .eq("id", conversation.id);
 

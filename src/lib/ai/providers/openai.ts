@@ -48,8 +48,9 @@ CATÁLOGO (regra dura):
 NÃO INVENTE (regra dura):
 - Documentos para contrato, lista de papéis, RG, contrato social, comprovantes — a menos que esteja no ROTEIRO/instruções.
 - Prazo de vigência, renovação, cancelamento, multa, "12 meses", "5 anos" — a menos que esteja no ROTEIRO.
-- Se perguntarem algo jurídico/contratual que você NÃO tem no material: diga que um atendente confirma e use action=reply oferecendo humano (o sistema pergunta sim/não) OU continue sem inventar.
+- Se perguntarem algo jurídico/contratual que você NÃO tem no material: diga que um atendente confirma — NÃO invente prazo nem lista de documentos.
 - Nunca invente política da empresa.
+- Se o histórico tiver uma resposta sua errada (preço/prazo inventado), IGNORE e use só CATÁLOGO / ORÇAMENTO PRÉ-CALCULADO / ROTEIRO.
 
 CAMPOS: se estiver em "DADOS JÁ NA BASE", NUNCA pergunte de novo (nome, e-mail, empresa, telefone, etc.).
 Só pergunte o que estiver em "SÓ PERGUNTE ESTES". Se não houver pendentes, não peça dados.
@@ -204,6 +205,7 @@ export class OpenAiProvider implements AiProvider {
     const response = await client.chat.completions.create({
       model,
       max_tokens: AI_LIMITS.maxCompletionTokens,
+      temperature: AI_LIMITS.temperature,
       response_format: { type: "json_object" },
       messages: [
         {

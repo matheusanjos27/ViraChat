@@ -90,10 +90,20 @@ export function sanitizeOutboundAiText(
 ): string {
   const raw = (text ?? "").trim();
   if (!raw) return fallback;
+  // Resposta truncada típica (estouro de tokens) — não manda lixo ao cliente.
+  if (/^(voc[eê]|ok|sim|n[aã]o)[\s.!?…]*$/i.test(raw) || raw.length < 3) {
+    return fallback;
+  }
   if (!looksLikeModelJsonEnvelope(raw) && !/^\s*[\{\[]/.test(raw)) {
     return raw;
   }
   const extracted = extractReplyTextFromModelRaw(raw);
-  if (extracted) return extracted;
+  if (extracted) {
+    const e = extracted.trim();
+    if (/^(voc[eê]|ok|sim|n[aã]o)[\s.!?…]*$/i.test(e) || e.length < 3) {
+      return fallback;
+    }
+    return e;
+  }
   return fallback;
 }
