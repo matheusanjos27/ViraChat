@@ -118,6 +118,24 @@ export function BaileysConnectForm({
             disabled={waitingQr}
           />
         </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium" htmlFor="baileysPhone">
+            Número do WhatsApp (para código de pareamento)
+          </label>
+          <input
+            id="baileysPhone"
+            name="phoneNumber"
+            placeholder="5511999999999"
+            inputMode="tel"
+            autoComplete="tel"
+            className={field}
+            disabled={waitingQr}
+          />
+          <p className="text-xs text-ink-muted">
+            DDI + DDD + número, só dígitos. Sem isso a Evolution manda só o QR —
+            se o celular pedir código, preencha e gere de novo.
+          </p>
+        </div>
         {startError ? (
           <p className="text-sm text-red-600" role="alert">
             {startError}
@@ -152,14 +170,22 @@ export function BaileysConnectForm({
             />
           ) : null}
           {pairing ? (
-            <p className="mt-3 text-center text-sm text-ink-muted">
+            <p className="mt-3 text-center text-sm text-ink">
               Código de pareamento:{" "}
-              <span className="font-mono font-semibold text-ink">{pairing}</span>
+              <span className="font-mono text-lg font-semibold tracking-wide">
+                {pairing}
+              </span>
             </p>
-          ) : null}
+          ) : (
+            <p className="mt-3 text-center text-xs text-ink-muted">
+              Sem código abaixo do QR? Informe o número do WhatsApp acima e
+              gere de novo — aí aparece o código pra digitar no celular.
+            </p>
+          )}
           {waitingQr ? (
             <p className="mt-2 text-center text-xs text-ink-muted">
-              Aguardando você escanear… status atualiza sozinho.
+              Aguardando você escanear ou digitar o código… status atualiza
+              sozinho.
             </p>
           ) : null}
         </div>

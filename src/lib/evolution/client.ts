@@ -44,13 +44,17 @@ export type CreateInstanceResult = {
 export async function createEvolutionInstance(params: {
   instanceName: string;
   displayName?: string;
+  /** E.164 digits only, e.g. 5511999999999 — enables pairing code in Evolution. */
+  phoneNumber?: string | null;
 }): Promise<CreateInstanceResult> {
   const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET?.trim();
+  const phoneDigits = params.phoneNumber?.replace(/\D/g, "") || null;
 
   const body: Record<string, unknown> = {
     instanceName: params.instanceName,
     qrcode: true,
     integration: "WHATSAPP-BAILEYS",
+    ...(phoneDigits ? { number: phoneDigits } : {}),
     webhook: {
       enabled: true,
       url: evolutionWebhookUrl(),
@@ -81,6 +85,7 @@ export async function createEvolutionInstance(params: {
     instance?: { instanceName?: string; status?: string };
     hash?: { apikey?: string } | string;
     qrcode?: { base64?: string; pairingCode?: string | null; code?: string };
+    pairingCode?: string | null;
     error?: string;
     message?: string | string[];
     response?: { message?: string | string[] };
@@ -100,13 +105,21 @@ export async function createEvolutionInstance(params: {
   return {
     instanceName: data.instance?.instanceName ?? params.instanceName,
     qrcodeBase64: data.qrcode?.base64 ?? null,
-    pairingCode: data.qrcode?.pairingCode ?? null,
+    pairingCode:
+      data.qrcode?.pairingCode ?? data.pairingCode ?? data.qrcode?.code ?? null,
   };
 }
 
-export async function connectEvolutionInstance(instanceName: string) {
+export async function connectEvolutionInstance(
+  instanceName: string,
+  opts?: { phoneNumber?: string | null },
+) {
+  const phoneDigits = opts?.phoneNumber?.replace(/\D/g, "") || null;
+  const qs = phoneDigits
+    ? `?number=${encodeURIComponent(phoneDigits)}`
+    : "";
   const res = await fetch(
-    `${baseUrl()}/instance/connect/${encodeURIComponent(instanceName)}`,
+    `${baseUrl()}/instance/connect/${encodeURIComponent(instanceName)}${qs}`,
     { method: "GET", headers: headers() },
   );
   const data = (await res.json()) as {
@@ -114,7 +127,7 @@ export async function connectEvolutionInstance(instanceName: string) {
     pairingCode?: string | null;
     code?: string;
     count?: number;
-    qrcode?: { base64?: string; pairingCode?: string | null };
+    qrcode?: { base64?: string; pairingCode?: string | null; code?: string };
     error?: string;
     message?: string;
   };
@@ -125,7 +138,12 @@ export async function connectEvolutionInstance(instanceName: string) {
   }
   return {
     qrcodeBase64: data.base64 ?? data.qrcode?.base64 ?? null,
-    pairingCode: data.pairingCode ?? data.qrcode?.pairingCode ?? null,
+    pairingCode:
+      data.pairingCode ??
+      data.qrcode?.pairingCode ??
+      data.code ??
+      data.qrcode?.code ??
+      null,
   };
 }
 

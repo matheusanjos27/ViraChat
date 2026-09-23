@@ -106,6 +106,14 @@ export async function startBaileysChannel(
 
   const tenantId = String(formData.get("tenantId") ?? "");
   const displayName = String(formData.get("displayName") ?? "").trim();
+  const phoneRaw = String(formData.get("phoneNumber") ?? "").trim();
+  const phoneDigits = phoneRaw.replace(/\D/g, "");
+  if (phoneDigits && (phoneDigits.length < 10 || phoneDigits.length > 15)) {
+    return {
+      error:
+        "Número inválido. Use DDI+DDD+número, ex.: 5511999999999 (só dígitos).",
+    };
+  }
   const gate = await requireTenantAdmin(tenantId);
   if (gate.error || !gate.user) {
     return { error: gate.error ?? "Não autenticado." };
@@ -124,6 +132,7 @@ export async function startBaileysChannel(
     created = await createEvolutionInstance({
       instanceName,
       displayName: displayName || undefined,
+      phoneNumber: phoneDigits || null,
     });
   } catch (err) {
     return {
@@ -163,7 +172,7 @@ export async function startBaileysChannel(
     phone_number_id: instanceName,
     waba_id: "evolution",
     access_token_encrypted: encrypted,
-    display_phone: null,
+    display_phone: phoneDigits ? `+${phoneDigits}` : null,
     verified_name: label,
     onboard_source: "baileys",
     connection_status: "pending_qr",
@@ -184,10 +193,13 @@ export async function startBaileysChannel(
 
   let qrcodeBase64 = created.qrcodeBase64;
   let pairingCode = created.pairingCode;
-  if (!qrcodeBase64) {
+  // Sem número a Evolution costuma só mandar QR; com número vem o código de pareamento.
+  if (!qrcodeBase64 || (phoneDigits && !pairingCode)) {
     try {
-      const again = await connectEvolutionInstance(instanceName);
-      qrcodeBase64 = again.qrcodeBase64;
+      const again = await connectEvolutionInstance(instanceName, {
+        phoneNumber: phoneDigits || null,
+      });
+      qrcodeBase64 = again.qrcodeBase64 ?? qrcodeBase64;
       pairingCode = again.pairingCode ?? pairingCode;
     } catch (err) {
       console.warn("[baileys] connect for QR", err);
@@ -196,7 +208,9 @@ export async function startBaileysChannel(
 
   revalidatePath("/app/channels");
   return {
-    success: "Escaneie o QR Code no WhatsApp do celular.",
+    success: phoneDigits
+      ? "Escaneie o QR ou digite o código de pareamento no WhatsApp."
+      : "Escaneie o QR Code no WhatsApp do celular. (Para código de pareamento, informe o número e gere de novo.)",
     instanceName,
     channelId: channel.id,
     qrcodeBase64,
@@ -219,7 +233,7 @@ export async function refreshBaileysQr(
 
   const { data: account } = await gate.supabase
     .from("whatsapp_accounts")
-    .select("phone_number_id, onboard_source, connection_status")
+    .select("phone_number_id, onboard_source, connection_status, display_phone")
     .eq("channel_id", channelId)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -247,7 +261,9 @@ export async function refreshBaileysQr(
     // Ainda aguardando leitura: tenta QR novo, mas se a Evolution
     // reclamar (QR já emitido / connecting), não trate como falha fatal.
     try {
-      const qr = await connectEvolutionInstance(account.phone_number_id);
+      const qr = await connectEvolutionInstance(account.phone_number_id, {
+        phoneNumber: account.display_phone,
+      });
       return {
         connectionStatus: "pending_qr",
         channelId,
