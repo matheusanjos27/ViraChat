@@ -231,27 +231,80 @@ export function quoteCatalogFocused(
     return { lines: [], total: 0, currency: "BRL" };
   }
 
+  const plan = matchFixedPlanForUnits(active, units);
+  const mention = opts?.mentionText ?? "";
+  const chunks = mention
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const latest = chunks[0] ?? mention;
+
   let ids = (opts?.selectedIds ?? []).filter(Boolean);
-  if (ids.length === 0 && opts?.mentionText) {
+  if (ids.length === 0 && mention) {
     // Última fala do cliente manda: se citar item, ignore menções antigas.
-    const chunks = opts.mentionText
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const latest = chunks[0] ?? "";
     const latestHits = matchCatalogIdsFromText(active, latest);
     ids =
       latestHits.length > 0
         ? latestHits
-        : matchCatalogIdsFromText(active, opts.mentionText);
+        : matchCatalogIdsFromText(active, mention);
   }
   if (ids.length === 0 && active.length === 1) {
     ids = [active[0].id];
   }
+
+  // Há plano fixo que cobre este porte → NÃO some PCMSO/PGR/etc. em cima
+  // (bug: "incluir todos" com 15 colaboradores virava plano + por vida).
+  if (plan) {
+    const latestNamesPerUnit =
+      matchCatalogIdsFromText(active, latest).filter((id) => {
+        const s = active.find((x) => x.id === id);
+        return s?.billing_type === "per_unit";
+      }).length > 0;
+
+    if (!latestNamesPerUnit) {
+      return quoteCatalog(services, units, [plan.id]);
+    }
+    const namedPerUnit = ids.filter((id) => {
+      const s = active.find((x) => x.id === id);
+      return s?.billing_type === "per_unit";
+    });
+    if (namedPerUnit.length > 0) {
+      return quoteCatalog(services, units, namedPerUnit);
+    }
+  }
+
   if (ids.length === 0) {
     return { lines: [], total: 0, currency: "BRL" };
   }
   return quoteCatalog(services, units, ids);
+}
+
+/** Plano fixo cujo nome/descrição indica faixa de colaboradores (ex.: "11 a 15"). */
+export function matchFixedPlanForUnits(
+  services: ServiceForQuote[],
+  units: number,
+): ServiceForQuote | null {
+  const u = Math.floor(units);
+  if (!(u > 0)) return null;
+  const fixed = services.filter(
+    (s) => s.is_active && s.billing_type === "fixed",
+  );
+  for (const s of fixed) {
+    const range = parseHeadcountRange(`${s.name} ${s.description ?? ""}`);
+    if (range && u >= range.min && u <= range.max) return s;
+  }
+  return null;
+}
+
+function parseHeadcountRange(
+  text: string,
+): { min: number; max: number } | null {
+  const t = normalizeQuoteText(text);
+  let m = /ate\s*(\d+)/i.exec(t);
+  if (m) return { min: 1, max: Number(m[1]) };
+  m = /(\d+)\s*(?:a|ate|-|–)\s*(\d+)/i.exec(t);
+  if (m) return { min: Number(m[1]), max: Number(m[2]) };
+  return null;
 }
 
 /**

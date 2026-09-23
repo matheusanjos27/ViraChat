@@ -33,10 +33,14 @@ import {
 import {
   AI_LGPD_CONSENT_ASK,
   AI_LGPD_CONSENT_DECLINED,
+  AI_LGPD_CONSENT_REMIND,
   AI_LGPD_CONSENT_VERSION,
+  AI_LGPD_DECLINED_VERSION,
   affirmsLgpdConsent,
   declinesLgpdConsent,
+  isLgpdDeclinedVersion,
   offersLgpdConsentAsk,
+  reaffirmsLgpdAfterDecline,
 } from "@/lib/crm/lgpd-consent";
 import {
   buildPlaybookPromptBlock,
@@ -240,6 +244,7 @@ export async function runAiForConversation(conversationId: string) {
     email: string | null;
     company_name: string | null;
     lgpd_consent?: boolean | null;
+    lgpd_consent_version?: string | null;
   } | null;
 
   hydrateAttributeValuesFromContact(attrList, currentValues, {
@@ -250,6 +255,9 @@ export async function runAiForConversation(conversationId: string) {
 
   let lgpdConsentOk = Boolean(contactEarly?.lgpd_consent);
   let justGrantedLgpd = false;
+  const lgpdWasDeclined = isLgpdDeclinedVersion(
+    contactEarly?.lgpd_consent_version,
+  );
   const needsLgpdBeforeCollect =
     hasPendingRequiredAiFields(attrList, currentValues) && !lgpdConsentOk;
 
@@ -263,12 +271,33 @@ export async function runAiForConversation(conversationId: string) {
       .handoff_offer_pending_at,
   );
 
+  const lastAiBodyEarly = [...sessionMessages]
+    .reverse()
+    .find(
+      (m) =>
+        m.direction === "outbound" &&
+        m.sender_type === "ai" &&
+        typeof m.body === "string" &&
+        m.body.trim(),
+    )?.body as string | undefined;
+  const lastAiWasLgpdAskEarly = Boolean(
+    lastAiBodyEarly && offersLgpdConsentAsk(lastAiBodyEarly),
+  );
+
   if (
     needsLgpdBeforeCollect &&
     !openingTurnEarly &&
     !handoffOfferPendingEarly
   ) {
     if (declinesLgpdConsent(latestInbound.body)) {
+      await supabase
+        .from("contacts")
+        .update({
+          lgpd_consent: false,
+          lgpd_consent_at: new Date().toISOString(),
+          lgpd_consent_version: AI_LGPD_DECLINED_VERSION,
+        })
+        .eq("id", conversation.contact_id);
       return replyAndStayOnAi({
         supabase,
         conversation,
@@ -276,7 +305,11 @@ export async function runAiForConversation(conversationId: string) {
       });
     }
 
-    if (affirmsLgpdConsent(latestInbound.body)) {
+    const canGrant = lgpdWasDeclined
+      ? reaffirmsLgpdAfterDecline(latestInbound.body)
+      : affirmsLgpdConsent(latestInbound.body);
+
+    if (canGrant) {
       const now = new Date().toISOString();
       await supabase
         .from("contacts")
@@ -289,11 +322,32 @@ export async function runAiForConversation(conversationId: string) {
       lgpdConsentOk = true;
       justGrantedLgpd = true;
     } else {
-      // Ainda sem ok — não coleta nem chama LLM para inventar campos.
+      // Dúvida / "ok" / "falo com quem?" — não libera coleta; responde curto + lembra LGPD.
+      const whoAsk =
+        /(falo\s+com\s+quem|com\s+quem\s+(eu\s+)?falo|quem\s+(e|é)\s+voc|seu\s+nome)/i.test(
+          latestInbound.body,
+        );
+      const agentLabel = aiConfig.name?.trim() || "consultora virtual";
+      if (whoAsk) {
+        return replyAndStayOnAi({
+          supabase,
+          conversation,
+          text: `Sou a *${agentLabel}* — atendo por aqui no WhatsApp.\n\n${AI_LGPD_CONSENT_REMIND}`,
+        });
+      }
+      if (lgpdWasDeclined) {
+        return replyAndStayOnAi({
+          supabase,
+          conversation,
+          text: AI_LGPD_CONSENT_DECLINED,
+        });
+      }
       return replyAndStayOnAi({
         supabase,
         conversation,
-        text: AI_LGPD_CONSENT_ASK,
+        text: lastAiWasLgpdAskEarly
+          ? AI_LGPD_CONSENT_REMIND
+          : AI_LGPD_CONSENT_ASK,
       });
     }
   }
@@ -605,7 +659,8 @@ export async function runAiForConversation(conversationId: string) {
     quotedTotal = quote.total > 0 ? quote.total : null;
     if (quote.lines.length > 0) {
       catalogBlock = truncate(
-        `${catalogBlock}\n\nORÇAMENTO PRÉ-CALCULADO PELO SISTEMA (${units} un. — só itens citados/selecionados) — use estes números, não some o catálogo inteiro:\n${formatQuoteMessage(quote, units)}`,
+        `${catalogBlock}\n\nORÇAMENTO PRÉ-CALCULADO PELO SISTEMA (${units} un. — use ESTES números, não some o catálogo):\n${formatQuoteMessage(quote, units)}
+REGRA DE PORTE: se existir plano fixo para esta quantidade, NÃO some PCMSO/PGR/LTCAT/por colaborador em cima do plano. Itens por colaborador são alternativa quando NÃO há plano fixo (em geral acima da última faixa).`,
         AI_LIMITS.catalogBlock,
       );
     }
